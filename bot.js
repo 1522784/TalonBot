@@ -79,7 +79,7 @@ var CHALLENGE = null;
 var BattleRoom = require('./battleroom');
 
 // The game type that we want to search for on startup
-var GAME_TYPE = (program.ranked) ? "randombattle" : "unratedrandombattle";
+var GAME_TYPE = (program.ranked) ? "gen6randombattle" : "gen7unratedrandombattle";
 
 // Load in Game Data
 var Pokedex = require("./data/pokedex");

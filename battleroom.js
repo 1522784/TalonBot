@@ -1,4 +1,4 @@
-// Class libary
+// Class libary, now obselete
 JS = require('jsclass');
 JS.require('JS.Class');
 
@@ -18,13 +18,15 @@ var log4js = require('log4js');
 var logger = require('log4js').getLogger("battleroom");
 var decisionslogger = require('log4js').getLogger("decisions");
 
-//battle-engine
+// battle-engine
 var Battle = require('./battle-engine/battle');
 var BattlePokemon = require('./battle-engine/battlepokemon');
 
+// Get pokemon showdown data files
 var Abilities = require("./data/abilities").BattleAbilities;
 var Items = require("./data/items").BattleItems;
 
+// Include underscore.js
 var _ = require("underscore");
 
 var clone = require("./clone");
