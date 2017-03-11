@@ -2549,7 +2549,7 @@ Battle = (function () {
 	};
 
 	Battle.prototype.send = function(type, data) {
-		logger.trace(type + ": " + data);
+		//logger.trace(type + ": " + data);
 	};
 
 	Battle.prototype.sendUpdates = function (logPos, alreadyEnded) {

@@ -2,7 +2,7 @@
 
 // Logging
 var log4js = require('log4js');
-var logger = require('log4js').getLogger("minimax");
+var logger = require('log4js').getLogger("mcts");
 var learnlog = require('log4js').getLogger("learning");
 
 var program = require('commander'); // Program settings
@@ -13,82 +13,96 @@ var BattleRoom = require("./../battleroom");
 
 var randombot = require("./randombot");
 var greedybot = require("./greedybot");
-var minmaxbot = require("./minimaxbot");
+var minimaxbot = require("./minimaxbot");
 
 var clone = require("./../clone");
+
+// Function that decides which move to perform
+var overallMinNode = {};
+var lastMove = '';
+var decide = module.exports.decide = function (battle, choices) {
+    var startTime = new Date();
+
+    logger.info("Starting move selection ");
+
+    var mcts = new MCTS(new PokemonBattle(battle), 200, 0);
+    var action = mcts.selectMove();
+    if (action === undefined) {
+        action = randombot.decide(battle, choices);
+        logger.info("Given choices: " + JSON.stringify(choices) + ", randomly selected action");
+    }
+    
+    logger.info("My action: " + action.type + " " + action.id);
+    lastMove = action.id;
+    var endTime = new Date();
+
+    logger.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
+    return {
+        type: action.type,
+        id: action.id
+    };
+}
 
 // ---- MCTS ALGORITHM
 // ------------------------------------------------------------
 
-function RandomSelection(array) {
-    this.array = array
-}
 
-/** Constructor for node */
 class Node {
-    constructor(game, parent, move, player, depth, mcts) {
+    
+    /** Apply the move assigned to this node */
+    constructor(game, parent, move, depth, mcts) {
+        var self = this
         this.game = game
         this.mcts = mcts
         this.parent = parent
         this.move = move
-        this.player = player
-        this.wins = 0
-        this.visits = 0
-        this.children = null
+        this.children = []
+        
         this.depth = depth || 0
-        this.randomNode = false
+
+        this.q = 0
+        this.visits = 0
+
+        // Perform the move
+        if(move !== null)
+        {
+            this.game.performMove(this.move)
+        }
+
+        // Get current player, which refers to the player who's turn it is to move
+        this.untried_actions = _(this.game.getPossibleMoves(this.game.current_player)).shuffle()
     }
 
     /** Get UCB1 upper bound on the utility of this node. */
-    getUCB1() {
+    get_UCB1() {
         return (this.wins / this.visits) + Math.sqrt(2 * Math.log(this.parent.visits) / this.visits)
     }
 
-    /** Apply the move assigned to this node, then return possible moves for this node.
-     */
-    getChildren() {
-        if (this.children === null) {
-
-            // Perform the move
-            if (this.move !== null) {
-                this.game.performMove(this.player, this.move)
-            }
-
-            // Get current player refers to the player who's turn it is to move
-            var next_player = this.game.getCurrentPlayer();
-            var moves = this.game.getPossibleMoves(next_player)
-            if (moves instanceof RandomSelection) {
-                moves = moves.array
-                this.randomNode = true
-            }
-
-            this.children = _.map(moves, function (move) {
-                return new Node(_.assign(new this.game.constructor(), _.cloneDeep(this.game)), this, move, next_player, this.depth + 1, this.mcts)
-            }, this)
-        }
-        return this.children
+    get_child(move) {
+        var gameclone = clone(this.game);
+        //_.assign(new this.game.constructor(), _.cloneDeep(this.game))
+        var child = new Node(gameclone, this, move, this.depth + 1, this.mcts)
+        this.children.push(child)
+        return child
     }
 
-    getWinner() {
-        // forces the move to be performed
-        this.getChildren()
+    /** Expands a node with untried moves.
+     * Select a random move from the set of untried actions. */
+    expand() {
+        var action = this.untried_actions.pop()
+        if (action === undefined) {
+            return undefined
+        }
+        return this.get_child(action)
+    }
+
+    /** Checks if all this node's actions have been tried */
+    expanded() {
+        return this.untried_actions.length == 0
+    }
+
+    get_winner() {
         return this.game.getWinner()
-    }
-
-
-    /** Gets the next move for this node, by UCB1 if we're in the search portion
-     * or randomly if we're in the playout portion.
-     * 
-     * TODO: Make playouts smarter, using some sort of heuristic evaluation.
-     */
-    nextMove() {
-        // shuffle because sortBy is a stable sort but we want equal nodes to be chosen randomly
-        if (this.randomNode) {
-            return _(this.getChildren()).shuffle().last()
-        }
-
-        // Return the best node by the MCTS heuristic
-        return _(this.getChildren()).shuffle().sortBy(this.mcts.nodeSort).last()
     }
 }
 
@@ -109,56 +123,95 @@ class MCTS {
         this.game = game
 
         // Specifies how nodes are explored
-        this.nodeSort = function (node) {
+        this.c = 1.41       // Exploration constant
+        this.tree_policy = function (node) {
             // We explore nodes by UCB1
             if (node.parent.game.getCurrentPlayer() === self.player) {
-                return node.getUCB1()
+                return self.c*node.getUCB1()
             }
             // Opposing player explores least explored node
             return -node.visits
         }
+
         this.rounds = rounds || 1000
         this.player = player
 
         // Create a new root node
-        this.rootNode = new Node(game, null, null, this.player, 0, this)
+        this.rootNode = new Node(game, null, null, 0, this)
     }
 
     /** Select the move that should be performed by the player this turn */
     selectMove() {
-        var round, currentNode
+        var round, node
         for (round = 0; round < this.rounds; round += 1) {
-            currentNode = this.rootNode
-            this.rootNode.visits += 1            
 
             // ---- MCTS Algorithm
-            // TODO: verify that this implementation is correct, I'm currently
-            // unsure of how it transitions from guided exploration to random 
-            // playouts.
             
-            // Explore down to the bottom of the known tree via UCB1, then
-            // rollout to the bottom of the search space.
-            while (!_.isEmpty(currentNode.getChildren())) {
-                currentNode = currentNode.nextMove()
-                currentNode.visits += 1
+            // Explore down to the bottom of the known tree via UCB1
+            node = this.get_next_node(this.rootNode)
+
+            // Something went wrong, bail
+            if (node === undefined)
+            {
+                return undefined
+            }
+            
+            // Rollout to maximum depth k, or terminus
+            var k = 10
+            var d0 = node.depth
+            while (node !== undefined && node.depth - d0 < k && node.get_winner() === undefined) {
+                node = node.expand()
             }
 
-            // Roll back up incrementing the win counts for each node
-            if (this.player === currentNode.getWinner()) {
-                while (currentNode.parent) {
-                    currentNode.wins += 1
-                    currentNode = currentNode.parent
-                }
+            // Something went wrong, bail
+            if (node === undefined)
+            {
+                return undefined
             }
+
+            // Get the score of the node
+            var winner = node.get_winner()
+            var reward
+            if (winner !== undefined)
+            {
+                reward = (this.player === node.getWinner()) ? Math.pow(10,7) : -Math.pow(10,7)
+            }
+            else {
+                reward = this.game.heuristic()
+            }
+
+            // Roll back up incrementing the visit counts and propagating score
+            while (node.parent) {
+                node.visits += 1
+                node.q = ((node.visits - 1)/node.visits) * node.q + 1/node.visits * reward
+                node = node.parent
+            }
+            
         }
 
-        // Get the move with the highest visit count        
-        return _(this.rootNode.getChildren()).sortBy('visits').last().move
+        // Get the move with the highest visit count
+        return _(this.rootNode.children).sortBy('q').last().move
+    }
+
+    /** Gets the next node to be expanded.
+     * recurses down to the next unexpanded node or terminal state */
+    get_next_node(node) {
+        while(node.get_winner() === undefined) {
+            if (node.expanded()) {
+                node = this.best_child(node)
+            }
+            else {
+                return node.expand()
+            }
+        }
+        return node
+    }
+
+    /** Select a move according to the tree policy. */
+    best_child(node) {
+        return _(node.children).shuffle().sortBy(this.tree_policy).last()
     }
 }
-
-exports.MCTS = MCTS
-exports.RandomSelection = RandomSelection
 
 // ---- POKEMON GAME
 // ------------------------------------------------------------
@@ -166,33 +219,44 @@ exports.RandomSelection = RandomSelection
 function PokemonBattle(battle) {
     this.battle = battle;
     this.battle.start();
+
+    this.player = 0;
 }
 
-PokemonBattle.prototype.getPossibleMoves = function (player) {
-    var current_player = player === 0 ? this.battle.p1 : this.battle.p2;
-    var choices = BattleRoom.parseRequest(current_player).choices;
+PokemonBattle.prototype.getPossibleMoves = function () {
+    var current_player = this.player === 0 ? this.battle.p1 : this.battle.p2;
+    if (current_player.request.wait)
+    {
+        return [null,]
+    }
+    var choices = BattleRoom.parseRequest(current_player.request).choices;
     return choices;
 };
 
 PokemonBattle.prototype.getCurrentPlayer = function () {
-    return this.battle.p1.decision === false ? 0 : 1;
+    return this.player;
 };
 
-PokemonBattle.prototype.performMove = function (player, action) {
-    if (player === 0) {
-        this.battle.choose('p1', BattleRoom.toChoiceString(action, this.battle.p1), newbattle.rqid);
+PokemonBattle.prototype.performMove = function (action) {
+    if (this.player === 0) {
+        this.battle.choose('p1', BattleRoom.toChoiceString(action, this.battle.p1), this.battle.rqid);
     }
-    else if (player === 1) {
-        this.battle.choose('p2', BattleRoom.toChoiceString(action, this.battle.p2), newbattle.rqid);
+    else if (this.player === 1) {        
+        this.battle.choose('p2', BattleRoom.toChoiceString(action, this.battle.p2), this.battle.rqid);
     }
+    this.player = 1 - this.player;
 };
 
 // Check for a winner
 PokemonBattle.prototype.getWinner = function () {
-    var playerAlive = _.any(this.battle.p1.pokemon, function (pokemon) { return pokemon.hp > 0; });
-    var opponentAlive = _.any(this.battle.p2.pokemon, function (pokemon) { return pokemon.hp > 0; });
+    var playerAlive = _.some(this.battle.p1.pokemon, function (pokemon) { return pokemon.hp > 0; });
+    var opponentAlive = _.some(this.battle.p2.pokemon, function (pokemon) { return pokemon.hp > 0; });
     if (!playerAlive || !opponentAlive) {
         return playerAlive ? 0 : 1;
     }
     return undefined;
 };
+
+PokemonBattle.prototype.heuristic = function () {
+    return minimaxbot.eval(this.battle);
+}

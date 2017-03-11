@@ -281,7 +281,7 @@ var eval = module.exports.eval = function (battle) {
         value = net.forward(vec).w[0];
     }
 
-    logger.trace(JSON.stringify(features) + ": " + value);
+    //logger.trace(JSON.stringify(features) + ": " + value);
     return value;
 }
 
