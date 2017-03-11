@@ -25,7 +25,7 @@ var decide = module.exports.decide = function (battle, choices) {
 
     logger.info("Starting move selection ");
 
-    var mcts = new MCTS(new PokemonBattle(battle), 50, 0);
+    var mcts = new MCTS(new PokemonBattle(battle), 75, 0);
     var action = mcts.selectMove();
     if (action === undefined) {
         action = randombot.decide(battle, choices);
@@ -178,7 +178,7 @@ class MCTS {
                 reward = (this.player === node.getWinner()) ? Math.pow(10,7) : -Math.pow(10,7)
             }
             else {
-                reward = this.game.heuristic()
+                reward = node.game.heuristic()
             }
 
             // Roll back up incrementing the visit counts and propagating score
@@ -270,9 +270,13 @@ PokemonBattle.prototype.getWinner = function () {
 // TODO: Make heuristic return different values
 // Pokemon healths are always the same right now, we should figure out what's going on.
 PokemonBattle.prototype.heuristic = function () {
-    var p1_health = _.sum(_.map(this.battle.p1.pokemon, function (pokemon) { return pokemon.hp;}));
-    var p2_health = _.sum(_.map(this.battle.p2.pokemon, function (pokemon) { return pokemon.hp;}));
-    logger.info(JSON.stringify(p1_health) + " - " + JSON.stringify(p2_health) + " = " +  JSON.stringify(p1_health - p2_health))
+    var p1_health = _.sum(_.map(this.battle.p1.pokemon, function (pokemon) {
+        return pokemon.hp;
+    }));
+    var p2_health = _.sum(_.map(this.battle.p2.pokemon, function (pokemon) {
+        return pokemon.hp;
+    }));
+    //logger.info(JSON.stringify(p1_health) + " - " + JSON.stringify(p2_health) + " = " +  JSON.stringify(p1_health - p2_health))
     return p1_health - p2_health;
     //return minimaxbot.eval(this.battle);
 }
