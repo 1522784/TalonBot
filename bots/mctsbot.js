@@ -25,7 +25,7 @@ var decide = module.exports.decide = function (battle, choices) {
 
     logger.info("Starting move selection ");
 
-    var mcts = new MCTS(new PokemonBattle(battle), 200, 0);
+    var mcts = new MCTS(new PokemonBattle(battle), 50, 0);
     var action = mcts.selectMove();
     if (action === undefined) {
         action = randombot.decide(battle, choices);
@@ -70,12 +70,12 @@ class Node {
         }
 
         // Get current player, which refers to the player who's turn it is to move
-        this.untried_actions = _(this.game.getPossibleMoves(this.game.current_player)).shuffle()
+        this.untried_actions = _(this.game.getPossibleMoves(this.game.current_player)).shuffle().castArray()
     }
 
     /** Get UCB1 upper bound on the utility of this node. */
     get_UCB1() {
-        return (this.wins / this.visits) + Math.sqrt(2 * Math.log(this.parent.visits) / this.visits)
+        return this.q + Math.sqrt(2 * Math.log(this.parent.visits) / this.visits)
     }
 
     get_child(move) {
@@ -89,7 +89,8 @@ class Node {
     /** Expands a node with untried moves.
      * Select a random move from the set of untried actions. */
     expand() {
-        var action = this.untried_actions.pop()
+        var action = this.untried_actions.last()
+        this.untried_actions = this.untried_actions.dropRight()
         if (action === undefined) {
             return undefined
         }
@@ -98,7 +99,7 @@ class Node {
 
     /** Checks if all this node's actions have been tried */
     expanded() {
-        return this.untried_actions.length == 0
+        return this.untried_actions.size() == 0
     }
 
     get_winner() {
@@ -127,7 +128,7 @@ class MCTS {
         this.tree_policy = function (node) {
             // We explore nodes by UCB1
             if (node.parent.game.getCurrentPlayer() === self.player) {
-                return self.c*node.getUCB1()
+                return self.c*node.get_UCB1()
             }
             // Opposing player explores least explored node
             return -node.visits
@@ -153,7 +154,7 @@ class MCTS {
             // Something went wrong, bail
             if (node === undefined)
             {
-                return undefined
+                continue
             }
             
             // Rollout to maximum depth k, or terminus
@@ -166,7 +167,7 @@ class MCTS {
             // Something went wrong, bail
             if (node === undefined)
             {
-                return undefined
+                continue
             }
 
             // Get the score of the node
@@ -185,10 +186,19 @@ class MCTS {
                 node.visits += 1
                 node.q = ((node.visits - 1)/node.visits) * node.q + 1/node.visits * reward
                 node = node.parent
-            }
-            
+            }            
         }
 
+        if (this.rootNode.children.length > 0)
+        {
+            var action_string = JSON.stringify(_.map(this.rootNode.children, function(n){return [n.move, n.q, n.visits]}))
+            logger.info("Action scores: " + action_string);
+        }
+        else
+        {
+            logger.info("No children");
+        }
+        
         // Get the move with the highest visit count
         return _(this.rootNode.children).sortBy('q').last().move
     }
@@ -257,6 +267,12 @@ PokemonBattle.prototype.getWinner = function () {
     return undefined;
 };
 
+// TODO: Make heuristic return different values
+// Pokemon healths are always the same right now, we should figure out what's going on.
 PokemonBattle.prototype.heuristic = function () {
-    return minimaxbot.eval(this.battle);
+    var p1_health = _.sum(_.map(this.battle.p1.pokemon, function (pokemon) { return pokemon.hp;}));
+    var p2_health = _.sum(_.map(this.battle.p2.pokemon, function (pokemon) { return pokemon.hp;}));
+    logger.info(JSON.stringify(p1_health) + " - " + JSON.stringify(p2_health) + " = " +  JSON.stringify(p1_health - p2_health))
+    return p1_health - p2_health;
+    //return minimaxbot.eval(this.battle);
 }

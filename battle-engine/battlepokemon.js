@@ -427,7 +427,7 @@ BattlePokemon = (function () {
 	BattlePokemon.prototype.getRequestData = function () {
 		var lockedMove = this.getLockedMove();
 
-		// Information should be restricted for the last active Pokémon
+		// Information should be restricted for the last active Pokï¿½mon
 		var isLastActive = this.isLastActive();
 		var data = {moves: this.getMoves(lockedMove, isLastActive)};
 
