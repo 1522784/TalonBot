@@ -25,7 +25,7 @@ var decide = module.exports.decide = function (battle, choices) {
 
     logger.info("Starting move selection");
 
-    var mcts = new MCTS(new PokemonBattle(battle), 75, 0);
+    var mcts = new MCTS(new PokemonBattle(battle), 100, 0, choices);
     var action = mcts.selectMove();
     if (action === undefined) {
         action = randombot.decide(battle, choices);
@@ -70,8 +70,12 @@ class Node {
             this.game.performMove(this.move)
         }
 
-        // Get current player, which refers to the player who's turn it is to move
-        this.untried_actions = _(this.game.getPossibleMoves(this.game.current_player)).shuffle().castArray()
+        // Moves for the current player
+        this.untried_actions = _(this.game.getPossibleMoves(this.game.current_player)).castArray()
+        if (depth === 0)
+        {
+            logger.info("Root node choices: " + JSON.stringify(this.untried_actions));
+        }
     }
 
     /** Get UCB1 upper bound on the utility of this node. */
@@ -90,11 +94,11 @@ class Node {
     /** Expands a node with untried moves.
      * Select a random move from the set of untried actions. */
     expand() {
-        var action = this.untried_actions.last()
-        this.untried_actions = this.untried_actions.dropRight()
+        var action = this.untried_actions.sample()
         if (action === undefined) {
             return undefined
         }
+        this.untried_actions = this.untried_actions.pull(action)
         return this.get_child(action)
     }
 
@@ -119,8 +123,9 @@ class MCTS {
      * @param {PokemonBattle} game - The game object containing all game-specific logic
      * @param {int} rounds - How many rounds to play out
      * @param {int} player - The AI player, either 0 or 1 corresponding to p1 or p2.
+     * @param {Array} choices - Initial choices, handles fainted pokemon, etc...
      */    
-    constructor(game, rounds, player) {
+    constructor(game, rounds, player, choices) {
         var self = this
         this.game = game
 
@@ -140,6 +145,10 @@ class MCTS {
 
         // Create a new root node
         this.rootNode = new Node(game, null, null, 0, this)
+        if (choices)
+        {
+            this.rootNode.untried_actions = _(choices).castArray()
+        }
     }
 
     /** Select the move that should be performed by the player this turn */
@@ -271,13 +280,16 @@ PokemonBattle.prototype.getWinner = function () {
 // TODO: Make heuristic return different values
 // Pokemon healths are always the same right now, we should figure out what's going on.
 PokemonBattle.prototype.heuristic = function () {
-    var p1_health = _.sum(_.map(this.battle.p1.pokemon, function (pokemon) {
-        return pokemon.hp;
-    }));
-    var p2_health = _.sum(_.map(this.battle.p2.pokemon, function (pokemon) {
-        return pokemon.hp;
-    }));
+    // Aidan's Heuristic
+    // var p1_health = _.sum(_.map(this.battle.p1.pokemon, function (pokemon) {
+    //     return pokemon.hp;
+    // }));
+    // var p2_health = _.sum(_.map(this.battle.p2.pokemon, function (pokemon) {
+    //     return pokemon.hp;
+    // }));
     //logger.info(JSON.stringify(p1_health) + " - " + JSON.stringify(p2_health) + " = " +  JSON.stringify(p1_health - p2_health))
-    return p1_health - p2_health;
-    //return minimaxbot.eval(this.battle);
+    // return p1_health - p2_health;
+    
+    // Use minimax heuristic
+    return minimaxbot.eval(this.battle);
 }
