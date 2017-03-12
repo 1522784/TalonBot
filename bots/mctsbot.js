@@ -23,15 +23,16 @@ var lastMove = '';
 var decide = module.exports.decide = function (battle, choices) {
     var startTime = new Date();
 
-    logger.info("Starting move selection ");
+    logger.info("Starting move selection");
 
     var mcts = new MCTS(new PokemonBattle(battle), 75, 0);
     var action = mcts.selectMove();
     if (action === undefined) {
         action = randombot.decide(battle, choices);
-        logger.info("Given choices: " + JSON.stringify(choices) + ", randomly selected action");
+        logger.info("Randomly selected action");
     }
     
+    logger.info("Given choices: " + JSON.stringify(choices));
     logger.info("My action: " + action.type + " " + action.id);
     lastMove = action.id;
     var endTime = new Date();
