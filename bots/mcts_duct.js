@@ -51,12 +51,12 @@ var decide = module.exports.decide = function (battle, choices) {
 class Node {
     
     /** Apply the move assigned to this node */
-    constructor(game, parent, move, depth, mcts) {
+    constructor(game, parent, moves, depth, mcts) {
         var self = this
         this.game = game
         this.mcts = mcts
         this.parent = parent
-        this.move = move
+        
         this.children = []
         
         this.depth = depth || 0
@@ -65,16 +65,32 @@ class Node {
         this.visits = 0
 
         // Perform the move
-        if(move !== null)
+        this.moves = moves
+        if (moves !== null)
         {
-            this.game.performMove(this.move)
+            this.game.performTurn(this.moves)
         }
 
-        // Moves for the current player
-        this.untried_actions = _(this.game.getPossibleMoves(this.game.current_player)).castArray()
+        // Possible moves for this node
+        var p1_choices = this.game.getPossibleMoves(0)
+        console.log(p1_choices)
+        var p2_choices = this.game.getPossibleMoves(1)
+        console.log(p2_choices)
+        this.untried_actions = _(product(p1_choices, p2_choices)).castArray()
+
+        // Stores the aggregate UCB1 rewards of each move for each player
+        this.reward_maps = [];
+
+        this.reward_maps.push(_.map(p1_choices, function(move){
+            return {'move':move, 'q':0, 'n':0}
+        }))
+        this.reward_maps.push(_.map(p2_choices, function(move){
+            return {'move':move, 'q':0, 'n':0}
+        }))
+        
         if (depth === 0)
         {
-            logger.info("Root node choices: " + JSON.stringify(this.untried_actions));
+            logger.info("Root node pairs: " + JSON.stringify(this.untried_actions));
         }
     }
 
@@ -83,10 +99,9 @@ class Node {
         return this.q + Math.sqrt(2 * Math.log(this.parent.visits) / this.visits)
     }
 
-    get_child(move) {
+    get_child(moves) {
         var gameclone = clone(this.game);
-        //_.assign(new this.game.constructor(), _.cloneDeep(this.game))
-        var child = new Node(gameclone, this, move, this.depth + 1, this.mcts)
+        var child = new Node(gameclone, this, moves, this.depth + 1, this.mcts)
         this.children.push(child)
         return child
     }
@@ -94,12 +109,12 @@ class Node {
     /** Expands a node with untried moves.
      * Select a random move from the set of untried actions. */
     expand() {
-        var action = this.untried_actions.sample()
-        if (action === undefined) {
+        var actions = this.untried_actions.sample()
+        if (actions === undefined) {
             return undefined
         }
-        this.untried_actions = this.untried_actions.pull(action)
-        return this.get_child(action)
+        this.untried_actions = this.untried_actions.pull(actions)
+        return this.get_child(actions)
     }
 
     /** Checks if all this node's actions have been tried */
@@ -145,10 +160,10 @@ class MCTS {
 
         // Create a new root node
         this.rootNode = new Node(game, null, null, 0, this)
-        if (choices)
-        {
-            this.rootNode.untried_actions = _(choices).castArray()
-        }
+        // if (choices)
+        // {
+        //     this.rootNode.untried_actions = _(choices).castArray()
+        // }
     }
 
     /** Select the move that should be performed by the player this turn */
@@ -168,7 +183,7 @@ class MCTS {
             }
             
             // Rollout to maximum depth k, or terminus
-            var k = 10
+            var k = 5
             var d0 = node.depth
             while (node !== undefined && node.depth - d0 < k && node.get_winner() === undefined) {
                 node = node.expand()
@@ -182,26 +197,35 @@ class MCTS {
 
             // Get the score of the node
             var winner = node.get_winner()
-            var reward
+            var rewards = [0,0]
             if (winner !== undefined)
             {
-                reward = (this.player === node.getWinner()) ? Math.pow(10,7) : -Math.pow(10,7)
+                var score = (this.player === node.getWinner()) ? Math.pow(10,7) : -Math.pow(10,7)
+                rewards = [score, -score]
             }
             else {
-                reward = node.game.heuristic()
+                var score =node.game.heuristic()
+                rewards = [score, -score]
             }
 
-            // Roll back up incrementing the visit counts and propagating score
+            // Roll back up incrementing the visit counts and propagating score by move
+            var moves
             while (node.parent) {
-                node.visits += 1
-                node.q = ((node.visits - 1)/node.visits) * node.q + 1/node.visits * reward
+                moves = node.moves
                 node = node.parent
+
+                for (var i = 0; i<2; i++)
+                {
+                    var ns = _.find(node.reward_maps[i], function(s) { return s.move === moves[i];});
+                    ns.n += 1
+                    ns.q = ((ns.n - 1.0)/ns.n) * ns.q + 1.0/ns.n * rewards[i]
+                }
             }
         }
 
         if (this.rootNode.children.length > 0)
         {
-            var action_string = JSON.stringify(_.map(this.rootNode.children, function(n){return [n.move, n.q, n.visits]}))
+            var action_string = JSON.stringify(node.reward_maps[0])
             logger.info("Action scores: " + action_string);
         }
         else
@@ -210,7 +234,7 @@ class MCTS {
         }
         
         // Get the move with the highest visit count
-        return _(this.rootNode.children).sortBy('q').last().move
+        return this.rootNode.reward_maps.shuffle().sortBy(function(r){return r.q}).last().move
     }
 
     /** Gets the next node to be expanded.
@@ -229,8 +253,27 @@ class MCTS {
 
     /** Select a move according to the tree policy. */
     best_child(node) {
-        return _(node.children).shuffle().sortBy(this.tree_policy).last()
+        moves = _.map(node.reward_maps, function(rewards){
+            return rewards.shuffle().sortBy(function(r){return r.q}).last().move
+        })
+        return _.find(moves, function(c) { return c.moves === moves; });
     }
+}
+
+// ---- UTILS
+// ------------------------------------------------------------
+
+function product() {
+  var args = Array.prototype.slice.call(arguments); // makes array from arguments
+  return args.reduce(function tl (accumulator, value) {
+    var tmp = [];
+    accumulator.forEach(function (a0) {
+      value.forEach(function (a1) {
+        tmp.push(a0.concat(a1));
+      });
+    });
+    return tmp;
+  }, [[]]);
 }
 
 // ---- POKEMON GAME
@@ -239,32 +282,21 @@ class MCTS {
 function PokemonBattle(battle) {
     this.battle = battle;
     this.battle.start();
-
-    this.player = 0;
 }
 
-PokemonBattle.prototype.getPossibleMoves = function () {
-    var current_player = this.player === 0 ? this.battle.p1 : this.battle.p2;
+PokemonBattle.prototype.getPossibleMoves = function (player) {
+    var current_player = player === 0 ? this.battle.p1 : this.battle.p2;
     if (current_player.request.wait)
     {
         return [null,]
     }
     var choices = BattleRoom.parseRequest(current_player.request).choices;
-    return choices;
+    return choices
 };
 
-PokemonBattle.prototype.getCurrentPlayer = function () {
-    return this.player;
-};
-
-PokemonBattle.prototype.performMove = function (action) {
-    if (this.player === 0) {
-        this.battle.choose('p1', BattleRoom.toChoiceString(action, this.battle.p1), this.battle.rqid);
-    }
-    else if (this.player === 1) {        
-        this.battle.choose('p2', BattleRoom.toChoiceString(action, this.battle.p2), this.battle.rqid);
-    }
-    this.player = 1 - this.player;
+PokemonBattle.prototype.performTurn = function (actions) {    
+    this.battle.choose('p1', BattleRoom.toChoiceString(actions[0], this.battle.p1), this.battle.rqid);
+    this.battle.choose('p2', BattleRoom.toChoiceString(actions[1], this.battle.p2), this.battle.rqid);
 };
 
 // Check for a winner
@@ -277,8 +309,6 @@ PokemonBattle.prototype.getWinner = function () {
     return undefined;
 };
 
-// TODO: Make heuristic return different values
-// Pokemon healths are always the same right now, we should figure out what's going on.
 PokemonBattle.prototype.heuristic = function () {
     // Aidan's Heuristic
     // var p1_health = _.sum(_.map(this.battle.p1.pokemon, function (pokemon) {
@@ -287,7 +317,7 @@ PokemonBattle.prototype.heuristic = function () {
     // var p2_health = _.sum(_.map(this.battle.p2.pokemon, function (pokemon) {
     //     return pokemon.hp;
     // }));
-    //logger.info(JSON.stringify(p1_health) + " - " + JSON.stringify(p2_health) + " = " +  JSON.stringify(p1_health - p2_health))
+    // logger.info(JSON.stringify(p1_health) + " - " + JSON.stringify(p2_health) + " = " +  JSON.stringify(p1_health - p2_health))
     // return p1_health - p2_health;
     
     // Use minimax heuristic
