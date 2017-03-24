@@ -491,6 +491,8 @@ var BattleRoom = new JS.Class({
     recieve: function(data) {
         if (!data) return;
 
+        var self = this;
+
         logger.trace("<< " + data);
 
         if (data.substr(0, 6) === '|init|') {
@@ -509,6 +511,8 @@ var BattleRoom = new JS.Class({
 
                 if (tokens[1] === 'tier') {
                     this.tier = tokens[2];
+                } else if (tokens[1] === 'teampreview') {       // TODO: Choose lead better, and verify that requests work
+                    this.send("/team 123456|3", self.id);
                 } else if (tokens[1] === 'win') {
                     this.send("gg", this.id);
 
@@ -650,7 +654,7 @@ var BattleRoom = new JS.Class({
 
             var details = pokemon.details.split(",");
             var name = details[0].trim();
-            var level = parseInt(details[1].trim().substring(1));
+            var level = details[1] ? parseInt(details[1].trim().substring(1)) : 100;
             var gender = details[2] ? details[2].trim() : null;
 
             var template = {
@@ -698,7 +702,7 @@ var BattleRoom = new JS.Class({
             }
             if(oldPokemon.isActive && oldPokemon.statusData) { //keep old duration
                 pokemon.statusData = oldPokemon.statusData;
-            }
+            }            
 
             // Keep old boosts
             this.state.p1.pokemon[i].boosts = oldPokemon.boosts;
@@ -711,7 +715,8 @@ var BattleRoom = new JS.Class({
                 this.state.p1.pokemon[i].isActive = true;
             }
 
-            // TODO(rameshvarun): Somehow parse / load in current hp and status conditions
+            // Confirmation that health and status transfer working
+            //logger.info(this.state.p1.pokemon[i].name + " " + this.state.p1.pokemon[i].hp + "/" + this.state.p1.pokemon[i].maxhp + " " + this.state.p1.pokemon[i].status);
         }
 
         // Enforce that the active pokemon is in the first slot
@@ -721,6 +726,8 @@ var BattleRoom = new JS.Class({
         this.oppSide = (this.side === "p1") ? "p2" : "p1";
         logger.info(this.title + ": My current side is " + this.side);
     },
+
+    /** Function which is called when our client is asked to make a move */
     makeMove: function(request) {
         var room = this;
 

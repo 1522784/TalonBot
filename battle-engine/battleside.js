@@ -30,6 +30,7 @@ BattleSide = (function () {
 			break;
 		}
 
+		// Poekmon are instantiated
 		this.team = this.battle.getTeam(this, team);
 		for (var i = 0; i < this.team.length && i < 6; i++) {
 			this.pokemon.push(new BattlePokemon(Tools.getTemplate('Bulbasaur'), this));
@@ -50,6 +51,7 @@ BattleSide = (function () {
 	BattleSide.prototype.toString = function () {
 		return this.id + ': ' + this.name;
 	};
+	
 	BattleSide.prototype.getData = function () {
 		var data = {
 			name: this.name,

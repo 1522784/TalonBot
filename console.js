@@ -3,9 +3,13 @@ var app = express();
 var nunjucks = require('nunjucks');
 var bot = require('./bot')
 var program = require('commander'); // Get Command-line arguments
+var fs = require('fs');
 
 // Results database
 var db = require("./db");
+
+// Tools
+var Tools = require('./tools');
 
 var _ = require("underscore")
 
@@ -47,6 +51,18 @@ app.get('/', function(req, res){
 // Challenge a specific user
 app.get('/challenge/:user/', function(req, res) {
 	bot.send("/challenge " + req.params.user + ", gen6randombattle", null);
+	res.redirect("/");
+});
+
+app.get('/challenge/:user/:format/', function(req, res) {
+	
+	// Read the team from a file and update the team
+	fs.readFile('teams/' + req.params.format + '.req', 'ascii', function(err, contents) {
+		console.log(contents);
+		bot.send("/utm " + contents, null);
+	});
+
+	bot.send("/challenge " + req.params.user + ", " + req.params.format, null);
 	res.redirect("/");
 });
 
