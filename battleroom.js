@@ -98,10 +98,39 @@ var BattleRoom = new JS.Class({
     isPlayer: function(player) {
         return player === this.side + 'a:' || player === this.side + ':';
     },
+     // TODO: Add inference here for each pokemon
+    updatePokemonOnTeamPreview: function(tokens) {
+        var player = tokens[2];
+        var pokeName = tokens[3].split(', ')[0]
+        var has_item = (tokens[4] === 'item')
+
+        // Only update other team's pokemon like this, since we know ours
+        if (this.oppSide == player) {
+            var battleside = this.state.p2;
+            var pokemon = this.getPokemon(battleside, pokeName);
+
+            if(!pokemon) {
+                pokemon = this.getPokemon(battleside, "Bulbasaur");
+                var set = this.state.getTemplate(pokeName);
+                set.moves = set.randomBattleMoves;      // TODO: Add move inference here
+                //set.moves = _.sample(set.randomBattleMoves, 4); //for efficiency, need to implement move ordering
+                set.level = 100;            // TODO: Something smarter here
+                //choose the best ability
+                var abilities = Object.values(set.abilities).sort(function(a,b) {
+                    return this.state.getAbility(b).rating - this.state.getAbility(a).rating;
+                }.bind(this));      // TODO: Add ability inference here
+                set.ability = abilities[0];
+                pokemon = new BattlePokemon(set, battleside);
+                pokemon.trueMoves = []; //gradually add moves as they are seen
+            }
+            
+            this.updatePokemon(battleside,pokemon);
+        }
+    },
     // TODO: Understand more about the opposing pokemon
     updatePokemonOnSwitch: function(tokens) {
         var tokens2 = tokens[2].split(' ');
-        var level = tokens[3].split(', ')[1].substring(1);
+        var level = tokens[3].split(', ')[1] ? tokens[3].split(', ')[1].substring(1) : 100;
         var tokens4 = tokens[4].split(/\/| /); //for health
 
         var player = tokens2[0];
@@ -538,6 +567,8 @@ var BattleRoom = new JS.Class({
                         battleroom.send("/leave " + battleroom.id);
                     }, 2000);
 
+                } else if (tokens[1] === 'poke') {
+                    this.updatePokemonOnTeamPreview(tokens);
                 } else if (tokens[1] === 'switch' || tokens[1] === 'drag') {
                     this.updatePokemonOnSwitch(tokens);
                 } else if (tokens[1] === 'move') {

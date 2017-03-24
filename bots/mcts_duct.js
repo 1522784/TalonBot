@@ -24,7 +24,11 @@ var decide = module.exports.decide = function (battle, choices) {
     var startTime = new Date();
 
     logger.info("Starting move selection");
-
+    for(var i = 0; i < 6; i++)
+    {
+       logger.info(battle.p2.pokemon[i].name);
+    }
+    
     var mcts = new MCTS(new PokemonBattle(battle), 100, 0, choices);
     var action = mcts.selectMove();
     if (action === undefined) {
@@ -73,9 +77,9 @@ class Node {
 
         // Possible moves for this node
         var p1_choices = this.game.getPossibleMoves(0)
-        console.log(p1_choices)
+        //console.log(p1_choices)
         var p2_choices = this.game.getPossibleMoves(1)
-        console.log(p2_choices)
+        //console.log(p2_choices)
         this.untried_actions = _(product(p1_choices, p2_choices)).castArray()
 
         // Stores the aggregate UCB1 rewards of each move for each player
