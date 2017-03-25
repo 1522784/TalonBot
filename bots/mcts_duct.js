@@ -182,26 +182,14 @@ class MCTS {
             // ---- MCTS Algorithm
             
             // Explore down to the bottom of the known tree via UCB1
-            node = this.get_next_node(this.rootNode)
-
-            // Something went wrong, bail
-            if (node === undefined)
-            {
-                continue
-            }
+            node = this.get_next_node(this.rootNode)            
             
             // Rollout to maximum depth k, or terminus
             var k = 5
             var d0 = node.depth
             while (node !== undefined && node.depth - d0 < k && node.get_winner() === undefined) {
                 node = this.expand(node)
-            }
-
-            // Something went wrong, bail
-            if (node === undefined)
-            {
-                continue
-            }
+            }            
 
             // Get the score of the node
             var winner = node.get_winner()
@@ -224,9 +212,8 @@ class MCTS {
 
                 for (var i = 0; i<2; i++)
                 {
-
                     // If this is a move where an action was not required, don't update
-                    if (_.size(node.reward_maps[i]) !== 0) {
+                    if (moves[i] !== undefined && _.size(node.reward_maps[i]) !== 0) {
                         var ns = _.find(node.reward_maps[i], function(s) { return s.move.id === moves[i].id;});
                         ns.n += 1
                         ns.q = ((ns.n - 1.0)/ns.n) * ns.q + 1.0/ns.n * rewards[i]
