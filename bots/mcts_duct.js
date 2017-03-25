@@ -23,12 +23,7 @@ var lastMove = '';
 var decide = module.exports.decide = function (battle, choices) {
     var startTime = new Date();
 
-    logger.info("Starting move selection");
-    for(var i = 0; i < 6; i++)
-    {
-       logger.info(battle.p2.pokemon[i].name);
-    }
-    
+    logger.info("Starting move selection");       
     var mcts = new MCTS(new PokemonBattle(battle), 100, 0, choices);
     var action = mcts.selectMove();
     if (action === undefined) {
@@ -68,7 +63,7 @@ class Node {
         this.q = 0
         this.visits = 0
 
-        // Perform the move
+        // Perform the chosen moves (p1 and p2)
         this.moves = moves
         if (moves !== null)
         {
@@ -77,10 +72,12 @@ class Node {
 
         // Possible moves for this node
         var p1_choices = this.game.getPossibleMoves(0)
-        //console.log(p1_choices)
+        // console.log(this.game.battle.p1.pokemon[0].name  + " " + this.game.battle.p1.pokemon[0].hp)
+        // console.log(p1_choices)
         var p2_choices = this.game.getPossibleMoves(1)
-        //console.log(p2_choices)
-        this.untried_actions = _(product(p1_choices, p2_choices)).castArray()
+        // console.log(this.game.battle.p2.pokemon[0].name + " " + this.game.battle.p2.pokemon[0].hp)
+        // console.log(p2_choices)
+        this.untried_actions = [_(p1_choices).castArray(), _(p2_choices).castArray()]
 
         // Stores the aggregate UCB1 rewards of each move for each player
         this.reward_maps = [];
@@ -94,7 +91,7 @@ class Node {
         
         if (depth === 0)
         {
-            logger.info("Root node pairs: " + JSON.stringify(this.untried_actions));
+            // logger.info("Root node pairs: " + JSON.stringify(this.untried_actions));
         }
     }
 
@@ -110,20 +107,14 @@ class Node {
         return child
     }
 
-    /** Expands a node with untried moves.
-     * Select a random move from the set of untried actions. */
-    expand() {
-        var actions = this.untried_actions.sample()
-        if (actions === undefined) {
-            return undefined
-        }
-        this.untried_actions = this.untried_actions.pull(actions)
-        return this.get_child(actions)
+    /** Get a move according to the tree policy*/
+    get_move(player, tree_policy) {
+        return tree_policy(this.untried_actions[player], this.reward_maps[player])
     }
 
-    /** Checks if all this node's actions have been tried */
+    /** Checks if all this node's actions for a given player have been tried */
     expanded() {
-        return this.untried_actions.size() == 0
+        return _.size(this.untried_actions[0]) === 0 && _.size(this.untried_actions[1]) === 0
     }
 
     get_winner() {
@@ -150,13 +141,26 @@ class MCTS {
 
         // Specifies how nodes are explored
         this.c = 1.41       // Exploration constant
-        this.tree_policy = function (node) {
-            // We explore nodes by UCB1
-            if (node.parent.game.getCurrentPlayer() === self.player) {
-                return self.c*node.get_UCB1()
+        this.tree_policy = function (node, player) {
+            if (node.untried_actions[player].size() !== 0)
+            {
+                var action = node.untried_actions[player].sample()
+                if (action === undefined) {
+                    return undefined
+                }
+                node.untried_actions[player] = node.untried_actions[player].pull(action)
+                return action
             }
-            // Opposing player explores least explored node
-            return -node.visits
+            else
+            {
+                // DUCT-max
+                var move_reward = _.maxBy(node.reward_maps[player], function(o) { return o.q; })
+                if (move_reward === undefined)
+                {
+                    return undefined
+                }
+                return move_reward.move;
+            }
         }
 
         this.rounds = rounds || 1000
@@ -164,10 +168,10 @@ class MCTS {
 
         // Create a new root node
         this.rootNode = new Node(game, null, null, 0, this)
-        // if (choices)
-        // {
-        //     this.rootNode.untried_actions = _(choices).castArray()
-        // }
+        if (choices)
+        {
+            this.rootNode.untried_actions[0] = _(choices).castArray()
+        }
     }
 
     /** Select the move that should be performed by the player this turn */
@@ -190,7 +194,7 @@ class MCTS {
             var k = 5
             var d0 = node.depth
             while (node !== undefined && node.depth - d0 < k && node.get_winner() === undefined) {
-                node = node.expand()
+                node = this.expand(node)
             }
 
             // Something went wrong, bail
@@ -220,16 +224,20 @@ class MCTS {
 
                 for (var i = 0; i<2; i++)
                 {
-                    var ns = _.find(node.reward_maps[i], function(s) { return s.move === moves[i];});
-                    ns.n += 1
-                    ns.q = ((ns.n - 1.0)/ns.n) * ns.q + 1.0/ns.n * rewards[i]
+
+                    // If this is a move where an action was not required, don't update
+                    if (_.size(node.reward_maps[i]) !== 0) {
+                        var ns = _.find(node.reward_maps[i], function(s) { return s.move.id === moves[i].id;});
+                        ns.n += 1
+                        ns.q = ((ns.n - 1.0)/ns.n) * ns.q + 1.0/ns.n * rewards[i]
+                    }
                 }
             }
         }
 
         if (this.rootNode.children.length > 0)
         {
-            var action_string = JSON.stringify(node.reward_maps[0])
+            var action_string = JSON.stringify(this.rootNode.reward_maps[0])
             logger.info("Action scores: " + action_string);
         }
         else
@@ -237,8 +245,7 @@ class MCTS {
             logger.info("No children");
         }
         
-        // Get the move with the highest visit count
-        return this.rootNode.reward_maps.shuffle().sortBy(function(r){return r.q}).last().move
+        return this.tree_policy(this.rootNode, 0)
     }
 
     /** Gets the next node to be expanded.
@@ -246,21 +253,31 @@ class MCTS {
     get_next_node(node) {
         while(node.get_winner() === undefined) {
             if (node.expanded()) {
-                node = this.best_child(node)
+                node = this.get_successor(node)
             }
             else {
-                return node.expand()
+                return this.expand(node)
             }
         }
         return node
     }
 
     /** Select a move according to the tree policy. */
-    best_child(node) {
-        moves = _.map(node.reward_maps, function(rewards){
-            return rewards.shuffle().sortBy(function(r){return r.q}).last().move
+    get_successor(node) {
+        var self = this;
+        var moves = _.map([0,1], function(player) {
+            return self.tree_policy(node, player)
         })
-        return _.find(moves, function(c) { return c.moves === moves; });
+        return _.find(node.children, function(c) { return c.moves === moves; });
+    }
+
+    /** Expand a node according to the tree policy. */
+    expand(node) {
+        var self = this;
+        var moves = _.map([0,1], function(player) {
+            return  self.tree_policy(node, player)
+        })
+        return node.get_child(moves)
     }
 }
 
@@ -292,15 +309,30 @@ PokemonBattle.prototype.getPossibleMoves = function (player) {
     var current_player = player === 0 ? this.battle.p1 : this.battle.p2;
     if (current_player.request.wait)
     {
-        return [null,]
+        return []
     }
     var choices = BattleRoom.parseRequest(current_player.request).choices;
     return choices
 };
 
-PokemonBattle.prototype.performTurn = function (actions) {    
-    this.battle.choose('p1', BattleRoom.toChoiceString(actions[0], this.battle.p1), this.battle.rqid);
-    this.battle.choose('p2', BattleRoom.toChoiceString(actions[1], this.battle.p2), this.battle.rqid);
+PokemonBattle.prototype.performTurn = function (actions) {
+    if(actions[0] !== undefined)
+    {
+        this.battle.choose('p1', BattleRoom.toChoiceString(actions[0], this.battle.p1), this.battle.rqid);
+    }
+    else
+    {
+        this.battle.p1.decision = true;
+    }
+
+    if(actions[1] !== undefined)
+    {
+        this.battle.choose('p2', BattleRoom.toChoiceString(actions[1], this.battle.p2), this.battle.rqid);
+    }
+    else
+    {
+        this.battle.p2.decision = true;
+    }
 };
 
 // Check for a winner
@@ -315,15 +347,15 @@ PokemonBattle.prototype.getWinner = function () {
 
 PokemonBattle.prototype.heuristic = function () {
     // Aidan's Heuristic
-    // var p1_health = _.sum(_.map(this.battle.p1.pokemon, function (pokemon) {
-    //     return pokemon.hp;
-    // }));
-    // var p2_health = _.sum(_.map(this.battle.p2.pokemon, function (pokemon) {
-    //     return pokemon.hp;
-    // }));
-    // logger.info(JSON.stringify(p1_health) + " - " + JSON.stringify(p2_health) + " = " +  JSON.stringify(p1_health - p2_health))
-    // return p1_health - p2_health;
+    var p1_health = _.sum(_.map(this.battle.p1.pokemon, function (pokemon) {
+        return pokemon.hp;
+    }));
+    var p2_health = _.sum(_.map(this.battle.p2.pokemon, function (pokemon) {
+        return pokemon.hp;
+    }));
+    logger.info(JSON.stringify(p1_health) + " - " + JSON.stringify(p2_health) + " = " +  JSON.stringify(p1_health - p2_health))
+    return p1_health - p2_health;
     
     // Use minimax heuristic
-    return minimaxbot.eval(this.battle);
+    //return minimaxbot.eval(this.battle);
 }

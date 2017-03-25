@@ -111,20 +111,35 @@ var BattleRoom = new JS.Class({
 
             if(!pokemon) {
                 pokemon = this.getPokemon(battleside, "Bulbasaur");
+
+                // TODO: Add move inference here
                 var set = this.state.getTemplate(pokeName);
-                set.moves = set.randomBattleMoves;      // TODO: Add move inference here
-                //set.moves = _.sample(set.randomBattleMoves, 4); //for efficiency, need to implement move ordering
+                set.moves = set.randomBattleMoves;      // For now, just add random battle moves
+                
                 set.level = 100;            // TODO: Something smarter here
-                //choose the best ability
+                               
+                // TODO: Add ability inference here
                 var abilities = Object.values(set.abilities).sort(function(a,b) {
                     return this.state.getAbility(b).rating - this.state.getAbility(a).rating;
-                }.bind(this));      // TODO: Add ability inference here
+                }.bind(this));      
                 set.ability = abilities[0];
+                var old_pos = pokemon.position;
+                for(var i = 0; i<6; i++)
+                {
+                    console.log(battleside.pokemon[i].name + " " + battleside.pokemon[i].position)
+                }
+
+                // Create the pokemon
                 pokemon = new BattlePokemon(set, battleside);
+                pokemon.position = old_pos;
                 pokemon.trueMoves = []; //gradually add moves as they are seen
+                battleside.pokemon[old_pos] = pokemon;
+
+                if (old_pos === 0){
+                    battleside.active = [pokemon];
+                    pokemon.isActive = true;
+                }
             }
-            
-            this.updatePokemon(battleside,pokemon);
         }
     },
     // TODO: Understand more about the opposing pokemon
@@ -170,6 +185,7 @@ var BattleRoom = new JS.Class({
         }
         //opponent hp is recorded as percentage
         pokemon.hp = Math.ceil(health / maxHealth * pokemon.maxhp);
+        battleside.active[0].position = pokemon.position;
         pokemon.position = 0;
 
         battleside.active[0].isActive = false;
@@ -817,7 +833,7 @@ var BattleRoom = new JS.Class({
             var trapped = (request.active) ? (request.active[0].trapped || request.active[0].maybeTrapped) : false;
             var canSwitch = request.forceSwitch || !trapped;
             if (canSwitch) {
-                _.each(request.side.pokemon, function(pokemon, index) {
+                _.each(request.side.pokemon, function(pokemon, index) {                    
                     if (pokemon.condition.indexOf("fnt") < 0 && !pokemon.active) {
                         choices.push({
                             "type": "switch",
