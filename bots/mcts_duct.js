@@ -347,15 +347,15 @@ PokemonBattle.prototype.getWinner = function () {
 
 PokemonBattle.prototype.heuristic = function () {
     // Aidan's Heuristic
-    // var p1_health = _.sum(_.map(this.battle.p1.pokemon, function (pokemon) {
-    //     return pokemon.hp;
-    // }));
-    // var p2_health = _.sum(_.map(this.battle.p2.pokemon, function (pokemon) {
-    //     return pokemon.hp;
-    // }));
-    // logger.info(JSON.stringify(p1_health) + " - " + JSON.stringify(p2_health) + " = " +  JSON.stringify(p1_health - p2_health))
-    // return p1_health - p2_health;
+    var p1_health = _.sum(_.map(this.battle.p1.pokemon, function (pokemon) {
+        return pokemon.hp;
+    }));
+    var p2_health = _.sum(_.map(this.battle.p2.pokemon, function (pokemon) {
+        return pokemon.hp;
+    }));
+    logger.info(JSON.stringify(p1_health) + " - " + JSON.stringify(p2_health) + " = " +  JSON.stringify(p1_health - p2_health))
+    return p1_health - p2_health;
     
     // Use minimax heuristic
-    return minimaxbot.eval(this.battle);
+    //return minimaxbot.eval(this.battle);
 }
