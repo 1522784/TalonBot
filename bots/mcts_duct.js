@@ -26,7 +26,7 @@ var decide = module.exports.decide = function (battle, choices) {
     logger.info("Starting move selection");
     logger.info("Given choices: " + JSON.stringify(choices));
 
-    var mcts = new MCTS(new PokemonBattle(battle), 150, 0, choices);
+    var mcts = new MCTS(new PokemonBattle(battle), 150, 5, 0, choices);
     var action = mcts.selectMove();
     if (action === undefined) {
         action = randombot.decide(battle, choices);
@@ -72,10 +72,10 @@ class Node {
         }
 
         // Possible moves for this node
-        if(!p1_choices) p1_choices = this.game.getPossibleMoves(0)        
-        
+        if(!p1_choices) p1_choices = this.game.getPossibleMoves(0)
         // console.log(this.game.battle.p1.pokemon[0].name  + " " + this.game.battle.p1.pokemon[0].hp)
         // console.log(p1_choices)
+
         var p2_choices = this.game.getPossibleMoves(1)
         // console.log(this.game.battle.p2.pokemon[0].name + " " + this.game.battle.p2.pokemon[0].hp)
         // console.log(p2_choices)
@@ -102,12 +102,7 @@ class Node {
         var child = new Node(gameclone, this, moves, this.depth + 1, this.mcts)
         this.children.push(child)
         return child
-    }
-
-    /** Get a move according to the tree policy*/
-    get_move(player, tree_policy) {
-        return tree_policy(this.untried_actions[player], this.reward_maps[player])
-    }
+    }    
 
     /** Checks if all this node's actions for a given player have been tried */
     expanded() {
@@ -132,7 +127,7 @@ class MCTS {
      * @param {int} player - The AI player, either 0 or 1 corresponding to p1 or p2.
      * @param {Array} choices - Initial choices, handles fainted pokemon, etc...
      */    
-    constructor(game, rounds, player, choices) {
+    constructor(game, rounds, cutoff_depth, player, choices) {
         var self = this
         this.game = game
 
@@ -161,6 +156,7 @@ class MCTS {
         }
 
         this.rounds = rounds || 1000
+        this.cutoff_depth = cutoff_depth
         this.player = player
 
         // Create a new root node
@@ -177,12 +173,11 @@ class MCTS {
             // Explore down to the bottom of the known tree via UCB1
             node = this.get_next_node(this.rootNode)
             
-            // Rollout to maximum depth k, or terminus
-            var k = 3
+            // Rollout to maximum depth k, or terminus            
             var d0 = node.depth
-            while (node !== undefined && node.depth - d0 < k && node.get_winner() === undefined) {
+            while (node !== undefined && node.depth - d0 < this.cutoff_depth && node.get_winner() === undefined) {
                 node = this.expand(node)
-            }            
+            }
 
             // Get the score of the node
             var winner = node.get_winner()
@@ -207,7 +202,6 @@ class MCTS {
                 {
                     // If this is a move where an action was not required, don't update
                     if (moves[i] !== undefined && _.size(node.reward_maps[i]) !== 0) {
-                        //console.log(JSON.stringify(moves[i]) + " " + JSON.stringify(node.reward_maps[i]))
                         var ns = _.find(node.reward_maps[i], function(s) { return s.move.id === moves[i].id;});
                         ns.n += 1
                         ns.q = ((ns.n - 1.0)/ns.n) * ns.q + 1.0/ns.n * rewards[i]
