@@ -22,6 +22,7 @@ var _ = require("underscore");
 // Logging
 var log4js = require('log4js');
 var logger = require('log4js').getLogger("battle");
+logger.setLevel('ERROR');
 
 BattleSide = require('./battleside');
 
@@ -915,13 +916,13 @@ Battle = (function () {
 			activeData = this.p1.active.map(function (pokemon) {
 				if (pokemon) return pokemon.getRequestData();
 			});
-			p1request = {active: activeData, side: this.p1.getData(), rqid: this.rqid};
-
+			p1request = {active: activeData, side: this.p1.getData(), rqid: this.rqid};			
+			
 			this.p2.currentRequest = 'move';
 			activeData = this.p2.active.map(function (pokemon) {
 				if (pokemon) return pokemon.getRequestData();
-			});
-			p2request = {active: activeData, side: this.p2.getData(), rqid: this.rqid};
+			});			
+			p2request = {active: activeData, side: this.p2.getData(), rqid: this.rqid};			
 			break;
 		}
 

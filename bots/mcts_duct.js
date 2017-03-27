@@ -23,8 +23,8 @@ var lastMove = '';
 var decide = module.exports.decide = function (battle, choices) {
     var startTime = new Date();
 
-    logger.info("Starting move selection");       
-    var mcts = new MCTS(new PokemonBattle(battle), 100, 0, choices);
+    logger.info("Starting move selection");
+    var mcts = new MCTS(new PokemonBattle(battle), 150, 0, choices);
     var action = mcts.selectMove();
     if (action === undefined) {
         action = randombot.decide(battle, choices);
@@ -91,7 +91,7 @@ class Node {
         
         if (depth === 0)
         {
-            // logger.info("Root node pairs: " + JSON.stringify(this.untried_actions));
+            logger.info("Root node choices: " + JSON.stringify(p1_choices));
         }
     }
 
@@ -182,10 +182,10 @@ class MCTS {
             // ---- MCTS Algorithm
             
             // Explore down to the bottom of the known tree via UCB1
-            node = this.get_next_node(this.rootNode)            
+            node = this.get_next_node(this.rootNode)
             
             // Rollout to maximum depth k, or terminus
-            var k = 5
+            var k = 3
             var d0 = node.depth
             while (node !== undefined && node.depth - d0 < k && node.get_winner() === undefined) {
                 node = this.expand(node)
@@ -196,11 +196,11 @@ class MCTS {
             var rewards = [0,0]
             if (winner !== undefined)
             {
-                var score = (this.player === node.getWinner()) ? Math.pow(10,7) : -Math.pow(10,7)
+                var score = (this.player === winner) ? Math.pow(10,7) : -Math.pow(10,7)
                 rewards = [score, -score]
             }
             else {
-                var score =node.game.heuristic()
+                var score = node.game.heuristic()
                 rewards = [score, -score]
             }
 
@@ -232,7 +232,12 @@ class MCTS {
             logger.info("No children");
         }
         
-        return this.tree_policy(this.rootNode, 0)
+        var move_reward = _.maxBy(this.rootNode.reward_maps[0], function(o) { return o.n; })
+        if (move_reward === undefined)
+        {
+            return undefined
+        }
+        return move_reward.move;
     }
 
     /** Gets the next node to be expanded.
@@ -335,12 +340,11 @@ PokemonBattle.prototype.getWinner = function () {
 PokemonBattle.prototype.heuristic = function () {
     // Aidan's Heuristic
     // var p1_health = _.sum(_.map(this.battle.p1.pokemon, function (pokemon) {
-    //     return pokemon.hp;
+    //     return pokemon.hp ? pokemon.hp : 0;
     // }));
     // var p2_health = _.sum(_.map(this.battle.p2.pokemon, function (pokemon) {
-    //     return pokemon.hp;
+    //     return pokemon.hp ? pokemon.hp : 0;
     // }));
-    // logger.info(JSON.stringify(p1_health) + " - " + JSON.stringify(p2_health) + " = " +  JSON.stringify(p1_health - p2_health))
     // return p1_health - p2_health;
     
     // Use minimax heuristic

@@ -229,6 +229,17 @@ var BattleRoom = new JS.Class({
                                            pokemon.statusData.duration+1:
                                            1);
         }
+
+        // Choice items (scarf, specs, band), disable all other moves
+        // TODO: Update this in updateSide with pp and disabled moves
+        // if(pokemon.item == 'choicescarf' || pokemon.item == 'choicespecs' || pokemon.item == 'choiceband') {
+        //     _.each(pokemon.moves, function(m) {
+        //         if (!m.disabled && m.id != pokemon.lastMove) {
+        //             m.disabled = true
+        //         }
+        //     });
+        // }
+
         //we are no longer newly switched (so we don't fakeout after the first turn)
         pokemon.activeTurns += 1;
         if(!this.isPlayer(player)) { //anticipate more about the Pokemon's moves
@@ -260,6 +271,7 @@ var BattleRoom = new JS.Class({
         //extract damage dealt to a particular pokemon
         //also takes into account passives
         //note that opponent health is recorded as percent. Keep this in mind
+        // TODO: Use damage to infer about the opponents stats / items 
 
         var tokens2 = tokens[2].split(' ');
         var tokens3 = tokens[3].split(/\/| /);
@@ -654,6 +666,8 @@ var BattleRoom = new JS.Class({
 
                 } else if(tokens[1] === 'leave') {
 
+                } else if(tokens[1] === 'error') {
+                    logger.error("Server Error: " + JSON.stringify(data))
                 } else if(tokens[1]) { //what if token is defined
                     logger.info("Error: could not parse token '" + tokens[1] + "'. This needs to be implemented");
                 }
@@ -683,7 +697,7 @@ var BattleRoom = new JS.Class({
             return;
         }
 
-        if (request.side) this.updateSide(request.side, true);
+        if (request.side) this.updateSide(request, true);
 
         if (request.active) logger.info(this.title + ": I need to make a move.");
         if (request.forceSwitch) logger.info(this.title + ": I need to make a switch.");
@@ -693,9 +707,13 @@ var BattleRoom = new JS.Class({
 
     //note: we should not be recreating pokemon each time
     //is this redundant?
-    updateSide: function(sideData) {
+    updateSide: function(request) {
+
+        var sideData = request.side
         if (!sideData || !sideData.id) return;
         logger.info("Starting to update my side data.");
+        
+        // Update each pokemon
         for (var i = 0; i < sideData.pokemon.length; ++i) {
             var pokemon = sideData.pokemon[i];
 
@@ -766,6 +784,23 @@ var BattleRoom = new JS.Class({
             //logger.info(this.state.p1.pokemon[i].name + " " + this.state.p1.pokemon[i].hp + "/" + this.state.p1.pokemon[i].maxhp + " " + this.state.p1.pokemon[i].status);
         }
 
+        // Update the active pokemon's moves
+        if(request.active) {
+            let active_poke = this.state.p1.active[0]
+            _.each(request.active[0].moves, function(move){
+                let local_move = _.find(active_poke.moveset, function(m){
+                    return m.id === move.id
+                });
+                local_move.disabled = move.disabled
+                local_move.pp = move.pp
+            });
+        }
+
+        // Active pokemon must switch
+        if(request.forceSwitch) {
+            this.state.p1.active[0].switchFlag = true
+        }
+
         // Enforce that the active pokemon is in the first slot
         this.state.p1.pokemon = _.sortBy(this.state.p1.pokemon, function(pokemon) { return pokemon.isActive ? 0 : 1 });
 
@@ -817,31 +852,47 @@ var BattleRoom = new JS.Class({
             if(!request) return choices; // Empty request
             if(request.wait) return choices; // This player is not supposed to make a move
 
+
             // If we can make a move
             if (request.active) {
-                _.each(request.active[0].moves, function(move) {
-                    if (!move.disabled) {
-                        choices.push({
-                            "type": "move",
-                            "id": move.id
-                        });
-                    }
+                var alive = _.some(request.side.pokemon, function(pokemon, index) {
+                    return (pokemon.active && pokemon.condition.indexOf("fnt") < 0)
                 });
+                
+                if(alive === true) {
+                    _.each(request.active[0].moves, function(move) {
+                        if (move.disabled !== true) {
+                            choices.push({
+                                "type": "move",
+                                "id": move.id
+                            });
+                        }
+                    });
+                }
             }
 
             // Switching options
+            // TODO: Fix bug with the forceSwitch flag
             var trapped = (request.active) ? (request.active[0].trapped || request.active[0].maybeTrapped) : false;
-            var canSwitch = request.forceSwitch || !trapped;
+            var canSwitch = request.forceSwitch || !trapped || !!(_.size(choices) === 0);     // If we have no options let us switch
             if (canSwitch) {
-                _.each(request.side.pokemon, function(pokemon, index) {                    
+                _.each(request.side.pokemon, function(pokemon, index) {
                     if (pokemon.condition.indexOf("fnt") < 0 && !pokemon.active) {
                         choices.push({
                             "type": "switch",
                             "id": index
                         });
                     }
-                });
+                });                
             }
+            
+            if(_.size(choices) === 0) {
+                console.log("Couldn't switch: " + trapped + " " + canSwitch + " " + request.forceSwitch)
+                console.log(JSON.stringify(request))
+                assert(false)
+            }
+
+            
 
             return {
                 rqid: request.rqid,
