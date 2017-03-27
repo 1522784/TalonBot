@@ -24,14 +24,15 @@ var decide = module.exports.decide = function (battle, choices) {
     var startTime = new Date();
 
     logger.info("Starting move selection");
+    logger.info("Given choices: " + JSON.stringify(choices));
+
     var mcts = new MCTS(new PokemonBattle(battle), 150, 0, choices);
     var action = mcts.selectMove();
     if (action === undefined) {
         action = randombot.decide(battle, choices);
         logger.info("Randomly selected action");
-    }
+    }    
     
-    logger.info("Given choices: " + JSON.stringify(choices));
     logger.info("My action: " + action.type + " " + action.id);
     lastMove = action.id;
     var endTime = new Date();
@@ -50,7 +51,7 @@ var decide = module.exports.decide = function (battle, choices) {
 class Node {
     
     /** Apply the move assigned to this node */
-    constructor(game, parent, moves, depth, mcts) {
+    constructor(game, parent, moves, depth, mcts, p1_choices) {
         var self = this
         this.game = game
         this.mcts = mcts
@@ -71,7 +72,8 @@ class Node {
         }
 
         // Possible moves for this node
-        var p1_choices = this.game.getPossibleMoves(0)
+        if(!p1_choices) p1_choices = this.game.getPossibleMoves(0)        
+        
         // console.log(this.game.battle.p1.pokemon[0].name  + " " + this.game.battle.p1.pokemon[0].hp)
         // console.log(p1_choices)
         var p2_choices = this.game.getPossibleMoves(1)
@@ -88,11 +90,6 @@ class Node {
         this.reward_maps.push(_.map(p2_choices, function(move){
             return {'move':move, 'q':0, 'n':0}
         }))
-        
-        if (depth === 0)
-        {
-            logger.info("Root node choices: " + JSON.stringify(p1_choices));
-        }
     }
 
     /** Get UCB1 upper bound on the utility of this node. */
@@ -167,11 +164,7 @@ class MCTS {
         this.player = player
 
         // Create a new root node
-        this.rootNode = new Node(game, null, null, 0, this)
-        if (choices)
-        {
-            this.rootNode.untried_actions[0] = _(choices).castArray()
-        }
+        this.rootNode = new Node(game, null, null, 0, this, choices)
     }
 
     /** Select the move that should be performed by the player this turn */
@@ -214,6 +207,7 @@ class MCTS {
                 {
                     // If this is a move where an action was not required, don't update
                     if (moves[i] !== undefined && _.size(node.reward_maps[i]) !== 0) {
+                        //console.log(JSON.stringify(moves[i]) + " " + JSON.stringify(node.reward_maps[i]))
                         var ns = _.find(node.reward_maps[i], function(s) { return s.move.id === moves[i].id;});
                         ns.n += 1
                         ns.q = ((ns.n - 1.0)/ns.n) * ns.q + 1.0/ns.n * rewards[i]

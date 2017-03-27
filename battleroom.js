@@ -702,7 +702,7 @@ var BattleRoom = new JS.Class({
         if (request.active) logger.info(this.title + ": I need to make a move.");
         if (request.forceSwitch) logger.info(this.title + ": I need to make a switch.");
 
-        if (request.active || request.forceSwitch) this.makeMove(request);
+        if (!!request.active || !!request.forceSwitch) this.makeMove(request);
     },
 
     //note: we should not be recreating pokemon each time
@@ -796,11 +796,6 @@ var BattleRoom = new JS.Class({
             });
         }
 
-        // Active pokemon must switch
-        if(request.forceSwitch) {
-            this.state.p1.active[0].switchFlag = true
-        }
-
         // Enforce that the active pokemon is in the first slot
         this.state.p1.pokemon = _.sortBy(this.state.p1.pokemon, function(pokemon) { return pokemon.isActive ? 0 : 1 });
 
@@ -820,6 +815,7 @@ var BattleRoom = new JS.Class({
             }
 
             var decision = BattleRoom.parseRequest(request);
+            console.log(JSON.stringify(decision.choices))
 
             // Use specified algorithm to determine resulting choice
             var result = undefined;
@@ -852,13 +848,12 @@ var BattleRoom = new JS.Class({
             if(!request) return choices; // Empty request
             if(request.wait) return choices; // This player is not supposed to make a move
 
+            let alive = _.some(request.side.pokemon, function(pokemon, index) {
+                return (pokemon.active && pokemon.condition.indexOf("fnt") < 0)
+            });
 
             // If we can make a move
             if (request.active) {
-                var alive = _.some(request.side.pokemon, function(pokemon, index) {
-                    return (pokemon.active && pokemon.condition.indexOf("fnt") < 0)
-                });
-                
                 if(alive === true) {
                     _.each(request.active[0].moves, function(move) {
                         if (move.disabled !== true) {
@@ -872,9 +867,8 @@ var BattleRoom = new JS.Class({
             }
 
             // Switching options
-            // TODO: Fix bug with the forceSwitch flag
             var trapped = (request.active) ? (request.active[0].trapped || request.active[0].maybeTrapped) : false;
-            var canSwitch = request.forceSwitch || !trapped || !!(_.size(choices) === 0);     // If we have no options let us switch
+            var canSwitch = request.forceSwitch || !trapped || !alive
             if (canSwitch) {
                 _.each(request.side.pokemon, function(pokemon, index) {
                     if (pokemon.condition.indexOf("fnt") < 0 && !pokemon.active) {
@@ -883,16 +877,19 @@ var BattleRoom = new JS.Class({
                             "id": index
                         });
                     }
-                });                
+                });
             }
             
+            // Cannot happen for the current turn, so just struggle
+            // TODO: Fix bug where last pokemon knows swicthing move
             if(_.size(choices) === 0) {
-                console.log("Couldn't switch: " + trapped + " " + canSwitch + " " + request.forceSwitch)
                 console.log(JSON.stringify(request))
-                assert(false)
+                console.log("No moves found" + trapped + " " + canSwitch + " " + request.forceSwitch + " " + alive)
+                choices.push({
+                    "type": "move",
+                    "id": "struggle"
+                });
             }
-
-            
 
             return {
                 rqid: request.rqid,
