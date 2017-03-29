@@ -55,6 +55,9 @@ var BattleRoom = new JS.Class({
         this.decisions = [];
         this.log = "";
 
+        // Save the last request ID
+        this.last_rqid = 0
+
         this.state.start();
     },
     init: function(data) {
@@ -568,8 +571,8 @@ var BattleRoom = new JS.Class({
 
                 if (tokens[1] === 'tier') {
                     this.tier = tokens[2];
-                } else if (tokens[1] === 'teampreview') {       // TODO: Choose lead better, and verify that requests work
-                    this.send("/team 123456|3", self.id);
+                } else if (tokens[1] === 'teampreview') {       // TODO: Choose lead better
+                    this.send("/team 123456|" + this.last_rqid, self.id);
                 } else if (tokens[1] === 'win') {
                     this.send("gg", this.id);
 
@@ -665,7 +668,7 @@ var BattleRoom = new JS.Class({
                 } else if(tokens[1] === 'cant') {
 
                 } else if(tokens[1] === 'leave') {
-
+               
                 } else if(tokens[1] === 'error') {
                     logger.error("Server Error: " + JSON.stringify(data))
                 } else if(tokens[1]) { //what if token is defined
@@ -696,6 +699,8 @@ var BattleRoom = new JS.Class({
             this.side = '';
             return;
         }
+
+        this.last_rqid = request.rqid
 
         if (request.side) this.updateSide(request, true);
 

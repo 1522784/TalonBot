@@ -251,16 +251,34 @@ function recieve(data) {
 			logger.info("Popup: " + data.substr(7).replace(/\|\|/g, '\n'));
 			break;
 		// Someone has challenged us to a battle
-		case 'updatechallenges':
+		case 'updatechallenges':			
 			var challenges = JSON.parse(data.substr(18));
 			if(challenges.challengesFrom) {
 				for(var user in challenges.challengesFrom) {
-					if(challenges.challengesFrom[user] == "randombattle") {
+					if(challenges.challengesFrom[user] == "gen6randombattle") {
 						logger.info("Accepting challenge from " + user);
 						send("/accept " + user);
+					} else { 			// Challenge in a specific format
+						// Read the team from a file and update the team
+						let team_file = 'teams/' + challenges.challengesFrom[user] + '.req'
+						if (fs.existsSync(team_file)) {
+							fs.readFile(team_file, 'ascii', function(err, contents) {
+								console.log(contents);
+								send("/utm " + contents, null);
+							});
+							logger.info("Accepting challenge from " + user + " in format " + challenges.challengesFrom[user]);
+							send("/accept " + user);
+						}
+						else
+						{
+							logger.info("Unknown format: " + challenges.challengesFrom[user]);
+							send("/reject " + user);
+						}
+						
 					}
 				}
 			}
+			break;
 		// Unkown global command
 		default:
 			logger.warn("Did not recognize command of type: " + parts[0]);
