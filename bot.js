@@ -81,7 +81,7 @@ var CHALLENGE = null;
 var BattleRoom = require('./battleroom');
 
 // The game type that we want to search for on startup
-var GAME_TYPE = (program.ranked) ? "gen6randombattle" : "gen7unratedrandombattle";
+var GAME_TYPE = (program.ranked) ? "gen6randombattle" : "ou";
 
 // Load in Game Data
 var Pokedex = require("./data/pokedex");
@@ -255,7 +255,7 @@ function recieve(data) {
 			var challenges = JSON.parse(data.substr(18));
 			if(challenges.challengesFrom) {
 				for(var user in challenges.challengesFrom) {
-					if(challenges.challengesFrom[user] == "gen6randombattle") {
+					if(challenges.challengesFrom[user] == "gen6randombattle" || challenges.challengesFrom[user] == "gen7randombattle") {
 						logger.info("Accepting challenge from " + user);
 						send("/accept " + user);
 					} else { 			// Challenge in a specific format
