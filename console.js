@@ -126,7 +126,7 @@ app.use(bodyParser.json()); // support json encoded bodies
 app.use(bodyParser.urlencoded({ extended: true })); // support encoded bodies
 
 app.get('/getmoves', function (req, res) {
-    fs.readFile('public/test.json',function(err,content){
+    fs.readFile('moves.json',function(err,content){
         // console.log(JSON.parse(content))
         res.json(JSON.parse(content))
     })
@@ -134,7 +134,7 @@ app.get('/getmoves', function (req, res) {
 
 app.post('/savemoves', function(req, res) {
     var data = JSON.parse(req.body.data);
-    fs.writeFile ("public/test.json", JSON.stringify(data), function(err) {
+    fs.writeFile ("moves.json", JSON.stringify(data), function(err) {
         if (err) throw err;
         res.send("Moves saved");
         }
