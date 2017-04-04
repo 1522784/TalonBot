@@ -26,7 +26,7 @@ var decide = module.exports.decide = function (battle, choices) {
     logger.info("Starting move selection");
     logger.info("Given choices: " + JSON.stringify(choices));
 
-    var mcts = new MCTS(new PokemonBattle(battle), 300, 5, 0, choices);
+    var mcts = new MCTS(new PokemonBattle(battle), 200, 6, 0, choices);
     var action = mcts.selectMove();
     if (action === undefined) {
         action = randombot.decide(battle, choices);
@@ -101,7 +101,7 @@ function product() {
 
 /** Get UCB1 upper bound on the utility of this node. */
 function UCB1(q, n, N, c) {
-    return q + c*Math.sqrt(2 * Math.log(N / n))
+    return q + c*Math.sqrt(Math.log(N / n))
 }
 
 // ---- MCTS
@@ -125,7 +125,7 @@ class MCTS {
         this.nodes = 0
 
         // Specifies how nodes are explored
-        var c = 200.0       // Exploration constant
+        var c = 10.0     // Exploration constant
         this.tree_policy = function (node, player) {
             if (node.untried_actions[player].size() !== 0)
             {
@@ -164,7 +164,7 @@ class MCTS {
     }
 
     /** Select the move that should be performed by the player this turn */
-    selectMove() {
+    selectMove() {        
         var round, node, game, result
         for (round = 0; round < this.rounds; round += 1) {
 
@@ -177,8 +177,8 @@ class MCTS {
             
             // Rollout to maximum depth k, or terminus
             var winner = game.getWinner()
-            var playout
-            for (playout = 0; playout < this.cutoff_depth; playout++) {
+            var d
+            for (d = node.depth; d < this.cutoff_depth; d++) {
                 // Check win condition
                 if (game.getWinner() !== undefined)
                 {
@@ -226,11 +226,28 @@ class MCTS {
             }
         }
 
+        // Tracking
+        var N = this.rootNode.visits
+        var c = 10.0
+        logger.info("p1 scores:")
+        _.each(this.rootNode.reward_maps[0].sort(function(a,b){
+            if(a.n === b.n)
+            {
+                return b.q - a.q
+            }
+            return b.n - a.n
+        }), function(elem){logger.info(JSON.stringify(elem.move) + " " + UCB1(elem.q, elem.n, N, c) + " " + elem.q)});
+
+        logger.info("p2 scores:")
+        _.each(this.rootNode.reward_maps[1].sort(function(a,b){
+            if(a.n === b.n)
+            {
+                return b.q - a.q
+            }
+            return b.n - a.n
+        }), function(elem){logger.info(JSON.stringify(elem.move) + " " + UCB1(elem.q, elem.n, N, c) + " " + elem.q)});
         
-        var bot_action_string = JSON.stringify(_.sortBy(this.rootNode.reward_maps[0], ['n', 'q']));
-        var user_action_string = JSON.stringify(_.sortBy(this.rootNode.reward_maps[1], ['n', 'q']));
-        logger.info("My action scores: " + bot_action_string)
-        logger.info("User action scores: " + user_action_string)
+        
         
         var move_reward = _.maxBy(this.rootNode.reward_maps[0], function(o) { return o.n; })
         if (move_reward === undefined)
@@ -332,15 +349,15 @@ PokemonBattle.prototype.getWinner = function () {
 
 PokemonBattle.prototype.heuristic = function () {
     // Aidan's Heuristic
-    // var p1_health = _.sum(_.map(this.battle.p1.pokemon, function (pokemon) {
-    //     return !!pokemon.hp ? pokemon.hp / pokemon.maxhp * 100.0 : 0.0;
-    // }));
-    // var p2_health = _.sum(_.map(this.battle.p2.pokemon, function (pokemon) {
-    //     return !!pokemon.hp ? pokemon.hp / pokemon.maxhp * 100.0 : 0.0;
-    // }));
+    var p1_health = _.sum(_.map(this.battle.p1.pokemon, function (pokemon) {
+        return !!pokemon.hp ? pokemon.hp / pokemon.maxhp * 100.0 : 0.0;
+    }));
+    var p2_health = _.sum(_.map(this.battle.p2.pokemon, function (pokemon) {
+        return !!pokemon.hp ? pokemon.hp / pokemon.maxhp * 100.0 : 0.0;
+    }));
     
-    // return p1_health - p2_health;
+    return (p1_health - p2_health);
     
     // Use minimax heuristic
-    return minimaxbot.eval(this.battle);
+    // return minimaxbot.eval(this.battle);
 }
