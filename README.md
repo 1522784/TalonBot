@@ -19,6 +19,10 @@ In order to actually play games you must create an account on Pokemon Showdown. 
         "message" : "gl hf"
     }
 
+Additionally, create a `moves.json` file in the root of the project in order for the moveset database endpoint to function. You can either get a file from someone who has already used the bot, or initalize this JSON as an empty object:
+
+    { }
+
 The `message` field indicates the message that will be sent when the bot first connects to the game.
 
 Finally, to start the server, issue the following command:
