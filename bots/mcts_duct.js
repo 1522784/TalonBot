@@ -12,41 +12,26 @@ var _ = require('lodash');
 var BattleRoom = require("./../battleroom");
 
 var randombot = require("./randombot");
-var greedybot = require("./greedybot");
 var minimaxbot = require("./minimaxbot");
 
 var clone = require("./../clone");
 
-// Function that decides which move to perform
-var overallMinNode = {};
-var lastMove = '';
-var decide = module.exports.decide = function (battle, choices) {
-    var startTime = new Date();
-
-    logger.info("Starting move selection");
-    logger.info("Given choices: " + JSON.stringify(choices));
-
-    var mcts = new MCTS(new PokemonBattle(battle), 200, 6, 0, choices);
-    var action = mcts.selectMove();
-    if (action === undefined) {
-        action = randombot.decide(battle, choices);
-        logger.info("Randomly selected action");
-    }
-    
-    logger.info("My action: " + action.type + " " + action.id);
-    lastMove = action.id;
-    var endTime = new Date();
-
-    logger.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
-    return {
-        type: action.type,
-        id: action.id
-    };
-}
-
 // ---- MCTS ALGORITHM
 // ------------------------------------------------------------
 
+// Reduced gamestate for identifying children for re-use
+class State {
+    constructor(battle) {
+        var sides =  [battle.p1, battle.p2]
+        var active = _.map(sides, function(s){
+            return _.find(s.pokemon, function(p){return p.position === 0})
+        })
+
+        this.names = _.map(active, 'name')
+        this.fnt = _.map(active, function(p){return p.hp == 0})
+        this.statusData = _.map(active, 'statusData.id')
+    }
+}
 
 class Node {
     
@@ -63,6 +48,10 @@ class Node {
         this.visits = 0
 
         this.moves = moves
+        this.choices = [p1_choices, p2_choices]
+        
+        // Used to identify this child
+        this.state = {'moves':moves, }
 
         this.untried_actions = [_(p1_choices).castArray(), _(p2_choices).castArray()]
 
@@ -113,19 +102,16 @@ class MCTS {
      * the start of each of the AI player's turns.
      * TODO: Caching?
      * 
-     * @constructor
-     * @param {PokemonBattle} game - The game object containing all game-specific logic
+     * @constructor     
      * @param {int} rounds - How many rounds to play out
+     * @param {int} cutoff_depth - The depth at which to cut off simulation and perform heuristic evaluation
      * @param {int} player - The AI player, either 0 or 1 corresponding to p1 or p2.
-     * @param {Array} choices - Initial choices, handles fainted pokemon, etc...
      */    
-    constructor(game, rounds, cutoff_depth, player, choices) {
-        var self = this
-        this.game = game
-        this.nodes = 0
+    constructor(rounds, cutoff_depth, bot_player) {        
+        this.turn = 0
 
         // Specifies how nodes are explored
-        var c = 10.0     // Exploration constant
+        var c = 20.0     // Exploration constant
         this.tree_policy = function (node, player) {
             if (node.untried_actions[player].size() !== 0)
             {
@@ -135,7 +121,7 @@ class MCTS {
                 }
                 
                 node.untried_actions[player] = node.untried_actions[player].differenceBy([action,], 'id');
-
+                
                 node.reward_maps[player].push({'move':action, 'q':0, 'n':0})
                 return action
             }
@@ -155,16 +141,37 @@ class MCTS {
 
         this.rounds = rounds || 1000
         this.cutoff_depth = cutoff_depth
-        this.player = player
+        this.bot_player = bot_player
+    }
 
-        // Create a new root node
-        var p1_choices = !!choices ? choices : game.getPossibleMoves(0)
-        var p2_choices = game.getPossibleMoves(1)
+    initTurn(game, p1_choices, p2_choices) {
+        this.game = game
+
+        // Create a new root node for now
+        p1_choices = !!p1_choices ? p1_choices : game.getPossibleMoves(0)
+        p2_choices = !!p2_choices ? p2_choices : game.getPossibleMoves(1)
+
         this.rootNode = new Node(null, null, 0, p1_choices, p2_choices)
+
+        var root_state = new State(game.battle)
+        console.log(JSON.stringify(root_state))
+        
+        // if(!this.rootNode)
+        // {
+        //     this.rootNode = new Node(null, null, 0, p1_choices, p2_choices)
+        // }
+        // else
+        // {
+        //     var child = _.find(this.rootNode.children, function(c) {
+        //         return _.isEqual(c.moves, moves) && _.isEqual(c.p1_choices, choices[0]) && _.isEqual(c.p1_choices, choices[1])
+        //     });
+        // }
+
+        this.turn++
     }
 
     /** Select the move that should be performed by the player this turn */
-    selectMove() {        
+    selectMove() {
         var round, node, game, result
         for (round = 0; round < this.rounds; round += 1) {
 
@@ -200,7 +207,7 @@ class MCTS {
             var rewards = [0,0]
             if (winner !== undefined)
             {
-                var score = (this.player === winner) ? Math.pow(10,7) : -Math.pow(10,7)
+                var score = (this.bot_player === winner) ? Math.pow(10,7) : -Math.pow(10,7)
                 rewards = [score, -score]
             }
             else {
@@ -236,7 +243,7 @@ class MCTS {
                 return b.q - a.q
             }
             return b.n - a.n
-        }), function(elem){logger.info(JSON.stringify(elem.move) + " " + UCB1(elem.q, elem.n, N, c) + " " + elem.q)});
+        }), function(elem){logger.info(JSON.stringify(elem.move) + " " + elem.n + " " + elem.q)});
 
         logger.info("p2 scores:")
         _.each(this.rootNode.reward_maps[1].sort(function(a,b){
@@ -245,7 +252,7 @@ class MCTS {
                 return b.q - a.q
             }
             return b.n - a.n
-        }), function(elem){logger.info(JSON.stringify(elem.move) + " " + UCB1(elem.q, elem.n, N, c) + " " + elem.q)});
+        }), function(elem){logger.info(JSON.stringify(elem.move) + " " + elem.n + " " + elem.q)});
         
         
         
@@ -261,7 +268,7 @@ class MCTS {
      * recurses down to the next unexpanded node or terminal state */
     get_next_node(node, game) {
 
-        var moves, choices
+        var child, moves, choices
         while(game.getWinner() === undefined) {
             
             // Increment visits count
@@ -271,13 +278,16 @@ class MCTS {
             game.performTurn(moves)
             choices = [game.getPossibleMoves(0), game.getPossibleMoves(1)]
 
-            if (node.expanded()) {
-                node = _.find(node.children, function(c) {
-                    return _.isEqual(c.moves, moves) && _.isEqual(c.p1_choices, choices[0]) && _.isEqual(c.p1_choices, choices[1])
-                });
+            child = _.find(node.children, function(c) {
+                return _.isEqual(c.moves, moves) && _.isEqual(c.choices, choices)
+            });
+            
+            if(!!child)
+            {
+                node = child;
             }
             else {
-                node = this.expand(node, moves, choices)
+                node = this.expand(node, moves, choices)                
                 break
             }
         }
@@ -360,4 +370,32 @@ PokemonBattle.prototype.heuristic = function () {
     
     // Use minimax heuristic
     // return minimaxbot.eval(this.battle);
+}
+
+// Function that decides which move to perform
+var overallMinNode = {};
+var lastMove = '';
+var mcts = new MCTS(200, 6, 0)
+var decide = module.exports.decide = function (battle, choices) {
+    var startTime = new Date();
+
+    logger.info("Starting move selection");
+    logger.info("Given choices: " + JSON.stringify(choices));
+
+    mcts.initTurn(new PokemonBattle(battle), choices, null)
+    var action = mcts.selectMove();
+    if (action === undefined) {
+        action = randombot.decide(battle, choices);
+        logger.info("Randomly selected action");
+    }
+    
+    logger.info("My action: " + action.type + " " + action.id);
+    lastMove = action.id;
+    var endTime = new Date();
+
+    logger.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
+    return {
+        type: action.type,
+        id: action.id
+    };
 }

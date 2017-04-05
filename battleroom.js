@@ -233,16 +233,6 @@ var BattleRoom = new JS.Class({
                                            1);
         }
 
-        // Choice items (scarf, specs, band), disable all other moves
-        // TODO: Update this in updateSide with pp and disabled moves
-        // if(pokemon.item == 'choicescarf' || pokemon.item == 'choicespecs' || pokemon.item == 'choiceband') {
-        //     _.each(pokemon.moves, function(m) {
-        //         if (!m.disabled && m.id != pokemon.lastMove) {
-        //             m.disabled = true
-        //         }
-        //     });
-        // }
-
         //we are no longer newly switched (so we don't fakeout after the first turn)
         pokemon.activeTurns += 1;
         if(!this.isPlayer(player)) { //anticipate more about the Pokemon's moves
@@ -889,7 +879,7 @@ var BattleRoom = new JS.Class({
             // TODO: Fix bug where last pokemon knows swicthing move
             if(_.size(choices) === 0) {
                 console.log(JSON.stringify(request))
-                console.log("No moves found" + trapped + " " + canSwitch + " " + request.forceSwitch + " " + alive)
+                console.log("No moves found " + trapped + " " + canSwitch + " " + request.forceSwitch + " " + alive)
                 choices.push({
                     "type": "move",
                     "id": "struggle"
