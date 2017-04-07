@@ -120,28 +120,6 @@ app.get('/search', function(req, res){
 	res.redirect("/");
 });
 
-var fs = require('fs');
-var bodyParser = require('body-parser');
-app.use(bodyParser.json()); // support json encoded bodies
-app.use(bodyParser.urlencoded({ extended: true })); // support encoded bodies
-
-app.get('/getmoves', function (req, res) {
-    fs.readFile('moves.json',function(err,content){
-        // console.log(JSON.parse(content))
-        res.json(JSON.parse(content))
-    })
-})
-
-app.post('/savemoves', function(req, res) {
-    var data = JSON.parse(req.body.data);
-    fs.writeFile ("moves.json", JSON.stringify(data), function(err) {
-        if (err) throw err;
-        res.send("Moves saved");
-        }
-    );
-
-});
-
 var port = parseInt(program.port);
 app.listen(port);
 logger.info("Started web console on port " + port + "...");
