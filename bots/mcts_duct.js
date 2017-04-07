@@ -19,7 +19,7 @@ var clone = require("./../clone");
 // ---- MCTS ALGORITHM
 // ------------------------------------------------------------
 
-// Reduced gamestate for identifying children for re-use
+// Reduced gamestate representation
 class State {
     constructor(battle) {
         var sides =  [battle.p1, battle.p2]
@@ -87,6 +87,19 @@ function product() {
   }, [[]]);
 }
 
+/** Sample from elements 'elems' according to function g which maps elements to un-normalized probabilities */
+function sample_from(elems, g) {
+    var cumulative = 0;
+    var sum_pairs = _.map(elems, function(elem){ 
+        cumulative += g(elem);
+        return [cumulative, elem];
+    });
+
+    var rand = Math.random()*cumulative
+    var result = _.find(sum_pairs, function(item){return item[0] >= rand})
+    return result[1]
+}
+
 
 /** Get UCB1 upper bound on the utility of this node. */
 function UCB1(q, n, N, c) {
@@ -107,11 +120,11 @@ class MCTS {
      * @param {int} cutoff_depth - The depth at which to cut off simulation and perform heuristic evaluation
      * @param {int} player - The AI player, either 0 or 1 corresponding to p1 or p2.
      */    
-    constructor(rounds, cutoff_depth, bot_player) {        
+    constructor(rounds, cutoff_depth, bot_player) {
         this.turn = 0
 
         // Specifies how nodes are explored
-        var c = 20.0     // Exploration constant
+        var c = 10.0     // Exploration constant
         this.tree_policy = function (node, player) {
             if (node.untried_actions[player].size() !== 0)
             {
@@ -127,16 +140,28 @@ class MCTS {
             }
             else
             {
-                // DUCT-max
+                
                 var move_reward = _.maxBy(node.reward_maps[player], function(o) {
                     return UCB1(o.q, o.n, node.visits, c)
                 })
+
                 if (move_reward === undefined)
                 {
                     return undefined
                 }
                 return move_reward.move;
             }
+        }
+
+        this.move_policy = function (reward_map) {
+            // DUCT-max
+            var move_reward = _.maxBy(reward_map, function(o) { return o.n; })
+            
+            // DUCT-mix
+            // var move_reward = sample_from(reward_map, function(o) {
+            //     return o.n
+            // });
+            return move_reward
         }
 
         this.rounds = rounds || 1000
@@ -147,14 +172,20 @@ class MCTS {
     initTurn(game, p1_choices, p2_choices) {
         this.game = game
 
-        // Create a new root node for now
-        p1_choices = !!p1_choices ? p1_choices : game.getPossibleMoves(0)
-        p2_choices = !!p2_choices ? p2_choices : game.getPossibleMoves(1)
-
-        this.rootNode = new Node(null, null, 0, p1_choices, p2_choices)
-
         var root_state = new State(game.battle)
         console.log(JSON.stringify(root_state))
+        
+        p1_choices = !!p1_choices ? p1_choices : game.getPossibleMoves(0)
+        
+        // The human player does not get to move if we've fainted, and they haven't
+        if(root_state.fnt[0] && !root_state.fnt[1]) {
+            p2_choices = []
+        }
+        p2_choices = !!p2_choices ? p2_choices : game.getPossibleMoves(1)
+        
+        // Create a new root node for now
+        this.rootNode = new Node(null, null, 0, p1_choices, p2_choices)
+        
         
         // if(!this.rootNode)
         // {
@@ -235,7 +266,6 @@ class MCTS {
 
         // Tracking
         var N = this.rootNode.visits
-        var c = 10.0
         logger.info("p1 scores:")
         _.each(this.rootNode.reward_maps[0].sort(function(a,b){
             if(a.n === b.n)
@@ -255,8 +285,8 @@ class MCTS {
         }), function(elem){logger.info(JSON.stringify(elem.move) + " " + elem.n + " " + elem.q)});
         
         
-        
-        var move_reward = _.maxBy(this.rootNode.reward_maps[0], function(o) { return o.n; })
+        // Select final move to make
+        var move_reward = this.move_policy(this.rootNode.reward_maps[0])
         if (move_reward === undefined)
         {
             return undefined
@@ -376,13 +406,14 @@ PokemonBattle.prototype.heuristic = function () {
 var overallMinNode = {};
 var lastMove = '';
 var mcts = new MCTS(200, 6, 0)
-var decide = module.exports.decide = function (battle, choices) {
+var decide = module.exports.decide = function (battle, choices, has_p2_moved) {
     var startTime = new Date();
 
     logger.info("Starting move selection");
     logger.info("Given choices: " + JSON.stringify(choices));
+    logger.info("Has P2 moved? " + has_p2_moved);
 
-    mcts.initTurn(new PokemonBattle(battle), choices, null)
+    mcts.initTurn(new PokemonBattle(battle), choices, !!has_p2_moved ? [] : null)
     var action = mcts.selectMove();
     if (action === undefined) {
         action = randombot.decide(battle, choices);

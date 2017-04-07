@@ -165,7 +165,10 @@ var BattleRoom = new JS.Class({
             this.state.p1.active[0].clearVolatile();
         } else {
             logger.info("Opponents pokemon has switched! " + tokens[2]);
+            this.has_p2_moved = true
+
             battleside = this.state.p2;
+            
             //remove boosts for current pokemon
             this.state.p2.active[0].clearVolatile();
         }
@@ -183,6 +186,17 @@ var BattleRoom = new JS.Class({
                 return this.state.getAbility(b).rating - this.state.getAbility(a).rating;
             }.bind(this));
             set.ability = abilities[0];
+
+            // Assume all enemy mons are fully invested in speed
+            set.evs = {
+                    hp: 85,
+                    atk: 85,
+                    def: 85,
+                    spa: 85,
+                    spd: 85,
+                    spe: 252
+            }
+
             pokemon = new BattlePokemon(set, battleside);
             pokemon.trueMoves = []; //gradually add moves as they are seen
         }
@@ -211,7 +225,9 @@ var BattleRoom = new JS.Class({
             battleside = this.state.p1;
         } else {
             battleside = this.state.p2;
+            this.has_p2_moved = true
         }
+        
 
         var pokemon = this.getPokemon(battleside, pokeName);
         if(!pokemon) {
@@ -259,6 +275,30 @@ var BattleRoom = new JS.Class({
 
         this.updatePokemon(battleside, pokemon);
 
+    },
+    updatePokemonOnFaint: function(tokens) {
+        var tokens2 = tokens[2].split(' ');
+        var player = tokens2[0];
+        var pokeName = tokens2[1];
+        var battleside = undefined;
+
+        if(this.isPlayer(player)) {
+            battleside = this.state.p1;
+        } else {
+            battleside = this.state.p2;
+        }
+
+        var pokemon = this.getPokemon(battleside, pokeName);
+        if(!pokemon) {
+            logger.error("We have never seen " + pokeName + " before in this battle. Should not have happened.");
+            return;
+        }
+
+        pokemon.hp = 0;
+        pokemon.switchFlag = false;
+        pokemon.status = 'fnt';
+
+        this.updatePokemon(battleside, pokemon);
     },
     updatePokemonOnDamage: function(tokens) {
         //extract damage dealt to a particular pokemon
@@ -587,7 +627,8 @@ var BattleRoom = new JS.Class({
                     setTimeout(function() {
                         battleroom.send("/leave " + battleroom.id);
                     }, 2000);
-
+                } else if(tokens[1] === 'turn') {
+                    this.has_p2_moved = false
                 } else if (tokens[1] === 'poke') {
                     this.updatePokemonOnTeamPreview(tokens);
                 } else if (tokens[1] === 'switch' || tokens[1] === 'drag') {
@@ -595,6 +636,7 @@ var BattleRoom = new JS.Class({
                 } else if (tokens[1] === 'move') {
                     this.updatePokemonOnMove(tokens);
                 } else if(tokens[1] === 'faint') { //we could outright remove a pokemon...
+                    this.updatePokemonOnFaint(tokens);
                     //record that pokemon has fainted
                 } else if(tokens[1] === 'detailschange' || tokens[1] === 'formechange') {
                     this.updatePokemonOnFormeChange(tokens);
@@ -695,7 +737,10 @@ var BattleRoom = new JS.Class({
         if (request.side) this.updateSide(request, true);
 
         if (request.active) logger.info(this.title + ": I need to make a move.");
-        if (request.forceSwitch) logger.info(this.title + ": I need to make a switch.");
+        if (request.forceSwitch){
+            logger.info(this.title + ": I need to make a switch.");
+            logger.info(this.title + ": I need to make a switch.");
+        }
 
         if (!!request.active || !!request.forceSwitch) this.makeMove(request);
     },
@@ -817,7 +862,7 @@ var BattleRoom = new JS.Class({
             if(decision.choices.length == 1) result = decision.choices[0];
             else if(program.algorithm === "minimax") result = minimaxbot.decide(clone(room.state), decision.choices);
             else if(program.algorithm === "mcts") result = mctsbot.decide(clone(room.state), decision.choices);
-            else if(program.algorithm === "samcts") result = mcts_duct.decide(clone(room.state), decision.choices);
+            else if(program.algorithm === "samcts") result = mcts_duct.decide(clone(room.state), decision.choices, this.has_p2_moved);
             else if(program.algorithm === "greedy") result = greedybot.decide(clone(room.state), decision.choices);
             else if(program.algorithm === "random") result = randombot.decide(clone(room.state), decision.choices);
 
