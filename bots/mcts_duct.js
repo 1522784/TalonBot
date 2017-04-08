@@ -90,13 +90,13 @@ function product() {
 /** Sample from elements 'elems' according to function g which maps elements to un-normalized probabilities */
 function sample_from(elems, g) {
     var cumulative = 0;
-    var sum_pairs = _.map(elems, function(elem){ 
+    var sum_pairs = _.map(elems, function(elem){
         cumulative += g(elem);
         return [cumulative, elem];
     });
 
     var rand = Math.random()*cumulative
-    var result = _.find(sum_pairs, function(item){return item[0] >= rand})
+    var result = _.find(sum_pairs, function(item){return item[0] >= rand})    
     return result[1]
 }
 
@@ -185,18 +185,6 @@ class MCTS {
         
         // Create a new root node for now
         this.rootNode = new Node(null, null, 0, p1_choices, p2_choices)
-        
-        
-        // if(!this.rootNode)
-        // {
-        //     this.rootNode = new Node(null, null, 0, p1_choices, p2_choices)
-        // }
-        // else
-        // {
-        //     var child = _.find(this.rootNode.children, function(c) {
-        //         return _.isEqual(c.moves, moves) && _.isEqual(c.p1_choices, choices[0]) && _.isEqual(c.p1_choices, choices[1])
-        //     });
-        // }
 
         this.turn++
     }
@@ -207,9 +195,17 @@ class MCTS {
         for (round = 0; round < this.rounds; round += 1) {
 
             // ---- MCTS Algorithm
+
+            var game_copy = clone(this.game)
+            
+            // Determinize the active pokemon
+            var p2_active = game_copy.battle.p2.active[0]
+            if(!!p2_active.set.probabilities) {
+                this.determinize(game_copy.battle, p2_active)
+            }
             
             // Explore down to the bottom of the known tree via UCB1, and add node
-            result = this.get_next_node(this.rootNode, clone(this.game))
+            result = this.get_next_node(this.rootNode, game_copy)
             node = result.node
             game = result.game
             
@@ -337,6 +333,25 @@ class MCTS {
     expand(node, moves, choices) {
         return node.get_child(moves, choices[0], choices[1])
     }
+
+    /** Determinize a pokemon using the probabilities in the set */
+    determinize(battle, pokemon) {
+        var set = pokemon.set
+
+        set.item = sample_from(set.probabilities.items, function(e){return e[1]})
+        //set.evs = _.sample(set.probabilities.evs)
+        //set.moves = pokemon.trueMoves + _.map(_.sampleSize(set.probabilities.moves, 4-pokemon.trueMoves.length), function(m){return m[0]})
+
+        // Create the new pokemon
+        var new_pokemon = new BattlePokemon(set, battle.p2);
+        pokemon.position = pokemon.position;
+        battle.p2.pokemon[pokemon.position] = new_pokemon;
+
+        if (pokemon.position === 0) {
+            battle.p2.active = [new_pokemon];
+            new_pokemon.isActive = true;
+        }
+    }
 }
 
 // ---- POKEMON GAME
@@ -405,7 +420,7 @@ PokemonBattle.prototype.heuristic = function () {
 // Function that decides which move to perform
 var overallMinNode = {};
 var lastMove = '';
-var mcts = new MCTS(200, 6, 0)
+var mcts = new MCTS(250, 6, 0)
 var decide = module.exports.decide = function (battle, choices, has_p2_moved) {
     var startTime = new Date();
 

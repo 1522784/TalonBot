@@ -5,6 +5,7 @@ require('./globals');
 // Logging
 var log4js = require('log4js');
 var logger = require('log4js').getLogger("battlepokemon");
+logger.setLevel('ERROR');
 
 BattlePokemon = (function () {
 	function BattlePokemon(set, side) {

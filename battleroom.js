@@ -33,6 +33,9 @@ var clone = require("./clone");
 
 var program = require('commander'); // Get Command-line arguments
 
+// Pokemon inference
+var Inference = require("./moves");
+
 var BattleRoom = new JS.Class({
     initialize: function(id, sendfunc) {
         this.id = id;
@@ -59,6 +62,8 @@ var BattleRoom = new JS.Class({
         this.last_rqid = 0
 
         this.state.start();
+        
+        this.randbat = id.indexOf("randombattle") != -1
     },
     init: function(data) {
         var log = data.split('\n');
@@ -117,20 +122,36 @@ var BattleRoom = new JS.Class({
 
                 // TODO: Add move inference here
                 var set = this.state.getTemplate(pokeName);
-                set.moves = set.randomBattleMoves;      // For now, just add random battle moves
+                var inference_data = Inference.getdata(pokeName.toLowerCase())
+                
+                // For now just push the names, no probabilities
+                set.moves = _.map(inference_data.moves, function(prob, name) {
+                    return name
+                });
                 
                 set.level = 100;            // TODO: Something smarter here
-                               
+
+                // Add the probabilistic attributes to the set
+                var prob_set = {}
+                prob_set.moves = _.map(inference_data.moves, function(prob, name) {
+                    return [name, prob]
+                });                
+
+                prob_set.items = _.map(inference_data.items, function(prob, name) {
+                    return [name, prob]
+                });
+
+                prob_set.evs = _.map(inference_data.evs, function(evs) {
+                    return evs
+                });
+                set.probabilities = prob_set
+                
                 // TODO: Add ability inference here
                 var abilities = Object.values(set.abilities).sort(function(a,b) {
                     return this.state.getAbility(b).rating - this.state.getAbility(a).rating;
-                }.bind(this));      
+                }.bind(this));
                 set.ability = abilities[0];
                 var old_pos = pokemon.position;
-                for(var i = 0; i<6; i++)
-                {
-                    console.log(battleside.pokemon[i].name + " " + battleside.pokemon[i].position)
-                }
 
                 // Create the pokemon
                 pokemon = new BattlePokemon(set, battleside);
@@ -186,6 +207,14 @@ var BattleRoom = new JS.Class({
                 return this.state.getAbility(b).rating - this.state.getAbility(a).rating;
             }.bind(this));
             set.ability = abilities[0];
+
+            // Add the probabilistic attributes to the set
+            var prob_set = {}
+            var inference_data = Inference.getdata(pokeName.toLowerCase())
+            prob_set.items = _.map(inference_data.items, function(prob, name) {
+                return [name, prob]
+            });
+            set.probabilities = prob_set
 
             // Assume all enemy mons are fully invested in speed
             set.evs = {
@@ -911,7 +940,7 @@ var BattleRoom = new JS.Class({
             var canSwitch = request.forceSwitch || !trapped || !alive
             if (canSwitch) {
                 _.each(request.side.pokemon, function(pokemon, index) {
-                    if (pokemon.condition.indexOf("fnt") < 0 && !pokemon.active) {
+                    if (pokemon.condition.indexOf("fnt") < 0 && !pokemon.active && pokemon.ident.indexOf('Bulbasaur') < 0) {
                         choices.push({
                             "type": "switch",
                             "id": index
@@ -921,10 +950,10 @@ var BattleRoom = new JS.Class({
             }
             
             // Cannot happen for the current turn, so just struggle
-            // TODO: Fix bug where last pokemon knows swicthing move
+            // TODO: Fix bug where last pokemon knows switching move
             if(_.size(choices) === 0) {
                 console.log(JSON.stringify(request))
-                console.log("No moves found " + trapped + " " + canSwitch + " " + request.forceSwitch + " " + alive)
+                console.log("No moves found " + trapped + " " + canSwitch + " " + request.forceSwitch + " " + alive)                
                 choices.push({
                     "type": "move",
                     "id": "struggle"

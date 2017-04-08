@@ -262,12 +262,11 @@ function recieve(data) {
 						// Read the team from a file and update the team
 						let team_file = 'teams/' + challenges.challengesFrom[user] + '.req'
 						if (fs.existsSync(team_file)) {
-							fs.readFile(team_file, 'ascii', function(err, contents) {
-								console.log(contents);
+							fs.readFile(team_file, 'ascii', function(err, contents) {								
 								send("/utm " + contents, null);
+								logger.info("Accepting challenge from " + user + " in format " + challenges.challengesFrom[user]);
+								send("/accept " + user);
 							});
-							logger.info("Accepting challenge from " + user + " in format " + challenges.challengesFrom[user]);
-							send("/accept " + user);
 						}
 						else
 						{
