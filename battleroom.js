@@ -855,9 +855,9 @@ var BattleRoom = new JS.Class({
 
         // Update the active pokemon's moves
         if(request.active) {
-            let active_poke = this.state.p1.active[0]
+            var active_poke = this.state.p1.active[0]
             _.each(request.active[0].moves, function(move){
-                let local_move = _.find(active_poke.moveset, function(m){
+                var local_move = _.find(active_poke.moveset, function(m){
                     return m.id === move.id
                 });
                 local_move.disabled = move.disabled
@@ -917,7 +917,7 @@ var BattleRoom = new JS.Class({
             if(!request) return choices; // Empty request
             if(request.wait) return choices; // This player is not supposed to make a move
 
-            let alive = _.some(request.side.pokemon, function(pokemon, index) {
+            var alive = _.some(request.side.pokemon, function(pokemon, index) {
                 return (pokemon.active && pokemon.condition.indexOf("fnt") < 0)
             });
 
