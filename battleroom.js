@@ -124,14 +124,14 @@ var BattleRoom = new JS.Class({
                 var set = this.state.getTemplate(pokeName);
                 var inference_data = Inference.getdata(pokeName.toLowerCase())
                 
-                // For now just push the names, no probabilities
-                set.moves = _.map(inference_data.moves, function(prob, name) {
-                    return name
-                });
                 
                 set.level = 100;            // TODO: Something smarter here
 
                 if(!!inference_data) {
+                    set.moves = _.map(inference_data.moves, function(prob, name) {
+                        return name
+                    });
+
                     // Add the probabilistic attributes to the set
                     var prob_set = {}
                     prob_set.moves = _.map(inference_data.moves, function(prob, name) {
@@ -156,6 +156,9 @@ var BattleRoom = new JS.Class({
                     }
 
                     set.probabilities = prob_set
+                }
+                else {
+                    set.moves = set.randomBattleMoves
                 }
                 
                 // TODO: Add ability inference here
