@@ -104,7 +104,7 @@ var BattleRoom = new JS.Class({
 
     //returns true if the player object is us
     isPlayer: function(player) {
-        return player === this.side + 'a:' || player === this.side + ':';
+        return player === this.side + 'a:' || player === this.side + ':' || player === this.side + 'a' || player === this.side;
     },
      // TODO: Add inference here for each pokemon
     updatePokemonOnTeamPreview: function(tokens) {
@@ -187,14 +187,15 @@ var BattleRoom = new JS.Class({
             }
         }
     },
-    // TODO: Understand more about the opposing pokemon
     updatePokemonOnSwitch: function(tokens) {
-        var tokens2 = tokens[2].split(' ');
         var level = tokens[3].split(', ')[1] ? tokens[3].split(', ')[1].substring(1) : 100;
         var tokens4 = tokens[4].split(/\/| /); //for health
 
+        var tokens2 = tokens[2].split(': ');
         var player = tokens2[0];
-        var pokeName = tokens2[1];
+        var nickname = tokens2[1];
+
+        var pokeName = tokens[3].split(',')[0];
         var health = tokens4[0];
         var maxHealth = tokens4[1];
 
@@ -214,6 +215,7 @@ var BattleRoom = new JS.Class({
             //remove boosts for current pokemon
             this.state.p2.active[0].clearVolatile();
         }
+
         var pokemon = this.getPokemon(battleside, pokeName);
 
         if(!pokemon) { //pokemon has not been defined yet, so choose Bulbasaur
@@ -257,6 +259,7 @@ var BattleRoom = new JS.Class({
         pokemon.hp = Math.ceil(health / maxHealth * pokemon.maxhp);
         battleside.active[0].position = pokemon.position;
         pokemon.position = 0;
+        pokemon.nickname = nickname
 
         battleside.active[0].isActive = false;
         pokemon.isActive = true;
@@ -271,7 +274,7 @@ var BattleRoom = new JS.Class({
         }
     },
     updatePokemonOnMove: function(tokens) {
-        var tokens2 = tokens[2].split(' ');
+        var tokens2 = tokens[2].split(': ');
         var player = tokens2[0];
         var pokeName = tokens2[1];
         var move = tokens[3];
@@ -283,13 +286,15 @@ var BattleRoom = new JS.Class({
             battleside = this.state.p2;
             this.has_p2_moved = true
         }
-        
 
-        var pokemon = this.getPokemon(battleside, pokeName);
+        // _.each(battleside.pokemon, function(p){console.log(p.name + " " + p.nickname)})
+        
+        var pokemon = _.find(battleside.pokemon, {'nickname':pokeName})
         if(!pokemon) {
-            logger.error("We have never seen " + pokeName + " before in this battle. Should not have happened.");
+            logger.error("We have never seen " + pokeName + " on team " + battleside.name + " before in this battle. Should not have happened.");
             return;
         }
+        var pokeName = pokemon.name
 
         //update last move (doesn't actually affect the bot...)
         pokemon.lastMove = toId(move);
@@ -333,7 +338,7 @@ var BattleRoom = new JS.Class({
 
     },
     updatePokemonOnFaint: function(tokens) {
-        var tokens2 = tokens[2].split(' ');
+        var tokens2 = tokens[2].split(': ');
         var player = tokens2[0];
         var pokeName = tokens2[1];
         var battleside = undefined;
@@ -344,7 +349,7 @@ var BattleRoom = new JS.Class({
             battleside = this.state.p2;
         }
 
-        var pokemon = this.getPokemon(battleside, pokeName);
+        var pokemon = _.find(battleside.pokemon, {'nickname':pokeName})
         if(!pokemon) {
             logger.error("We have never seen " + pokeName + " before in this battle. Should not have happened.");
             return;
@@ -362,10 +367,10 @@ var BattleRoom = new JS.Class({
         //note that opponent health is recorded as percent. Keep this in mind
         // TODO: Use damage to infer about the opponents stats / items 
 
-        var tokens2 = tokens[2].split(' ');
-        var tokens3 = tokens[3].split(/\/| /);
+        var tokens2 = tokens[2].split(': ');
         var player = tokens2[0];
         var pokeName = tokens2[1];
+        var tokens3 = tokens[3].split(/\/| /);       
         var health = tokens3[0];
         var maxHealth = tokens3[1];
         var battleside = undefined;
@@ -376,7 +381,7 @@ var BattleRoom = new JS.Class({
             battleside = this.state.p2;
         }
 
-        var pokemon = this.getPokemon(battleside, pokeName);
+        var pokemon = _.find(battleside.pokemon, {'nickname':pokeName})
         if(!pokemon) {
             logger.error("We have never seen " + pokeName + " before in this battle. Should not have happened.");
             return;
@@ -388,11 +393,11 @@ var BattleRoom = new JS.Class({
 
     },
     updatePokemonOnBoost: function(tokens, isBoost) {
-        var tokens2 = tokens[2].split(' ');
-        var stat = tokens[3];
-        var boostCount = parseInt(tokens[4]);
+        var tokens2 = tokens[2].split(': ');
         var player = tokens2[0];
         var pokeName = tokens2[1];
+        var stat = tokens[3];
+        var boostCount = parseInt(tokens[4]);
         var battleside = undefined;
 
         if(this.isPlayer(player)) {
@@ -401,7 +406,7 @@ var BattleRoom = new JS.Class({
             battleside = this.state.p2;
         }
 
-        var pokemon = this.getPokemon(battleside, pokeName);
+        var pokemon = _.find(battleside.pokemon, {'nickname':pokeName})
         if(!pokemon) {
             logger.error("We have never seen " + pokeName + " before in this battle. Should not have happened.");
             return;
@@ -421,11 +426,11 @@ var BattleRoom = new JS.Class({
         this.updatePokemon(battleside, pokemon);
     },
     updatePokemonSetBoost: function(tokens) {
-        var tokens2 = tokens[2].split(' ');
-        var stat = tokens[3];
-        var boostCount = parseInt(tokens[4]);
+        var tokens2 = tokens[2].split(': ');
         var player = tokens2[0];
         var pokeName = tokens2[1];
+        var stat = tokens[3];
+        var boostCount = parseInt(tokens[4]);
         var battleside = undefined;
 
         if(this.isPlayer(player)) {
@@ -434,7 +439,7 @@ var BattleRoom = new JS.Class({
             battleside = this.state.p2;
         }
 
-        var pokemon = this.getPokemon(battleside, pokeName);
+        var pokemon = _.find(battleside.pokemon, {'nickname':pokeName})
         if(!pokemon) {
             logger.error("We have never seen " + pokeName + " before in this battle. Should not have happened.");
             return;
@@ -444,9 +449,9 @@ var BattleRoom = new JS.Class({
         this.updatePokemon(battleside, pokemon);
     },
     updatePokemonRestoreBoost: function(tokens) {
-        var tokens2 = tokens[2].split(' ');
+        var tokens2 = tokens[2].split(': ');
         var player = tokens2[0];
-        var pokeName = tokens2[1];
+        var pokeName = tokens2[1];        
         var battleside = undefined;
 
         if(this.isPlayer(player)) {
@@ -455,7 +460,7 @@ var BattleRoom = new JS.Class({
             battleside = this.state.p2;
         }
 
-        var pokemon = this.getPokemon(battleside, pokeName);
+        var pokemon = _.find(battleside.pokemon, {'nickname':pokeName})
         if(!pokemon) {
             logger.error("We have never seen " + pokeName + " before in this battle. Should not have happened.");
             return;
@@ -474,7 +479,7 @@ var BattleRoom = new JS.Class({
         //move: yawn, etc.
         //ability: flash fire, etc.
 
-        var tokens2 = tokens[2].split(' ');
+        var tokens2 = tokens[2].split(': ');
         var player = tokens2[0];
         var pokeName = tokens2[1];
         var status = tokens[3];
@@ -486,7 +491,7 @@ var BattleRoom = new JS.Class({
             battleside = this.state.p2;
         }
 
-        var pokemon = this.getPokemon(battleside, pokeName);
+        var pokemon = _.find(battleside.pokemon, {'nickname':pokeName})
 
         if(status.substring(0,4) === 'move') {
             status = status.substring(6);
@@ -541,7 +546,7 @@ var BattleRoom = new JS.Class({
         }
     },
     updatePokemonStatus: function(tokens, newStatus) {
-        var tokens2 = tokens[2].split(' ');
+        var tokens2 = tokens[2].split(': ');
         var player = tokens2[0];
         var pokeName = tokens2[1];
         var status = tokens[3];
@@ -552,7 +557,7 @@ var BattleRoom = new JS.Class({
         } else {
             battleside = this.state.p2;
         }
-        var pokemon = this.getPokemon(battleside, pokeName);
+        var pokemon = _.find(battleside.pokemon, {'nickname':pokeName})
 
         if(newStatus) {
             pokemon.setStatus(status);
@@ -569,7 +574,7 @@ var BattleRoom = new JS.Class({
         //record that a pokemon has an item. Most relevant if a Pokemon has an air balloon/chesto berry
         //TODO: try to predict the opponent's current item
 
-        var tokens2 = tokens[2].split(' ');
+        var tokens2 = tokens[2].split(': ');
         var player = tokens2[0];
         var pokeName = tokens2[1];
         var item = tokens[3];
@@ -580,7 +585,7 @@ var BattleRoom = new JS.Class({
         } else {
             battleside = this.state.p2;
         }
-        var pokemon = this.getPokemon(battleside, pokeName);
+        var pokemon = _.find(battleside.pokemon, {'nickname':pokeName})
 
         if(newItem) {
             pokemon.setItem(item);
@@ -592,10 +597,10 @@ var BattleRoom = new JS.Class({
 
     //Apply mega evolution effects, or aegislash/meloetta
     updatePokemonOnFormeChange: function(tokens) {
-        var tokens2 = tokens[2].split(' ');
-        var tokens3 = tokens[3].split(', ');
+        var tokens2 = tokens[2].split(': ');
         var player = tokens2[0];
         var pokeName = tokens2[1];
+        var tokens3 = tokens[3].split(', ');
         var newPokeName = tokens3[0];
         var battleside = undefined;
 
@@ -606,7 +611,7 @@ var BattleRoom = new JS.Class({
         }
         //Note: crashes when the bot mega evolves.
         logger.info(pokeName + " has transformed into " + newPokeName + "!");
-        var pokemon = this.getPokemon(battleside, pokeName, true);
+        var pokemon = _.find(battleside.pokemon, {'nickname':pokeName})
 
         //apply forme change
         pokemon.formeChange(newPokeName);
@@ -614,21 +619,21 @@ var BattleRoom = new JS.Class({
     },
     //for ditto exclusively
     updatePokemonOnTransform: function(tokens) {
-        var tokens2 = tokens[2].split(' ');
-        var tokens3 = tokens[3].split(' ');
+        var tokens2 = tokens[2].split(': ');
         var player = tokens2[0];
         var pokeName = tokens2[1];
+        var tokens3 = tokens[3].split(' ');        
         var newPokeName = tokens3[1];
         var battleside = undefined;
         var pokemon = undefined;
 
         if(this.isPlayer(player)) {
             battleside = this.state.p1;
-            pokemon = this.getPokemon(battleside, pokeName);
+            var pokemon = _.find(battleside.pokemon, {'nickname':pokeName})
             pokemon.transformInto(this.state.p2.active[0]);
         } else {
             battleside = this.state.p2;
-            pokemon = this.getPokemon(battleside, pokeName);
+            var pokemon = _.find(battleside.pokemon, {'nickname':pokeName})
             pokemon.transformInto(this.state.p1.active[0]);
         }
         this.updatePokemon(battleside, pokemon);
@@ -815,6 +820,7 @@ var BattleRoom = new JS.Class({
 
             var details = pokemon.details.split(",");
             var name = details[0].trim();
+            var nickname = pokemon.ident.split(": ")[1]
             var level = details[1] ? parseInt(details[1].trim().substring(1)) : 100;
             var gender = details[2] ? details[2].trim() : null;
 
@@ -870,7 +876,8 @@ var BattleRoom = new JS.Class({
             // Initialize pokemon
             this.state.p1.pokemon[i] = new BattlePokemon(template, this.state.p1);
             this.state.p1.pokemon[i].position = i;
-            this.state.p1.pokemon[i].trueMoves = []
+            this.state.p1.pokemon[i].trueMoves = oldPokemon.trueMoves
+            this.state.p1.pokemon[i].nickname = nickname
 
             // Update the pokemon object with latest stats
             for (var stat in pokemon.stats) {

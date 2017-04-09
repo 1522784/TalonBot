@@ -116,7 +116,7 @@ class MCTS {
      * the start of each of the AI player's turns.
      * TODO: Caching?
      * 
-     * @constructor     
+     * @constructor
      * @param {int} rounds - How many rounds to play out
      * @param {int} cutoff_depth - The depth at which to cut off simulation and perform heuristic evaluation
      * @param {int} player - The AI player, either 0 or 1 corresponding to p1 or p2.
@@ -126,7 +126,7 @@ class MCTS {
         this.inertia = 0.2      // Used to turn the rewards for a switch
 
         // Specifies how nodes are explored
-        var c = 15.0     // Exploration constant
+        var c = 20.0     // Exploration constant
         this.tree_policy = function (node, player) {
             if (node.untried_actions[player].size() !== 0)
             {
@@ -352,6 +352,7 @@ class MCTS {
                 // Create the new pokemon
                 var new_pokemon = new BattlePokemon(set, battleside);
                 new_pokemon.trueMoves = pokemon.trueMoves
+                new_pokemon.nickname = pokemon.nickname
                 pokemon.position = pokemon.position;
                 battleside.pokemon[pokemon.position] = new_pokemon;
 
