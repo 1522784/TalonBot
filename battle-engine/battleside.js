@@ -1,5 +1,6 @@
 require('sugar');
 require('./globals');
+var _ = require('lodash');
 
 // Logging
 var log4js = require('log4js');
@@ -57,7 +58,7 @@ BattleSide = (function () {
 			name: this.name,
 			id: this.id,
 			pokemon: []
-		};		
+		};
 		for (var i = 0; i < this.pokemon.length; i++) {
 			var pokemon = this.pokemon[i];
 			data.pokemon.push({

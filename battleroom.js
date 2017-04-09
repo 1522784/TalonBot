@@ -131,20 +131,32 @@ var BattleRoom = new JS.Class({
                 
                 set.level = 100;            // TODO: Something smarter here
 
-                // Add the probabilistic attributes to the set
-                var prob_set = {}
-                prob_set.moves = _.map(inference_data.moves, function(prob, name) {
-                    return [name, prob]
-                });                
+                if(!!inference_data) {
+                    // Add the probabilistic attributes to the set
+                    var prob_set = {}
+                    prob_set.moves = _.map(inference_data.moves, function(prob, name) {
+                        return [name, prob]
+                    });
 
-                prob_set.items = _.map(inference_data.items, function(prob, name) {
-                    return [name, prob]
-                });
+                    prob_set.items = _.map(inference_data.items, function(prob, name) {
+                        return [name, prob]
+                    });
 
-                prob_set.evs = _.map(inference_data.evs, function(evs) {
-                    return evs
-                });
-                set.probabilities = prob_set
+                    prob_set.evs = _.map(inference_data.evs, function(evs) {
+                        return evs
+                    });
+
+                    set.evs = {
+                        hp: 85,
+                        atk: 85,
+                        def: 85,
+                        spa: 85,
+                        spd: 85,
+                        spe: 252
+                    }
+
+                    set.probabilities = prob_set
+                }
                 
                 // TODO: Add ability inference here
                 var abilities = Object.values(set.abilities).sort(function(a,b) {
@@ -162,6 +174,12 @@ var BattleRoom = new JS.Class({
                 if (old_pos === 0){
                     battleside.active = [pokemon];
                     pokemon.isActive = true;
+                }
+
+                //Ensure that active pokemon is in slot zero
+                battleside.pokemon = _.sortBy(battleside.pokemon, function(pokemon) { return pokemon == battleside.active[0] ? 0 : 1 });
+                for(var i = 0; i < 6; i++) {
+                    battleside.pokemon[i].position = i
                 }
             }
         }
@@ -211,10 +229,13 @@ var BattleRoom = new JS.Class({
             // Add the probabilistic attributes to the set
             var prob_set = {}
             var inference_data = Inference.getdata(pokeName.toLowerCase())
-            prob_set.items = _.map(inference_data.items, function(prob, name) {
-                return [name, prob]
-            });
-            set.probabilities = prob_set
+
+            if(!!inference_data) {
+                prob_set.items = _.map(inference_data.items, function(prob, name) {
+                    return [name, prob]
+                });
+                set.probabilities = prob_set
+            }
 
             // Assume all enemy mons are fully invested in speed
             set.evs = {
@@ -242,6 +263,9 @@ var BattleRoom = new JS.Class({
 
         //Ensure that active pokemon is in slot zero
         battleside.pokemon = _.sortBy(battleside.pokemon, function(pokemon) { return pokemon == battleside.active[0] ? 0 : 1 });
+        for(var i = 0; i < 6; i++){
+            battleside.pokemon[i].position = i
+        }
     },
     updatePokemonOnMove: function(tokens) {
         var tokens2 = tokens[2].split(' ');
@@ -817,12 +841,33 @@ var BattleRoom = new JS.Class({
                 shiny: false
             };
 
+            
+            var inference_data = Inference.getdata(name.toLowerCase())
+            
+            if(!!inference_data) {
+                // Add the probabilistic attributes to the set
+                var prob_set = {}
+                prob_set.moves = _.map(inference_data.moves, function(prob, name) {
+                    return [name, prob]
+                });                
+
+                prob_set.items = _.map(inference_data.items, function(prob, name) {
+                    return [name, prob]
+                });
+
+                prob_set.evs = _.map(inference_data.evs, function(evs) {
+                    return evs
+                });
+                template.probabilities = prob_set
+            }
+
             //keep track of old pokemon
             var oldPokemon = this.state.p1.pokemon[i];
 
             // Initialize pokemon
             this.state.p1.pokemon[i] = new BattlePokemon(template, this.state.p1);
             this.state.p1.pokemon[i].position = i;
+            this.state.p1.pokemon[i].trueMoves = []
 
             // Update the pokemon object with latest stats
             for (var stat in pokemon.stats) {
@@ -867,6 +912,9 @@ var BattleRoom = new JS.Class({
 
         // Enforce that the active pokemon is in the first slot
         this.state.p1.pokemon = _.sortBy(this.state.p1.pokemon, function(pokemon) { return pokemon.isActive ? 0 : 1 });
+        for(var i = 0; i < 6; i++){
+            this.state.p1.pokemon[i].position = i
+        }
 
         this.side = sideData.id;
         this.oppSide = (this.side === "p1") ? "p2" : "p1";
@@ -953,7 +1001,7 @@ var BattleRoom = new JS.Class({
             // TODO: Fix bug where last pokemon knows switching move
             if(_.size(choices) === 0) {
                 console.log(JSON.stringify(request))
-                console.log("No moves found " + trapped + " " + canSwitch + " " + request.forceSwitch + " " + alive)                
+                console.log("No moves found " + trapped + " " + canSwitch + " " + request.forceSwitch + " " + alive)
                 choices.push({
                     "type": "move",
                     "id": "struggle"

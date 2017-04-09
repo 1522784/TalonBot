@@ -28,6 +28,7 @@ class State {
         })
 
         this.names = _.map(active, 'name')
+        this.items = _.map(active, 'item')
         this.fnt = _.map(active, function(p){return p.hp == 0})
         this.statusData = _.map(active, 'statusData.id')
     }
@@ -36,7 +37,7 @@ class State {
 class Node {
     
     /** Apply the move assigned to this node */
-    constructor(parent, moves, depth, p1_choices, p2_choices) {
+    constructor(parent, moves, depth, p1_choices, p2_choices, state) {
         var self = this
         this.parent = parent
         
@@ -45,13 +46,13 @@ class Node {
         this.depth = depth || 0
 
         this.q = 0
-        this.visits = 0
+        this.visits = [0,0]
 
         this.moves = moves
         this.choices = [p1_choices, p2_choices]
         
         // Used to identify this child
-        this.state = {'moves':moves, }
+        this.state = state
 
         this.untried_actions = [_(p1_choices).castArray(), _(p2_choices).castArray()]
 
@@ -59,8 +60,8 @@ class Node {
         this.reward_maps = [[],[]]
     }
 
-    get_child(moves, p1_choices, p2_choices) {
-        var child = new Node(this, moves, this.depth + 1, p1_choices, p2_choices)
+    get_child(moves, p1_choices, p2_choices, state) {
+        var child = new Node(this, moves, this.depth + 1, p1_choices, p2_choices, state)
         this.children.push(child)
         return child
     }
@@ -122,9 +123,10 @@ class MCTS {
      */    
     constructor(rounds, cutoff_depth, bot_player) {
         this.turn = 0
+        this.inertia = 0.2      // Used to turn the rewards for a switch
 
         // Specifies how nodes are explored
-        var c = 10.0     // Exploration constant
+        var c = 15.0     // Exploration constant
         this.tree_policy = function (node, player) {
             if (node.untried_actions[player].size() !== 0)
             {
@@ -140,15 +142,14 @@ class MCTS {
             }
             else
             {
-                
                 var move_reward = _.maxBy(node.reward_maps[player], function(o) {
-                    return UCB1(o.q, o.n, node.visits, c)
+                    return UCB1(o.q, o.n, node.visits[player], c)
                 })
-
+                
                 if (move_reward === undefined)
-                {
+                {   
                     return undefined
-                }
+                }                
                 return move_reward.move;
             }
         }
@@ -173,7 +174,6 @@ class MCTS {
         this.game = game
 
         var root_state = new State(game.battle)
-        console.log(JSON.stringify(root_state))
         
         p1_choices = !!p1_choices ? p1_choices : game.getPossibleMoves(0)
         
@@ -191,77 +191,78 @@ class MCTS {
 
     /** Select the move that should be performed by the player this turn */
     selectMove() {
+        var self = this
         var round, node, game, result
         for (round = 0; round < this.rounds; round += 1) {
 
             // ---- MCTS Algorithm
+            var player, side
+            for(player = 0; player < 2; player++) {
 
-            var game_copy = clone(this.game)
-            
-            // Determinize the active pokemon
-            var p2_active = game_copy.battle.p2.active[0]
-            if(!!p2_active.set.probabilities) {
-                this.determinize(game_copy.battle, p2_active)
-            }
-            
-            // Explore down to the bottom of the known tree via UCB1, and add node
-            result = this.get_next_node(this.rootNode, game_copy)
-            node = result.node
-            game = result.game
-            
-            // Rollout to maximum depth k, or terminus
-            var winner = game.getWinner()
-            var d
-            for (d = node.depth; d < this.cutoff_depth; d++) {
-                // Check win condition
-                if (game.getWinner() !== undefined)
+                var game_copy = clone(this.game)
+                
+                // Determinize
+                var sides = [game_copy.battle.p1, game_copy.battle.p2]
+                for(side = 1-player; side < 2; side++) {
+                    this.determinize(sides[side])
+                }
+                
+                // Explore down to the bottom of the known tree via UCB1, and add node
+                result = this.get_next_node(this.rootNode, game_copy, player)
+                node = result.node
+                game = result.game
+                
+                // Rollout to maximum depth k, or terminus
+                var winner = game.getWinner()
+                var d
+                for (d = node.depth; d < this.cutoff_depth; d++) {
+                    // Check win condition
+                    if (winner !== undefined)
+                    {
+                        break;
+                    }
+
+                    // TODO: Sample according to heuristic?
+                    // Sample moves randomly
+                    var moves = _.map([0,1], function(p){return _.sample(game.getPossibleMoves(p))})
+
+                    // Perform moves
+                    if (moves !== null)
+                    {
+                        game.performTurn(moves)
+                    }
+                }
+                winner = game.getWinner()
+                
+                // Get the score of the node from the point of view of the current player
+                var reward = 0
+                if (winner !== undefined)
                 {
-                    break;
+                    var score = (this.bot_player === winner) ? Math.pow(10,7) : -Math.pow(10,7)
+                    reward = player==0 ? score : -score
+                }
+                else {
+                    var score = game.heuristic()
+                    reward = player==0 ? score : -score
                 }
 
-                // TODO: Sample according to heuristic?
-                // Sample moves randomly
-                var moves = _.map([0,1], function(p){return _.sample(game.getPossibleMoves(p))})
-
-                // Perform moves
-                if (moves !== null)
-                {
-                    game.performTurn(moves)
-                }
-            }
-            
-            // Get the score of the node
-            var rewards = [0,0]
-            if (winner !== undefined)
-            {
-                var score = (this.bot_player === winner) ? Math.pow(10,7) : -Math.pow(10,7)
-                rewards = [score, -score]
-            }
-            else {
-                var score = game.heuristic()
-                rewards = [score, -score]
-            }
-
-            // Roll back up incrementing the visit counts and propagating score by move
-            var moves
-            while (node.parent) {
-                moves = node.moves
-                node = node.parent
-
-                for (var i = 0; i<2; i++)
-                {
+                // Roll back up incrementing the visit counts and propagating score by move
+                var moves
+                while (node.parent) {
+                    moves = node.moves
+                    node = node.parent
+                    
                     // If this is a move where an action was not required, don't update
-                    if (moves[i] !== undefined && _.size(node.reward_maps[i]) !== 0) {
-                        var ns = _.find(node.reward_maps[i], function(s) {return _.isEqual(s.move, moves[i]);});
+                    if (moves[player] !== undefined && _.size(node.reward_maps[player]) !== 0) {
+                        var ns = _.find(node.reward_maps[player], function(s) {return _.isEqual(s.move, moves[player]);});
                         ns.n += 1
-                        ns.q = ((ns.n - 1.0)/ns.n) * ns.q + 1.0/ns.n * rewards[i]
+                        ns.q = ((ns.n - 1.0)/ns.n) * ns.q + 1.0/ns.n * reward
                     }
                 }
             }
         }
 
-        // Tracking
-        var N = this.rootNode.visits
+        // Tracking        
         logger.info("p1 scores:")
         _.each(this.rootNode.reward_maps[0].sort(function(a,b){
             if(a.n === b.n)
@@ -292,20 +293,22 @@ class MCTS {
 
     /** Gets the next node to be expanded.
      * recurses down to the next unexpanded node or terminal state */
-    get_next_node(node, game) {
+    get_next_node(node, game, player) {
 
-        var child, moves, choices
+        var child, moves, choices, state
         while(game.getWinner() === undefined) {
             
-            // Increment visits count
-            node.visits += 1
+            // Increment visits count for the active player
+            node.visits[player] += 1
             
             moves = this.get_actions(node)
             game.performTurn(moves)
             choices = [game.getPossibleMoves(0), game.getPossibleMoves(1)]
+            state = new State(game.battle)
 
+            // This is never returning true
             child = _.find(node.children, function(c) {
-                return _.isEqual(c.moves, moves) && _.isEqual(c.choices, choices)
+                return _.isEqual(c.moves, moves) && _.isEqual(c.state, state)
             });
             
             if(!!child)
@@ -313,7 +316,7 @@ class MCTS {
                 node = child;
             }
             else {
-                node = this.expand(node, moves, choices)                
+                node = this.expand(node, moves, choices, state)
                 break
             }
         }
@@ -326,30 +329,43 @@ class MCTS {
         var moves = _.map([0,1], function(player) {
             return self.tree_policy(node, player)
         })
+        
         return moves
     }
 
     /** Expand a node*/
-    expand(node, moves, choices) {
-        return node.get_child(moves, choices[0], choices[1])
+    expand(node, moves, choices, state) {
+        return node.get_child(moves, choices[0], choices[1], state)
     }
 
-    /** Determinize a pokemon using the probabilities in the set */
-    determinize(battle, pokemon) {
-        var set = pokemon.set
+    /** Determinize a battleside using the probabilities in the set */
+    determinize(battleside) {
 
-        set.item = sample_from(set.probabilities.items, function(e){return e[1]})
-        //set.evs = _.sample(set.probabilities.evs)
-        //set.moves = pokemon.trueMoves + _.map(_.sampleSize(set.probabilities.moves, 4-pokemon.trueMoves.length), function(m){return m[0]})
+        _.each(battleside.pokemon, function(pokemon) {
+            if(!!pokemon.set.probabilities) {
+                var set = pokemon.set
 
-        // Create the new pokemon
-        var new_pokemon = new BattlePokemon(set, battle.p2);
-        pokemon.position = pokemon.position;
-        battle.p2.pokemon[pokemon.position] = new_pokemon;
+                set.item = sample_from(set.probabilities.items, function(e){return e[1]})[0]
+                set.evs = _.sample(set.probabilities.evs)
+                //set.moves = pokemon.trueMoves + _.map(_.sampleSize(set.probabilities.moves, 4-pokemon.trueMoves.length), function(m){return m[0]})
 
-        if (pokemon.position === 0) {
-            battle.p2.active = [new_pokemon];
-            new_pokemon.isActive = true;
+                // Create the new pokemon
+                var new_pokemon = new BattlePokemon(set, battleside);
+                new_pokemon.trueMoves = pokemon.trueMoves
+                pokemon.position = pokemon.position;
+                battleside.pokemon[pokemon.position] = new_pokemon;
+
+                if (pokemon.position === 0) {
+                    battleside.active = [new_pokemon];
+                    new_pokemon.isActive = true;
+                }
+            }
+        })
+    
+
+        battleside.pokemon = _.sortBy(battleside.pokemon, function(pokemon) { return pokemon.isActive ? 0 : 1 });
+        for(var i = 0; i < 6; i++) {
+            battleside.pokemon[i].position = i
         }
     }
 }
@@ -411,16 +427,16 @@ PokemonBattle.prototype.heuristic = function () {
         return !!pokemon.hp ? pokemon.hp / pokemon.maxhp * 100.0 : 0.0;
     }));
     
-    return (p1_health - p2_health);
+    return (p1_health - p2_health) + 600;
     
     // Use minimax heuristic
-    // return minimaxbot.eval(this.battle);
+    //return minimaxbot.eval(this.battle);
 }
 
 // Function that decides which move to perform
 var overallMinNode = {};
 var lastMove = '';
-var mcts = new MCTS(250, 6, 0)
+var mcts = new MCTS(150, 4, 0)
 var decide = module.exports.decide = function (battle, choices, has_p2_moved) {
     var startTime = new Date();
 

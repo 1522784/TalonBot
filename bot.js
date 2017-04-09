@@ -81,7 +81,7 @@ var CHALLENGE = null;
 var BattleRoom = require('./battleroom');
 
 // The game type that we want to search for on startup
-var GAME_TYPE = (program.ranked) ? "gen6randombattle" : "ou";
+var GAME_TYPE = (program.ranked) ? "gen6randombattle" : "gen6randombattle";
 
 // Load in Game Data
 var Pokedex = require("./data/pokedex");
@@ -251,7 +251,7 @@ function recieve(data) {
 			logger.info("Popup: " + data.substr(7).replace(/\|\|/g, '\n'));
 			break;
 		// Someone has challenged us to a battle
-		case 'updatechallenges':			
+		case 'updatechallenges':
 			var challenges = JSON.parse(data.substr(18));
 			if(challenges.challengesFrom) {
 				for(var user in challenges.challengesFrom) {
@@ -262,7 +262,7 @@ function recieve(data) {
 						// Read the team from a file and update the team
 						var team_file = 'teams/' + challenges.challengesFrom[user] + '.req'
 						if (fs.existsSync(team_file)) {
-							fs.readFile(team_file, 'ascii', function(err, contents) {								
+							fs.readFile(team_file, 'ascii', function(err, contents) {
 								send("/utm " + contents, null);
 								logger.info("Accepting challenge from " + user + " in format " + challenges.challengesFrom[user]);
 								send("/accept " + user);
