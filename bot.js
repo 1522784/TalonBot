@@ -6,11 +6,11 @@ program
 	.option('--port [port]', 'The port on which to serve the web console. [3000]', "3000")
 	.option('--ranked', 'Challenge on the ranked league.')
 	.option('--net [action]', "'create' - generate a new network. 'update' - use and modify existing network. 'use' - use, but don't modify network. 'none' - use hardcoded weights. ['none']", 'none')
-	.option('--algorithm [algorithm]', "Can be 'minimax', 'mcts', 'samcts', 'greedy', or 'random'. ['mcts']", "mcts")
+	.option('--algorithm [algorithm]', "Can be 'minimax', 'mcts', 'samcts', 'expectimax', 'greedy', or 'random'. ['samcts']", "samcts")
 	.option('--account [file]', "File from which to load credentials. ['account.json']", "account.json")
 	.option('--nosave', "Don't save games to the in-memory db.")
 	.option('--nolog', "Don't append to log files.")
-        .option('--startchallenging', "Start out challenging, instead of requiring a manual activation first.")
+	.option('--startchallenging', "Start out challenging, instead of requiring a manual activation first.")
 	.parse(process.argv);
 
 var request = require('request'); // Used for making post requests to login server

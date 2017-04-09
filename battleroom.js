@@ -286,8 +286,6 @@ var BattleRoom = new JS.Class({
             battleside = this.state.p2;
             this.has_p2_moved = true
         }
-
-        // _.each(battleside.pokemon, function(p){console.log(p.name + " " + p.nickname)})
         
         var pokemon = _.find(battleside.pokemon, {'nickname':pokeName})
         if(!pokemon) {
@@ -950,6 +948,7 @@ var BattleRoom = new JS.Class({
             else if(program.algorithm === "minimax") result = minimaxbot.decide(clone(room.state), decision.choices);
             else if(program.algorithm === "mcts") result = mctsbot.decide(clone(room.state), decision.choices);
             else if(program.algorithm === "samcts") result = mcts_duct.decide(clone(room.state), decision.choices, this.has_p2_moved);
+            else if(program.algorithm === "expectimax") result = expectimax.decide(clone(room.state), decision.choices, this.has_p2_moved);
             else if(program.algorithm === "greedy") result = greedybot.decide(clone(room.state), decision.choices);
             else if(program.algorithm === "random") result = randombot.decide(clone(room.state), decision.choices);
 
@@ -1030,5 +1029,6 @@ module.exports = BattleRoom;
 var minimaxbot = require("./bots/minimaxbot");
 var mctsbot = require("./bots/mctsbot");
 var mcts_duct = require("./bots/mcts_duct");
+var expectimax = require("./bots/expectimax");
 var greedybot = require("./bots/greedybot");
 var randombot = require("./bots/randombot");
