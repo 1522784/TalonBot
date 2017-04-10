@@ -25,7 +25,7 @@ var decide = module.exports.decide = function (battle, choices) {
 
     logger.info("Starting move selection");
 
-    var mcts = new MCTS(new PokemonBattle(battle), 100, 0, choices);
+    var mcts = new MCTS(new PokemonBattle(battle), 150, 0, choices);
     var action = mcts.selectMove();
     if (action === undefined) {
         action = randombot.decide(battle, choices);
@@ -98,13 +98,13 @@ class Node {
         if (action === undefined) {
             return undefined
         }
-        this.untried_actions = this.untried_actions.pull(action)
+        this.untried_actions = this.untried_actions.differenceBy([action])
         return this.get_child(action)
     }
 
     /** Checks if all this node's actions have been tried */
     expanded() {
-        return this.untried_actions.size() == 0
+        return this.untried_actions.size() === 0
     }
 
     get_winner() {
@@ -130,7 +130,7 @@ class MCTS {
         this.game = game
 
         // Specifies how nodes are explored
-        this.c = 1.41       // Exploration constant
+        this.c = 15.0       // Exploration constant
         this.tree_policy = function (node) {
             // We explore nodes by UCB1
             if (node.parent.game.getCurrentPlayer() === self.player) {
@@ -168,9 +168,8 @@ class MCTS {
             }
             
             // Rollout to maximum depth k, or terminus
-            var k = 10
-            var d0 = node.depth
-            while (node !== undefined && node.depth - d0 < k && node.get_winner() === undefined) {
+            var k = 6
+            while (node !== undefined && node.depth < k && node.get_winner() === undefined) {
                 node = node.expand()
             }
 
@@ -185,14 +184,14 @@ class MCTS {
             var reward
             if (winner !== undefined)
             {
-                reward = (this.player === node.getWinner()) ? Math.pow(10,7) : -Math.pow(10,7)
+                reward = (this.player === node.get_winner()) ? Math.pow(10,7) : -Math.pow(10,7)
             }
             else {
                 reward = node.game.heuristic()
             }
 
             // Roll back up incrementing the visit counts and propagating score
-            while (node.parent) {
+            while (node) {
                 node.visits += 1
                 node.q = ((node.visits - 1)/node.visits) * node.q + 1/node.visits * reward
                 node = node.parent
@@ -210,7 +209,7 @@ class MCTS {
         }
         
         // Get the move with the highest visit count
-        return _(this.rootNode.children).sortBy('q').last().move
+        return _(this.rootNode.children).maxBy('visits').move
     }
 
     /** Gets the next node to be expanded.
@@ -229,7 +228,7 @@ class MCTS {
 
     /** Select a move according to the tree policy. */
     best_child(node) {
-        return _(node.children).shuffle().sortBy(this.tree_policy).last()
+        return _(node.children).maxBy(this.tree_policy)
     }
 }
 
@@ -258,11 +257,21 @@ PokemonBattle.prototype.getCurrentPlayer = function () {
 };
 
 PokemonBattle.prototype.performMove = function (action) {
+    var player_string = this.player === 0 ? 'p1' : 'p2'
+    var player_side = this.player === 0 ? this.battle.p1 : this.battle.p2
+
     if (this.player === 0) {
         this.battle.choose('p1', BattleRoom.toChoiceString(action, this.battle.p1), this.battle.rqid);
     }
-    else if (this.player === 1) {        
+    else if (this.player === 1) {
         this.battle.choose('p2', BattleRoom.toChoiceString(action, this.battle.p2), this.battle.rqid);
+    }
+
+    if(action !== undefined) {
+        this.battle.choose(player_string, BattleRoom.toChoiceString(action, player_side), this.battle.rqid);
+    }
+    else {
+        player_side.decision = true;
     }
     this.player = 1 - this.player;
 };
@@ -277,19 +286,18 @@ PokemonBattle.prototype.getWinner = function () {
     return undefined;
 };
 
-// TODO: Make heuristic return different values
-// Pokemon healths are always the same right now, we should figure out what's going on.
+
 PokemonBattle.prototype.heuristic = function () {
     // Aidan's Heuristic
-    // var p1_health = _.sum(_.map(this.battle.p1.pokemon, function (pokemon) {
-    //     return pokemon.hp;
-    // }));
-    // var p2_health = _.sum(_.map(this.battle.p2.pokemon, function (pokemon) {
-    //     return pokemon.hp;
-    // }));
-    //logger.info(JSON.stringify(p1_health) + " - " + JSON.stringify(p2_health) + " = " +  JSON.stringify(p1_health - p2_health))
-    // return p1_health - p2_health;
+    var p1_health = _.sum(_.map(this.battle.p1.pokemon, function (pokemon) {
+        return !!pokemon.hp ? pokemon.hp / pokemon.maxhp * 100.0 : 0.0;
+    }));
+    var p2_health = _.sum(_.map(this.battle.p2.pokemon, function (pokemon) {
+        return !!pokemon.hp ? pokemon.hp / pokemon.maxhp * 100.0 : 0.0;
+    }));
+    
+    return (p1_health - p2_health) + 600;
     
     // Use minimax heuristic
-    return minimaxbot.eval(this.battle);
+    //return minimaxbot.eval(this.battle);
 }
