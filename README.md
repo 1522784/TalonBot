@@ -30,7 +30,7 @@ Finally, to start the server, issue the following command:
 
     node bot.js
 
-By default, the server searches for rated OU when the option is toggled in the web console. There are several command line options that can be supplied:
+By default, the server searches for rated OU games when the option is toggled in the web console, which is bound to localhost:3000 by default. There are several command line options that can be supplied:
 
     --console: Only start the web console, not the game playing bot.
     --host [url]: The websocket endpoint of the host to try to connect to. Default: http://sim.smogon.com:8000/showdown
