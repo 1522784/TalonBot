@@ -188,16 +188,20 @@ var BattleRoom = new JS.Class({
         }
     },
     updatePokemonOnSwitch: function(tokens) {
-        var level = tokens[3].split(', ')[1] ? tokens[3].split(', ')[1].substring(1) : 100;
-        var tokens4 = tokens[4].split(/\/| /); //for health
+        var level = tokens[3].split(', ')[1] ? tokens[3].split(', ')[1].substring(1) : 100;        
 
         var tokens2 = tokens[2].split(': ');
         var player = tokens2[0];
         var nickname = tokens2[1];
 
         var pokeName = tokens[3].split(',')[0];
-        var health = tokens4[0];
-        var maxHealth = tokens4[1];
+
+        var health_update = !!tokens[4]
+        if(health_update){
+            var tokens4 = tokens[4].split(/\/| /); //for healths
+            var health = tokens4[0];
+            var maxHealth = tokens4[1];
+        }
 
         var battleside = undefined;
 
@@ -255,8 +259,11 @@ var BattleRoom = new JS.Class({
             pokemon = new BattlePokemon(set, battleside);
             pokemon.trueMoves = []; //gradually add moves as they are seen
         }
+
         //opponent hp is recorded as percentage
-        pokemon.hp = Math.ceil(health / maxHealth * pokemon.maxhp);
+        if(health_update) {
+            pokemon.hp = Math.ceil(health / maxHealth * pokemon.maxhp);
+        }
         battleside.active[0].position = pokemon.position;
         pokemon.position = 0;
         pokemon.nickname = nickname
@@ -690,7 +697,7 @@ var BattleRoom = new JS.Class({
                     this.has_p2_moved = false
                 } else if (tokens[1] === 'poke') {
                     this.updatePokemonOnTeamPreview(tokens);
-                } else if (tokens[1] === 'switch' || tokens[1] === 'drag') {
+                } else if (tokens[1] === 'switch' || tokens[1] === 'drag' || tokens[1] === 'replace') {
                     this.updatePokemonOnSwitch(tokens);
                 } else if (tokens[1] === 'move') {
                     this.updatePokemonOnMove(tokens);

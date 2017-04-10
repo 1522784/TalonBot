@@ -272,7 +272,7 @@ PokemonBattle.prototype.heuristic = function () {
 // Function that decides which move to perform
 var overallMinNode = {};
 var lastMove = '';
-var expectimax = new Expectimax(5, 1, 0)
+var expectimax = new Expectimax(4, 1, 0)
 var decide = module.exports.decide = function (battle, choices, has_p2_moved) {
     var startTime = new Date();
 

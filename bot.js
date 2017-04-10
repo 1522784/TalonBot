@@ -255,6 +255,13 @@ function recieve(data) {
 			var challenges = JSON.parse(data.substr(18));
 			if(challenges.challengesFrom) {
 				for(var user in challenges.challengesFrom) {
+					
+					// Reject salty run-backs
+					if(user.toLowerCase() != "chabons"){
+						send("/reject " + user);
+						break;
+					}
+					
 					if(challenges.challengesFrom[user] == "gen6randombattle" || challenges.challengesFrom[user] == "gen7randombattle") {
 						logger.info("Accepting challenge from " + user);
 						send("/accept " + user);
