@@ -12,7 +12,7 @@ To set up the server, you need to first install dependencies:
 
     npm install
 
-This project requires Node.js >= 4.x, as it requires ES6 class support.
+This project requires Node.js >= 4.x, as it requires ES6 class support. 
 
 In order to actually play games you must register an account on [Pokemon Showdown](http://play.pokemonshowdown.com/). Once the log-in information has been obtained, you need to create an `account.json` file containing information. The format of `account.json` is as follows:
 
