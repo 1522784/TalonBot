@@ -259,7 +259,8 @@ function recieve(data) {
 			if(challenges.challengesFrom) {
 				for(var user in challenges.challengesFrom) {
 					
-					if(challenges.challengesFrom[user] == "gen1randombattle") {
+					let supportedRandomFormats = ["gen1randombattle"]
+					if(supportedRandomFormats.includes(challenges.challengesFrom[user])) {
 						logger.info("Accepting challenge from " + user);
 						send("/accept " + user);
 					} else { // Challenge in a specific format

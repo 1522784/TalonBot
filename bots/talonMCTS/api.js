@@ -30,10 +30,12 @@ var decide = module.exports.decide = function (battle, choices) {
     var startTime = new Date();
 
     logger.info("Starting move selection");
-    logger.info(battle);
+    //logger.info(Object.keys(battle));
 
-    if(!teamSimulatorPool.get(battle.roomid))
-        teamSimulatorPool.set(battle.roomid, new TeamSimulator(1, battle))
+    if(!teamSimulatorPool.get(battle.id))
+        teamSimulatorPool.set(battle.id, new TeamSimulator(1, battle));
+    else
+        teamSimulatorPool.get(battle.id).updateTeams(battle);
 
     //TODO: Change that!
     let action = randombot.decide(battle, choices);

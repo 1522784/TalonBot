@@ -44,9 +44,11 @@ var BattleRoom = new JS.Class({
 
         // Construct a battle object that we will modify as our state
         this.state = new Battle(id, 'base', false);
+        this.state.id = this.id
         this.state.join('p1', 'botPlayer'); // We will be player 1 in our local simulation
         this.state.join('p2', 'humanPlayer');
         this.state.reportPercentages = true;
+        this.state.p2.pokemon = [];
 
         this.previousState = null; // For TD Learning
 
@@ -225,7 +227,7 @@ var BattleRoom = new JS.Class({
                 //if we have collected all of the moves, eliminate all other possibilities
                 if(pokemon.trueMoves.length >= 4) {
                     logger.info("Collected all of " + pokeName + "'s moves!");
-                    var newMoves = [];
+                    /*var newMoves = [];
                     var newMoveset = [];
                     for(var i = 0; i < pokemon.moveset.length; i++) {
                         if(pokemon.trueMoves.indexOf(pokemon.moveset[i].id) >= 0) {
@@ -234,7 +236,7 @@ var BattleRoom = new JS.Class({
                         }
                     }
                     pokemon.moves = newMoves;
-                    pokemon.moveset = newMoveset;
+                    pokemon.moveset = newMoveset;*/
                 }
 
             }
