@@ -6,7 +6,7 @@ program
 	.option('--port [port]', 'The port on which to serve the web console. [3000]', "3000")
 	.option('--ranked', 'Challenge on the ranked league.')
 	.option('--net [action]', "'create' - generate a new network. 'update' - use and modify existing network. 'use' - use, but don't modify network. 'none' - use hardcoded weights. ['none']", 'none')
-	.option('--algorithm [algorithm]', "Can be 'minimax', 'mcts', 'samcts', 'expectimax', 'greedy', or 'random'. ['samcts']", "samcts")
+	.option('--algorithm [algorithm]', "Can be 'minimax', 'mcts', 'samcts', 'expectimax', 'greedy', or 'random'. ['samcts']", "talon")
 	.option('--account [file]', "File from which to load credentials. ['account.json']", "account.json")
 	.option('--nosave', "Don't save games to the in-memory db.")
 	.option('--nolog', "Don't append to log files.")
@@ -43,6 +43,9 @@ if(!program.nolog) {
 	log4js.addAppender(log4js.appenders.file('logs/greedy.log'), 'greedy');
 	
 	log4js.addAppender(log4js.appenders.file('logs/mcts.log'), 'mcts');
+	
+	log4js.addAppender(log4js.appenders.file('logs/talon.log'), 'talon');
+	log4js.addAppender(log4js.appenders.file('logs/teamSim.log'), 'teamSimulator');
 } else {
 	logger.setLevel("INFO");
 	log4js.configure({
@@ -84,8 +87,8 @@ var BattleRoom = require('./battleroom');
 var GAME_TYPE = (program.ranked) ? "ou" : "ou";
 
 // Load in Game Data
-var Pokedex = require("./data/pokedex");
-var Typechart = require("./data/typechart");
+var Pokedex = require("./ServerCode/data/pokedex");
+var Typechart = require("./ServerCode/data/typechart");
 
 // Sends a piece of data to the given room
 // Room can be null for a global command
@@ -256,16 +259,11 @@ function recieve(data) {
 			if(challenges.challengesFrom) {
 				for(var user in challenges.challengesFrom) {
 					
-					// Reject salty run-backs
-					if(user.toLowerCase() != "chabons"){
-						send("/reject " + user);
-						break;
-					}
-					
-					if(challenges.challengesFrom[user] == "gen6randombattle" || challenges.challengesFrom[user] == "gen7randombattle") {
+					let supportedRandomFormats = ["gen1randombattle"]
+					if(supportedRandomFormats.includes(challenges.challengesFrom[user])) {
 						logger.info("Accepting challenge from " + user);
 						send("/accept " + user);
-					} else { 			// Challenge in a specific format
+					} else { // Challenge in a specific format
 						// Read the team from a file and update the team
 						var team_file = 'teams/' + challenges.challengesFrom[user] + '.req'
 						if (fs.existsSync(team_file)) {

@@ -8,15 +8,31 @@
     "express": "^4.10.0",
     "jsclass": "4.x",
     "lodash": "4.x",
-    "log4js": "0.6.21",
+    "log4js": "1",
+    "mathjs": "5.7.0",
     "nedb": "^0.11.1",
-    "nunjucks": "1.x",
+    "nunjucks": "^3.1.7",
+    "probe-image-size": "^4.0.0",
     "request": "2.x",
+    "sockjs": "0.3.18",
     "sockjs-client-ws": "0.1.0",
     "sugar": "^1.4.1",
     "underscore": "1.x"
   },
+  "engines": {
+    "node": ">=7.7.0"
+  },
   "scripts": {
     "start": "bot.js"
+  },
+  "devDependencies": {
+    "@types/cloud-env": "^0.2.0",
+    "@types/node": "^8.10.36",
+    "@types/node-static": "^0.7.2",
+    "@types/nodemailer": "^4.6.5",
+    "@types/sockjs": "^0.3.31",
+    "eslint": "^5.7.0",
+    "mocha": "^5.2.0",
+    "typescript": "^3.2.1"
   }
 }
