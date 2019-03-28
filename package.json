@@ -23,7 +23,8 @@
     "node": ">=7.7.0"
   },
   "scripts": {
-    "start": "bot.js"
+    "start": "bot.js",
+    "dev": "nodemon bot.js"
   },
   "devDependencies": {
     "@types/cloud-env": "^0.2.0",

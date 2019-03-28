@@ -166,7 +166,7 @@ module.exports.searchBattle = searchBattle;
 
 // Global recieve function - tries to interpret command, or send to the correct room
 function recieve(data) {
-	logger.trace("<< " + data);
+	//logger.trace("<< " + data);
 
 	var roomid = '';
 	if (data.substr(0,1) === '>') { // First determine if this command is for a room

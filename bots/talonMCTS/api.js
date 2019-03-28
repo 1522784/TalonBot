@@ -26,16 +26,15 @@ var teamSimulatorPool = new Map()
 // Function that decides which move to perform
 var overallMinNode = {};
 var lastMove = '';
-var decide = module.exports.decide = function (battle, choices) {
+var decide = module.exports.decide = function (battle, choices, logs, ownSide) {
     var startTime = new Date();
 
     logger.info("Starting move selection");
-    //logger.info(Object.keys(battle));
 
     if(!teamSimulatorPool.get(battle.id))
-        teamSimulatorPool.set(battle.id, new TeamSimulator(1, battle));
+        teamSimulatorPool.set(battle.id, new TeamSimulator(1, battle, ownSide));
     else
-        teamSimulatorPool.get(battle.id).updateTeams(battle);
+        teamSimulatorPool.get(battle.id).updateTeams(battle, logs);
 
     //TODO: Change that!
     let action = randombot.decide(battle, choices);
@@ -43,9 +42,11 @@ var decide = module.exports.decide = function (battle, choices) {
     logger.info("Given choices: " + JSON.stringify(choices));
     logger.info("My action: " + action.type + " " + action.id);
     lastMove = action.id;
-    var endTime = new Date();
+    var endTime = new Date(); 
 
     logger.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
+
+    teamSimulatorPool.get(battle.id).sendDecision(battle, action);
     return {
         type: action.type,
         id: action.id
