@@ -233,8 +233,11 @@ let BattleRoom = new JS.Class({
                 pokemon.trueMoves.push(toId(move));
             }
             if(!pokemon.moveSlots.some(moveSlot => moveSlot.id === toId(move))){
-                pokemon.baseMoveSlots.push(this.state.getMove(move));
-                pokemon.moveSlots.push(this.state.getMove(move));
+                let moveObj = this.state.getMove(move);
+                moveObj.pp = moveObj.pp/5*8;
+                moveObj.maxpp = moveObj.maxpp/5*8;
+                pokemon.baseMoveSlots.push(moveObj);
+                pokemon.moveSlots.push(moveObj); 
                 logger.info("add " + toId(move) + " to moveslots")
             }
         }
@@ -331,6 +334,7 @@ let BattleRoom = new JS.Class({
                     return;
                 }
 
+                if(health === 0) return pokemon.hp;
                 let newHP = Math.ceil(health / maxHealth * pokemon.maxhp);
                 return pokemon.hp - newHP;
             }
@@ -340,7 +344,7 @@ let BattleRoom = new JS.Class({
         move.secondaries = undefined;
         move.accuracy = miss ? 0 : true;
 
-        this.state.runMove(move, pokemon, target);
+        this.state.runMove(move, pokemon, target, source);
 
         this.state.getDamage = getDamageBackup;
 
@@ -377,6 +381,7 @@ let BattleRoom = new JS.Class({
                 }
                 this.state.runEvent('BeforeMove', pokemon);
                 break;
+
             case "par":
                 //Code taken from servercode/data/mode/gen1/status.js , Method par.onBeforeMove()
 				pokemon.removeVolatile('bide');
@@ -385,13 +390,29 @@ let BattleRoom = new JS.Class({
 				pokemon.removeVolatile('dig');
 				pokemon.removeVolatile('solarbeam');
 				pokemon.removeVolatile('skullbash');
-				pokemon.removeVolatile('partialtrappinglock');
+                pokemon.removeVolatile('partialtrappinglock');
+                break;
+
+            case "partiallytrapped":
+                //TODO
+                break;
+
+            case "recharge":
+                pokemon.removeVolatile('mustrecharge');
+                pokemon.removeVolatile('truant');
+                break;
+            
+            case "frz":
+                pokemon.lastMove = null;
+                break;
+
             default:
                 throw new Error("Unexpected Cant-Reason: " + reason);
         }
 
     },
     updatePokemonOnFaint: function(tokens) {
+        logger.info("UpdatePokemonOnFaint")
         let tokens2 = tokens[2].split(': ');
         let player = tokens2[0];
         let pokeName = tokens2[1];
@@ -410,7 +431,7 @@ let BattleRoom = new JS.Class({
         }
 
         pokemon.hp = 0;
-        pokemon.switchFlag = false;
+        pokemon.switchFlag = true;
         pokemon.status = 'fnt';
 
         this.updatePokemon(battleside, pokemon);
@@ -708,20 +729,6 @@ let BattleRoom = new JS.Class({
         pokemon.formeChange(newPokeName);
         this.updatePokemon(battleside, pokemon);
     },
-    //for ditto exclusively
-    updatePokemonOnTransform: function(tokens) {
-        let tokens2 = tokens[2].split(': ');
-        let player = tokens2[0];
-        let pokeName = tokens2[1];
-        let tokens3 = tokens[3].split(' ');        
-        let newPokeName = tokens3[1];
-
-        let battleside = this.isPlayer(player) ? this.state.p1 : this.state.p2;
-        let pokemon = battleside.pokemon.find(poke => poke.name === pokeName);
-        pokemon.transformInto(this.state.p2.active[0]);
-        this.updatePokemon(battleside, pokemon);
-
-    },
     recieve: function(data) {
         if (!data) return;
 
@@ -791,7 +798,7 @@ let BattleRoom = new JS.Class({
                 } else if(tokens[1] === 'detailschange' || tokens[1] === 'formechange') {
                     this.updatePokemonOnFormeChange(tokens);
                 } else if(tokens[1] === '-transform') {
-                    this.updatePokemonOnTransform(tokens);
+                    
                 } else if(tokens[1] === '-damage') { //Error: not getting to here...
                     this.updatePokemonOnDamage(tokens);
                 } else if(tokens[1] === '-heal') {
@@ -817,7 +824,7 @@ let BattleRoom = new JS.Class({
                 } else if(tokens[1] === '-curestatus') {
                     this.updatePokemonStatus(tokens, false);
                 } else if(tokens[1] === '-mustrecharge') {
-                    this.updatePokemonRecharge(tokens);
+                    //this.updatePokemonRecharge(tokens);
                 } else if(tokens[1] === '-supereffective') {
 
                 } else if(tokens[1] === '-crit') {
@@ -849,6 +856,8 @@ let BattleRoom = new JS.Class({
 
             }
         }
+        
+        if(program.algorithm === "talon") talonbot.addStateToHistory(clone(this.state), this.log, this.side);
     },
     saveResult: function() {
         // Save game data to data base
@@ -990,7 +999,7 @@ let BattleRoom = new JS.Class({
             else if(program.algorithm === "greedy") result = greedybot.decide(clone(room.state), decision.choices);
             else if(program.algorithm === "random") result = randombot.decide(clone(room.state), decision.choices);
 
-            else if(program.algorithm === "talon") result = talonbot.decide(clone(room.state), decision.choices, room.log, this.side);
+            else if(program.algorithm === "talon") result = talonbot.decide(clone(room.state), decision.choices);
 
             room.decisions.push(result);
             room.send("/choose " + BattleRoom.toChoiceString(result, room.state.p1) + "|" + decision.rqid, room.id);

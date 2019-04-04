@@ -4,6 +4,7 @@ var log = require('log4js').getLogger("teamSimulator");
 var RandomTeams = require("./../../servercode/data/random-teams")
 var BattlePokemon = require("./../../servercode/sim/pokemon");
 var TeamValidator = require("./../../servercode/sim/team-validator");
+var logState = require("./../../logState");
 
 class PossibleTeam {
 	constructor(battle, decisionPropCalcer, teamValidator, dex, lead) {
@@ -13,7 +14,7 @@ class PossibleTeam {
 		/** @type {TeamValidator} */
         this.teamValidator = teamValidator;
         this.dex = dex;
-        this.turnsConsideredForRank = 0;
+        this.requestsConsideredForRank = 0;
 
         this.team = [];
         this.confirmedTeam = [];
@@ -69,43 +70,49 @@ class PossibleTeam {
     }
 
     updateRank(battle, battleLogs, history, ownSide){
-        let self = this
+        let self = this;
+
+        log.info("BattleLogs:\n" + battleLogs)
 
         this.updateTeamBuildingRank(battle.p2.pokemon);
 
-        //Skip turns that were already considered for this rank
-        let turnSearchString = "|turn|" + this.turnsConsideredForRank;
+        //Skip requests that were already considered for this rank
+        /*let turnSearchString = "|turn|" + this.requestsConsideredForRank;
         let turnIndex = battleLogs.indexOf(turnSearchString);
         turnIndex = turnIndex === -1 ? 0 : turnIndex + turnSearchString.length + 1
-        battleLogs = battleLogs.slice(turnIndex);
+        battleLogs = battleLogs.slice(turnIndex);*/
 
-        let pastTurns = battleLogs.split(new RegExp("\\|turn\\|[1-9]+"));
-        pastTurns.pop();//Remove current turn
+        let pastRequests = battleLogs.split("\n\n");
+        pastRequests = pastRequests.filter(request => request.includes("|switch|") || request.includes("|move|") || request.includes("|cant|"));
+        pastRequests = pastRequests.slice(this.requestsConsideredForRank);
+        log.info("Splitted request: ")
+        log.info(pastRequests);
 
-        pastTurns.forEach((turnLog, index) => {
-            let historyIndex = index + self.turnsConsideredForRank - 1;
+        pastRequests.forEach((turnLog, index) => {
+            let historyIndex = index + self.requestsConsideredForRank - 1;
             let historyToken;
-            if(historyIndex != -1) historyToken = history[historyIndex];
+            if(historyIndex === -1) return;
+            historyToken = history[historyIndex];
 
             this.updateRankForTurn(turnLog, historyToken, ownSide);
 
         });
 
-        this.turnsConsideredForRank += pastTurns.length;
+        this.requestsConsideredForRank += pastRequests.length;
 
     }
 
     updateRankForTurn(turnLog, historyToken, ownSide){
-        if(!historyToken) return;
-
         let request = this.getOppReqest(historyToken.state);
+        if(request.wait) return;
 
         //Rank times probability for opponent chosing the option he/she chose
         let options = this.decisionPropCalcer.getRequestOptions(request);
         let chosenOption = this.getChosenOption(historyToken, turnLog, options, ownSide);
+        log.info("Chosen option:") 
+        log.info(chosenOption); 
         let probabilitySum = options.map(option => option.probability).reduce((prob1, prob2) =>  math.add(prob1, prob2));
         let probability = chosenOption.map(option => option.probability).reduce((prob1, prob2) =>  math.add(prob1, prob2));
-        log.info(chosenOption);
         this.rank = math.multiply(this.rank, math.divide(probability, probabilitySum));
     }
 
@@ -169,18 +176,24 @@ class PossibleTeam {
             battleState.p2.pokemon[p].getDetails = pokemon.getDetails;
         }
 
-        let activePokemon = battleState.p2.pokemon.find(poke => poke.active);
+        let activePokemonP2 = battleState.p2.pokemon.filter(poke => poke.isActive);
+        if(activePokemonP2.length > 1) throw new Error("Too many active Pokemon: " + activePokemon.map(poke => poke.name));
+        activePokemonP2 = activePokemonP2[0];
 
-        if(!activePokemon.transformed)
-            activePokemon.baseMoveSlots.forEach(baseMoveSlot => {
+        if(!activePokemonP2.transformed)
+        activePokemonP2.baseMoveSlots.forEach(baseMoveSlot => {
                 //When mimic is used, its moveSlot is replaced with a virtual move.
-                if(baseMoveSlot.id === "mimic" && activePokemon.moveSlots.some(moveSlot => moveSlot.virtual)) return;
+                if(baseMoveSlot.id === "mimic" && activePokemonP2.moveSlots.some(moveSlot => moveSlot.virtual)) return;
 
-                if(!activePokemon.moveSlots.some(moveSlot => moveSlot.id === baseMoveSlot.id))
-                    activePokemon.moveSlots.push(baseMoveSlot);
+                if(!activePokemonP2.moveSlots.some(moveSlot => moveSlot.id === baseMoveSlot.id))
+                activePokemonP2.moveSlots.push(baseMoveSlot);
             });
 
-        battleState.makeRequest(battleState.currentRequest);
+        let activePokemonP1 = battleState.p1.pokemon.filter(poke => poke.isActive)[0];
+        let currentRequest = activePokemonP2.switchFlag || activePokemonP1.switchFlag ? "switch" : "move";
+        battleState.makeRequest(currentRequest);
+        log.info("Req for p2: ")
+        log.info(battleState.p2.request)
         return battleState.p2.request;
     }
 
@@ -247,6 +260,7 @@ class PossibleTeam {
                 
                 //Mark as confirmed
                 confirmedTeamIndex = this.confirmedTeam.findIndex(pokemon => !pokemon.species);
+                if(confirmedTeamIndex === -1) throw new Error("Found new confirmed pokemon despite maximal team size already reached: " + this.confirmedTeam.length);
                 confirmedPokemon = this.confirmedTeam[confirmedTeamIndex];
                 confirmedPokemon.species = opponentTeam[oppTeamIndex].speciesid;
 

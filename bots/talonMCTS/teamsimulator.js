@@ -32,15 +32,20 @@ class TeamSimulator{
             this.teamStore.push(new PossibleTeam(battle, this.decisionPropCalcer, this.teamValidator, this.dex, this.lead));
     }
 
-    sendDecision(battleState, decision){
+    addStateToHistory(battleState){
         battleState = clone(battleState)
         battleState.templateCache = this.teamValidator.dex.templateCache;
         battleState.itemCache = this.teamValidator.dex.itemCache;
         battleState.abilityCache = this.teamValidator.dex.abilityCache;
+
         this.history.push({
-            state: battleState,
-            ownDecision: decision
+            state: battleState
         });
+    }
+
+    addOwnDecisionToHistory(decision){
+        let historyToken = this.history[this.history.length-1]
+        historyToken.ownDecision = decision;
     }
 
     getHistory(){

@@ -26,15 +26,10 @@ var teamSimulatorPool = new Map()
 // Function that decides which move to perform
 var overallMinNode = {};
 var lastMove = '';
-var decide = module.exports.decide = function (battle, choices, logs, ownSide) {
+var decide = module.exports.decide = function (battle, choices) {
     var startTime = new Date();
 
     logger.info("Starting move selection");
-
-    if(!teamSimulatorPool.get(battle.id))
-        teamSimulatorPool.set(battle.id, new TeamSimulator(1, battle, ownSide));
-    else
-        teamSimulatorPool.get(battle.id).updateTeams(battle, logs);
 
     //TODO: Change that!
     let action = randombot.decide(battle, choices);
@@ -46,11 +41,24 @@ var decide = module.exports.decide = function (battle, choices, logs, ownSide) {
 
     logger.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
 
-    teamSimulatorPool.get(battle.id).sendDecision(battle, action);
+    teamSimulatorPool.get(battle.id).addOwnDecisionToHistory(action);
     return {
         type: action.type,
         id: action.id
     };
+}
+
+module.exports.addStateToHistory = function(battleState, logs, ownSide){
+
+    logs = logs.slice(0, -2);
+    let newestLogs = logs.slice(logs.lastIndexOf("\n\n")+2);
+    if(!newestLogs.includes("|switch|") && !newestLogs.includes("|move|") && !newestLogs.includes("|cant|")) return;
+
+    let teamSimulator = teamSimulatorPool.get(battleState.id);
+    if(!teamSimulator) teamSimulator = new TeamSimulator(1, battleState, ownSide);
+    teamSimulator.addStateToHistory(battleState);
+    teamSimulator.updateTeams(battleState, logs);
+    teamSimulatorPool.set(battleState.id, teamSimulator);
 }
 
 // ---- MCTS ALGORITHM
