@@ -54,10 +54,8 @@ let BattleRoom = new JS.Class({
 
         this.previousState = null; // For TD Learning
 
-        setTimeout(function() {
-            sendfunc(account.message, id); // Notify User that this is a bot
-            sendfunc("/timer", id); // Start timer (for user leaving or bot screw ups)
-        }, 10000);
+        sendfunc(account.message, id); // Notify User that this is a bot
+        sendfunc("/timer", id); // Start timer (for user leaving or bot screw ups)
 
         this.decisions = [];
         this.log = "";
@@ -736,7 +734,7 @@ let BattleRoom = new JS.Class({
         //the data-string will be sliced therefore we backup
         let completeData = data;
 
-        logger.trace("<< " + data);
+        //logger.trace("<< " + data);
 
         if (data.substr(0, 6) === '|init|') {
             return this.init(data);

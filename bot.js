@@ -16,6 +16,7 @@ program
 var request = require('request'); // Used for making post requests to login server
 var util = require('./util');
 var fs = require('fs');
+var WebSocketTransport = require('sockjs-client-ws/lib/WebSocketTransport');
 
 // Setup Logging
 var log4js = require('log4js');
@@ -68,6 +69,9 @@ var webconsole = require("./console.js");// Web console
 var sockjs = require('sockjs-client-ws');
 var client = null;
 if(!program.console) client = sockjs.create(program.host);
+exports.leave = () => {
+	client.close();
+}
 
 // Domain (replay button redirects here)
 var DOMAIN = "http://play.pokemonshowdown.com/";
@@ -98,8 +102,28 @@ var send = module.exports.send = function(data, room) {
 	} else if (room !== true) {
 		data = '|'+data;
 	}
-	client.write(data);
+	
+	if(client.isClosing || client.isClosed) {
+		client = sockjs.create(program.host);
 
+		client.on('connection', function() {
+			logger.info('Connected to server.');
+		});
+	
+		client.on('data', function(msg) {
+			recieve(msg); 
+		});
+	
+		client.on('error', function(e) {
+			logger.error(e);
+		});
+
+		logger.info("rejoin " + room);
+		client.write(room + "|/join " + room) 
+	}
+
+	client.write(data);
+	
 	logger.trace(">> " + data);
 }
 
@@ -123,7 +147,7 @@ function rename(name, password) {
 		} else {
 			// We couldn't log in for some reason
 			logger.fatal("Error logging in...");
-			process.exit();
+			process.exit(); 
 		}
 	});
 }
@@ -134,6 +158,7 @@ exports.ROOMS = ROOMS;
 
 // Add a new room (only supports rooms of type battle)
 function addRoom(id, type) {
+	if(ROOMS[id]) return ROOMS[id];
 	if(type == "battle") {
 		ROOMS[id] = new BattleRoom(id, send);
 		return ROOMS[id];
@@ -166,7 +191,7 @@ module.exports.searchBattle = searchBattle;
 
 // Global recieve function - tries to interpret command, or send to the correct room
 function recieve(data) {
-	//logger.trace("<< " + data);
+	logger.trace("<< " + data);
 
 	var roomid = '';
 	if (data.substr(0,1) === '>') { // First determine if this command is for a room

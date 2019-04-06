@@ -5,6 +5,8 @@ var clone = require("./../../clone");
 
 var DecisionPropCalcer = require("./simpledecisionpropcalcer")
 
+var bot = require("./../../bot");
+
 class TeamSimulator{
     
     constructor(teamNum, battle, ownSide) {
@@ -28,18 +30,21 @@ class TeamSimulator{
         //We save the first pokemon the opponent used because it has a special position. TODO: Adapt to team preview for Gen5 and following
         this.lead = battle.p2.pokemon[0].speciesid;
 
-        for(let i = 0; i<teamNum; i++)
+        for(let i = 0; i<teamNum; i++){
+            if(i%(teamNum/10) === 0) log.info("Team creation " + (i*100/teamNum) + "% complete");
+
+            /*Stupid workaround. If we calculate too long the client disconnects beacause it can't respond. 
+            But if we disconnect actively and reconnect when we send something, it disconnects right before,
+            we send it and not before giving us time to calculate.*/
+            bot.leave();
+
             this.teamStore.push(new PossibleTeam(battle, this.decisionPropCalcer, this.teamValidator, this.dex, this.lead));
+        }
     }
 
     addStateToHistory(battleState){
-        battleState = clone(battleState)
-        battleState.templateCache = this.teamValidator.dex.templateCache;
-        battleState.itemCache = this.teamValidator.dex.itemCache;
-        battleState.abilityCache = this.teamValidator.dex.abilityCache;
-
         this.history.push({
-            state: battleState
+            state: clone(battleState)
         });
     }
 
@@ -63,6 +68,13 @@ class TeamSimulator{
 
     updateTeams(battle, logs){
         for(let i = 0; i<this.teamStore.length; i++){
+            if(i%(this.teamStore.length/10) === 0) log.info("Updating teams " + (i*100/this.teamStore.length) + "% complete");
+
+            /*Stupid workaround. If we calculate too long the client disconnects beacause it can't respond. 
+            But if we disconnect actively and reconnect when we send something, it disconnects right before,
+            we send it and not before giving us time to calculate.*/
+            bot.leave();
+            
             if(!this.teamStore[i].isStillPossible(battle, logs))
                 this.teamStore[i] = new PossibleTeam(battle, this.decisionPropCalcer, this.teamValidator, this.dex, this.lead);
             this.teamStore[i].updateRank(battle, logs, this.getHistory(), this.ownSide);

@@ -22,12 +22,12 @@ var clone = require("./../../clone");
 var TeamSimulator = require("./teamsimulator")
 
 var teamSimulatorPool = new Map()
+var startTime
 
 // Function that decides which move to perform
 var overallMinNode = {};
 var lastMove = '';
 var decide = module.exports.decide = function (battle, choices) {
-    var startTime = new Date();
 
     logger.info("Starting move selection");
 
@@ -49,13 +49,14 @@ var decide = module.exports.decide = function (battle, choices) {
 }
 
 module.exports.addStateToHistory = function(battleState, logs, ownSide){
+    startTime = new Date();
 
     logs = logs.slice(0, -2);
     let newestLogs = logs.slice(logs.lastIndexOf("\n\n")+2);
     if(!newestLogs.includes("|switch|") && !newestLogs.includes("|move|") && !newestLogs.includes("|cant|")) return;
 
     let teamSimulator = teamSimulatorPool.get(battleState.id);
-    if(!teamSimulator) teamSimulator = new TeamSimulator(1, battleState, ownSide);
+    if(!teamSimulator) teamSimulator = new TeamSimulator(5, battleState, ownSide);
     teamSimulator.addStateToHistory(battleState);
     teamSimulator.updateTeams(battleState, logs);
     teamSimulatorPool.set(battleState.id, teamSimulator);

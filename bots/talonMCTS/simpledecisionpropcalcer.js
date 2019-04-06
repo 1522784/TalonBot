@@ -62,6 +62,21 @@ class SimpleDecisionPropCalcer {
         };
       });
     }
+
+    getLevelChoice(){
+      return 100;
+    }
+
+    getLevelChoiceOptions(){
+      let options = [];
+      for(let i = 1; i <= 100; i++){
+        options.push({
+          level: i,
+          probability: 0.01
+        });
+      }
+      return options;
+    }
 }
 
 module.exports = SimpleDecisionPropCalcer

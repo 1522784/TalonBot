@@ -59,7 +59,7 @@ app.get('/challenge/:user/:format/', function(req, res) {
 	// Read the team from a file and update the team
 	fs.readFile('teams/' + req.params.format + '.req', 'ascii', function(err, contents) {
 		console.log(contents);
-		bot.send("/utm " + contents, null);
+		bot.send("/utm " + contents, null); 
 	});
 
 	bot.send("/challenge " + req.params.user + ", " + req.params.format, null);

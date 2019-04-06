@@ -22,6 +22,9 @@ var util = {
     re.ignoreCase && (flags += 'i');
     re.multiline && (flags += 'm');
     return flags;
+  },
+  isMap: function (ma){
+    return ma instanceof Map;
   }
 };
 
@@ -78,6 +81,8 @@ function clone(parent, circular, depth, prototype) {
 
     if (util.isArray(parent)) {
       child = [];
+    } else if (util.isMap(parent)) {
+      child = new Map();
     } else if (util.isRegExp(parent)) {
       child = new RegExp(parent.source, util.getRegExpFlags(parent));
       if (parent.lastIndex) child.lastIndex = parent.lastIndex;

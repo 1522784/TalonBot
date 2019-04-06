@@ -26,6 +26,7 @@ class PossibleTeam {
             this.confirmedTeam.push({moves:[]})
 
             let registeredPokemon;
+            //Put the lead at the first position.
             if(i==0)
                 registeredPokemon = battle.p2.pokemon[leadIndex];
             else if(i<=leadIndex){
@@ -37,8 +38,10 @@ class PossibleTeam {
             if(registeredPokemon){
                 this.team[i].species = registeredPokemon.speciesid;
                 this.team[i].name = registeredPokemon.name;
+                this.team[i].level = registeredPokemon.level;
             } else {
                 this.team[i].name = this.team[i].species = this.decisionPropCalcer.getSpeciesChoice(this.team, dex)
+                this.team[i].level = this.decisionPropCalcer.getLevelChoice(this.team, i)
             }
 
             this.team[i].moves = [];
@@ -64,29 +67,19 @@ class PossibleTeam {
     
         this.updateTeamBuildingRank(battle.p2.pokemon);
             
-        log.info("new Team: " + JSON.stringify(this.team));
-        log.info(this.rank);
+        //log.info("new Team: " + JSON.stringify(this.team));
+        //log.info(this.rank);
 
     }
 
     updateRank(battle, battleLogs, history, ownSide){
         let self = this;
 
-        log.info("BattleLogs:\n" + battleLogs)
-
         this.updateTeamBuildingRank(battle.p2.pokemon);
-
-        //Skip requests that were already considered for this rank
-        /*let turnSearchString = "|turn|" + this.requestsConsideredForRank;
-        let turnIndex = battleLogs.indexOf(turnSearchString);
-        turnIndex = turnIndex === -1 ? 0 : turnIndex + turnSearchString.length + 1
-        battleLogs = battleLogs.slice(turnIndex);*/
 
         let pastRequests = battleLogs.split("\n\n");
         pastRequests = pastRequests.filter(request => request.includes("|switch|") || request.includes("|move|") || request.includes("|cant|"));
         pastRequests = pastRequests.slice(this.requestsConsideredForRank);
-        log.info("Splitted request: ")
-        log.info(pastRequests);
 
         pastRequests.forEach((turnLog, index) => {
             let historyIndex = index + self.requestsConsideredForRank - 1;
@@ -109,8 +102,8 @@ class PossibleTeam {
         //Rank times probability for opponent chosing the option he/she chose
         let options = this.decisionPropCalcer.getRequestOptions(request);
         let chosenOption = this.getChosenOption(historyToken, turnLog, options, ownSide);
-        log.info("Chosen option:") 
-        log.info(chosenOption); 
+        //log.info("Chosen option:") 
+        //log.info(chosenOption); 
         let probabilitySum = options.map(option => option.probability).reduce((prob1, prob2) =>  math.add(prob1, prob2));
         let probability = chosenOption.map(option => option.probability).reduce((prob1, prob2) =>  math.add(prob1, prob2));
         this.rank = math.multiply(this.rank, math.divide(probability, probabilitySum));
@@ -126,22 +119,9 @@ class PossibleTeam {
             var template = {
                 name: simPoke.name,
                 species: simPoke.species,
-                moves: []
+                level: simPoke.level,
+                moves: simPoke.moves
             };
-            for (const moveid of simPoke.moves) {
-                let move = this.teamValidator.dex.getMove(moveid);
-                let baseMoveSlot = {
-                    move: move.name,
-                    id: move.id,
-                    pp: move.pp,//TODO: Get real pp
-                    maxpp: move.pp,
-                    target: move.target,
-                    disabled: false,
-                    disabledSource: '',
-                    used: false,
-                }
-                template.moves.push(baseMoveSlot);
-            }
 
             if(battleState.gen < 3){
                 template.evs = {
@@ -176,58 +156,32 @@ class PossibleTeam {
             battleState.p2.pokemon[p].getDetails = pokemon.getDetails;
         }
 
-        let activePokemonP2 = battleState.p2.pokemon.filter(poke => poke.isActive);
-        if(activePokemonP2.length > 1) throw new Error("Too many active Pokemon: " + activePokemon.map(poke => poke.name));
-        activePokemonP2 = activePokemonP2[0];
+        let activePokemonP2 = battleState.p2.pokemon.find(poke => poke.isActive);
 
-        if(!activePokemonP2.transformed)
-        activePokemonP2.baseMoveSlots.forEach(baseMoveSlot => {
-                //When mimic is used, its moveSlot is replaced with a virtual move.
-                if(baseMoveSlot.id === "mimic" && activePokemonP2.moveSlots.some(moveSlot => moveSlot.virtual)) return;
-
-                if(!activePokemonP2.moveSlots.some(moveSlot => moveSlot.id === baseMoveSlot.id))
-                activePokemonP2.moveSlots.push(baseMoveSlot);
-            });
+        if(!activePokemonP2.transformed){
+            activePokemonP2.moveSlots = [];
+            activePokemonP2.baseMoveSlots.forEach(baseMoveSlot => {
+                    //When mimic is used, its moveSlot is replaced with a virtual move.
+                    if(baseMoveSlot.id === "mimic" && activePokemonP2.moveSlots.some(moveSlot => moveSlot.virtual)) return;
+    
+                    //if(!activePokemonP2.moveSlots.some(moveSlot => moveSlot.id === baseMoveSlot.id))
+                    activePokemonP2.moveSlots.push(baseMoveSlot);
+                });
+        }
 
         let activePokemonP1 = battleState.p1.pokemon.filter(poke => poke.isActive)[0];
         let currentRequest = activePokemonP2.switchFlag || activePokemonP1.switchFlag ? "switch" : "move";
         battleState.makeRequest(currentRequest);
-        log.info("Req for p2: ")
-        log.info(battleState.p2.request)
         return battleState.p2.request;
     }
 
     getChosenOption(historyToken, turnLog, options, ownSide){
-        log.info("Get chosen option for " + turnLog);
-        log.info("Given options: ");
-        log.info(options.map(op => op.decision))
+        let self = this;
+        //log.info("Get chosen option for " + turnLog);
+        //log.info("Given options: ");
+        //log.info(options.map(op => op.decision))
         let oppSide = ownSide === "p1" ? "p2" : "p1";
-        let oppSwitchPrefix = "|switch|" + oppSide + "a:"
-        let opponentSwitchedIndex = turnLog.indexOf(oppSwitchPrefix);
-
-        if(opponentSwitchedIndex !== -1){
-            options = options.filter(option => option.decision.type === "switch");
-            let switchIn = turnLog.slice(opponentSwitchedIndex).split("|")[2].slice(5);
-            let switchInId = historyToken.state.p2.pokemon.find(pokemon => pokemon.name === switchIn).position;
-            options = options.filter(option => option.decision.id.toString() === switchInId.toString());
-            return options;
-        }
-
-        options = options.filter(option => option.decision.type !== "switch")
-
-        let oppMovePrefix = "|move|" + oppSide + "a:";
-        let opponentMovedIndex = turnLog.indexOf(oppMovePrefix);
-
-        if(opponentMovedIndex != -1){
-            let chosenMove = turnLog.slice(opponentMovedIndex).split("|")[3];
-            chosenMove = this.teamValidator.dex.getMove(chosenMove).id;
-            options = options.filter(option => option.decision.id.toString() === chosenMove.toString());
-            return options;
-        }
-
-        //If we are here, it means that the opponent was not able to make a move this turn, making it hard to find out the decision.
-        //Based on the order in which the pokemon acted, we can exclude some moves based on their priority.
-
+        
         //Step 1: Get action order
         let getActedIndex = function(playerId){
             let index = turnLog.indexOf("|switch|" + playerId + "a:");
@@ -244,7 +198,62 @@ class PossibleTeam {
         let weActedIndex = getActedIndex(ownSide);
         let weActedFirst = weActedIndex < oppActedIndex;
 
-        return options
+        //Step 2: get onfirmed speed and priority of our own choice
+        let ownPriority = !historyToken.ownDecision ? -1000 : 
+            historyToken.ownDecision.type === "switch" ? 7 : 
+            this.teamValidator.dex.getMove(historyToken.ownDecision.id).priority;
+        let ownSpeed = historyToken.state.p1.pokemon.find(pokemon => pokemon.isActive).getActionSpeed()
+        let oppSpeed = historyToken.state.p2.pokemon.find(pokemon => pokemon.isActive).getActionSpeed();
+        //log.info("Own speed: " + ownSpeed + " opponent's speed: " + oppSpeed);
+        
+        //Step 3: Filter out all options with an priority that would result in a different action order 
+        let canOptionBeChosenBasedOnPriority = function(option){
+            let oppPriority = option.decision.type === "switch" ? 7 : 
+                self.teamValidator.dex.getMove(option.decision.id).priority;
+            if(weActedFirst){
+                if(oppPriority < ownPriority || (oppPriority === ownPriority && oppSpeed < ownSpeed))
+                    return true;
+                if(oppPriority === ownPriority && oppSpeed === ownSpeed){
+                    option.probability = math.divide(option.probability, 2);//Chance of us winning the speed tie
+                    return true;
+                }
+            } else {
+                if(oppPriority > ownPriority || (oppPriority === ownPriority && oppSpeed > ownSpeed))
+                    return true;
+                if(oppPriority === ownPriority && oppSpeed === ownSpeed){
+                    option.probability = math.divide(option.probability, 2);//Chance of opponent winning the speed tie
+                    return true;
+                }
+            }
+            return false;
+        }
+        options = options.filter(canOptionBeChosenBasedOnPriority);
+
+        //Step 4: If the opponent switched to a different Pokemon and we know it, return only that one option that is confirmed
+        let oppSwitchPrefix = "|switch|" + oppSide + "a:"
+        let opponentSwitchedIndex = turnLog.indexOf(oppSwitchPrefix);
+
+        if(opponentSwitchedIndex !== -1){
+            options = options.filter(option => option.decision.type === "switch");
+            let switchIn = turnLog.slice(opponentSwitchedIndex).split("|")[2].slice(5);
+            let switchInId = historyToken.state.p2.pokemon.find(pokemon => pokemon.name === switchIn).position;
+            options = options.filter(option => option.decision.id.toString() === switchInId.toString());
+            return options;
+        }
+
+        //Step 5: If opponent was able to move, return the move choice.
+        options = options.filter(option => option.decision.type !== "switch")
+        let oppMovePrefix = "|move|" + oppSide + "a:";
+        let opponentMovedIndex = turnLog.indexOf(oppMovePrefix);
+
+        if(opponentMovedIndex != -1){
+            let chosenMove = turnLog.slice(opponentMovedIndex).split("|")[3];
+            chosenMove = this.teamValidator.dex.getMove(chosenMove).id;
+            options = options.filter(option => option.decision.id.toString() === chosenMove.toString());
+            return options;
+        }
+ 
+        return options;
     }
 
     updateTeamBuildingRank(opponentTeam){
@@ -274,9 +283,14 @@ class PossibleTeam {
                 //save name
                 this.team[teamIndex].name = confirmedPokemon.name = opponentTeam[oppTeamIndex].name;
 
-                //Update rank
-                let options = this.decisionPropCalcer.getSpeciesChoiceOptions(unfinishedTeam, this.dex)
+                //Update species choice rank
+                let options = this.decisionPropCalcer.getSpeciesChoiceOptions(unfinishedTeam, this.dex);
                 let decision = options.find(option => option.species === self.team[teamIndex].species);
+                this.rank = math.multiply(this.rank, decision.probability);
+
+                //Update level choice rank
+                options = this.decisionPropCalcer.getLevelChoiceOptions(unfinishedTeam);
+                decision = options.find(option => option.level === self.team[teamIndex].level);
                 this.rank = math.multiply(this.rank, decision.probability);
             }
             confirmedPokemon = this.confirmedTeam[confirmedTeamIndex];
@@ -326,6 +340,7 @@ class PossibleTeam {
         for(let oppTeamIndex in opponentTeam){
             let simulatedPokemon = this.team.find(simulatedPokemon => simulatedPokemon.species === opponentTeam[oppTeamIndex].speciesid);
             if(!simulatedPokemon) return false;
+            if(opponentTeam[oppTeamIndex].level != simulatedPokemon.level) return false;
             
             for(let baseMove of opponentTeam[oppTeamIndex].baseMoveSlots){
                 if(!simulatedPokemon.moves.find(move => move === baseMove.id))
@@ -340,4 +355,4 @@ class PossibleTeam {
     }
 }
 
-module.exports = PossibleTeam
+module.exports = PossibleTeam;
