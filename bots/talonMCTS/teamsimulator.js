@@ -1,7 +1,7 @@
 PossibleTeam = require("./possibleteam")
 var log = require('log4js').getLogger("teamSimulator");
 var TeamValidator = require("./../../ServerCode/sim/team-validator").Validator
-var clone = require("./../../clone");
+var cloneBattleState = require("./../../cloneBattleState");
 
 var DecisionPropCalcer = require("./simpledecisionpropcalcer")
 
@@ -36,7 +36,7 @@ class TeamSimulator{
             /*Stupid workaround. If we calculate too long the client disconnects beacause it can't respond. 
             But if we disconnect actively and reconnect when we send something, it disconnects right before,
             we send it and not before giving us time to calculate.*/
-            bot.leave();
+            bot.leave(battle.id);
 
             this.teamStore.push(new PossibleTeam(battle, this.decisionPropCalcer, this.teamValidator, this.dex, this.lead));
         }
@@ -44,7 +44,7 @@ class TeamSimulator{
 
     addStateToHistory(battleState){
         this.history.push({
-            state: clone(battleState)
+            state: cloneBattleState(battleState)
         });
     }
 
@@ -55,10 +55,7 @@ class TeamSimulator{
 
     getHistory(){
         return this.history.map(historyToken => {
-            let clonedState = clone(historyToken.state);
-            clonedState.templateCache = historyToken.state.templateCache;
-            clonedState.itemCache = historyToken.state.itemCache;
-            clonedState.abilityCache = historyToken.state.abilityCache;
+            let clonedState = cloneBattleState(historyToken.state);
             return {
                 state: clonedState,
                 ownDecision: historyToken.ownDecision
@@ -73,8 +70,8 @@ class TeamSimulator{
             /*Stupid workaround. If we calculate too long the client disconnects beacause it can't respond. 
             But if we disconnect actively and reconnect when we send something, it disconnects right before,
             we send it and not before giving us time to calculate.*/
-            bot.leave();
-            
+            bot.leave(battle.id);
+
             if(!this.teamStore[i].isStillPossible(battle, logs))
                 this.teamStore[i] = new PossibleTeam(battle, this.decisionPropCalcer, this.teamValidator, this.dex, this.lead);
             this.teamStore[i].updateRank(battle, logs, this.getHistory(), this.ownSide);
@@ -82,15 +79,19 @@ class TeamSimulator{
     }
 
     getRandomTeam(){
-        rankSum = this.teamStore.map(team => team.getRank()).reduce((rank1, rank2) => math.add(rank1, rank2));
+        let rankSum = this.teamStore.map(team => team.getRank()).reduce((rank1, rank2) => math.add(rank1, rank2));
 
-        rand = math.random(0, rankSum)
+        let rand = math.random(0, rankSum)
         for(let i = 0; i<this.teamStore.length; i++){
             rand = math.subtract(rand, this.teamStore[i].getRank());
             if(math.smallerEq(rand, 0))
                 return this.teamStore[i];
         }
         throw new Error("mathjs doesn't work");
+    }
+
+    getPossibleTeams(){
+        return this.teamStore;
     }
 }
 

@@ -29,7 +29,7 @@ let Items = require("./ServerCode/data/items").BattleItems;
 // Include underscore.js
 let _ = require("underscore");
 
-let clone = require("./clone");
+let cloneBattleState = require("./cloneBattleState");
 
 let program = require('commander'); // Get Command-line arguments
 
@@ -855,7 +855,7 @@ let BattleRoom = new JS.Class({
             }
         }
         
-        if(program.algorithm === "talon") talonbot.addStateToHistory(clone(this.state), this.log, this.side);
+        if(program.algorithm === "talon") talonbot.addStateToHistory(this.state, this.log, this.side);
     },
     saveResult: function() {
         // Save game data to data base
@@ -982,7 +982,6 @@ let BattleRoom = new JS.Class({
         setTimeout(function() {
             if(program.net === "update") {
                 if(room.previousState != null) minimaxbot.train_net(room.previousState, room.state);
-                room.previousState = clone(room.state);
             }
 
             let decision = BattleRoom.parseRequest(request);
@@ -990,14 +989,14 @@ let BattleRoom = new JS.Class({
 
             // Use specified algorithm to determine resulting choice
             let result = undefined;
-            if(program.algorithm === "minimax") result = minimaxbot.decide(clone(room.state), decision.choices);
-            else if(program.algorithm === "mcts") result = mctsbot.decide(clone(room.state), decision.choices);
-            else if(program.algorithm === "samcts") result = mcts_duct.decide(clone(room.state), decision.choices, this.has_p2_moved);
-            else if(program.algorithm === "expectimax") result = expectimax.decide(clone(room.state), decision.choices, this.has_p2_moved);
-            else if(program.algorithm === "greedy") result = greedybot.decide(clone(room.state), decision.choices);
-            else if(program.algorithm === "random") result = randombot.decide(clone(room.state), decision.choices);
+            if(program.algorithm === "minimax") result = minimaxbot.decide(cloneBattleState(room.state), decision.choices);
+            else if(program.algorithm === "mcts") result = mctsbot.decide(cloneBattleState(room.state), decision.choices);
+            else if(program.algorithm === "samcts") result = mcts_duct.decide(cloneBattleState(room.state), decision.choices, this.has_p2_moved);
+            else if(program.algorithm === "expectimax") result = expectimax.decide(cloneBattleState(room.state), decision.choices, this.has_p2_moved);
+            else if(program.algorithm === "greedy") result = greedybot.decide(cloneBattleState(room.state), decision.choices);
+            else if(program.algorithm === "random") result = randombot.decide(cloneBattleState(room.state), decision.choices);
 
-            else if(program.algorithm === "talon") result = talonbot.decide(clone(room.state), decision.choices);
+            else if(program.algorithm === "talon") result = talonbot.decide(cloneBattleState(room.state), decision.choices);
 
             room.decisions.push(result);
             room.send("/choose " + BattleRoom.toChoiceString(result, room.state.p1) + "|" + decision.rqid, room.id);

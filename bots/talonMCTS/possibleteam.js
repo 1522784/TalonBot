@@ -99,11 +99,14 @@ class PossibleTeam {
         let request = this.getOppReqest(historyToken.state);
         if(request.wait) return;
 
-        //Rank times probability for opponent chosing the option he/she chose
+        //Rank times probability for opponent chosing the option the opponent chose
         let options = this.decisionPropCalcer.getRequestOptions(request);
         let chosenOption = this.getChosenOption(historyToken, turnLog, options, ownSide);
-        //log.info("Chosen option:") 
-        //log.info(chosenOption); 
+        
+        if(chosenOption.length === 0){
+            throw new Error("Chosen option for a turn can't be specified. Turnlog: " + turnLog + "\nOptions: " + options + "\nOpponent's request: " + request);
+        }
+
         let probabilitySum = options.map(option => option.probability).reduce((prob1, prob2) =>  math.add(prob1, prob2));
         let probability = chosenOption.map(option => option.probability).reduce((prob1, prob2) =>  math.add(prob1, prob2));
         this.rank = math.multiply(this.rank, math.divide(probability, probabilitySum));
@@ -112,9 +115,20 @@ class PossibleTeam {
     getOppReqest(battleState){
         if(!battleState) return battleState;
 
+        this.completeBattle(battleState);
+
+        let activePokemonP2 = battleState.p2.pokemon.find(poke => poke.isActive);
+
+        let activePokemonP1 = battleState.p1.pokemon.filter(poke => poke.isActive)[0];
+        let currentRequest = activePokemonP2.switchFlag || activePokemonP1.switchFlag ? "switch" : "move";
+        battleState.makeRequest(currentRequest);
+        return battleState.p2.request;
+    }
+
+    completeBattle(battle){
         for(const simPoke of this.team){
-            let p = battleState.p2.pokemon.findIndex(poke => poke.speciesid === simPoke.species);
-            if(p === -1) p = battleState.p2.pokemon.push(null) - 1;
+            let p = battle.p2.pokemon.findIndex(poke => poke.speciesid === simPoke.species);
+            if(p === -1) p = battle.p2.pokemon.push(null) - 1;
 
             var template = {
                 name: simPoke.name,
@@ -123,7 +137,7 @@ class PossibleTeam {
                 moves: simPoke.moves
             };
 
-            if(battleState.gen < 3){
+            if(battle.gen < 3){
                 template.evs = {
                     hp: 252,
                     atk: 252,
@@ -134,29 +148,29 @@ class PossibleTeam {
                 }
             }
 
-            let pokemon = new BattlePokemon(template, battleState.p2);
+            let pokemon = new BattlePokemon(template, battle.p2);
 
-            if(!battleState.p2.pokemon[p]){
-                battleState.p2.pokemon[p] = pokemon;
-                battleState.p2.pokemon[p].position = p;
+            if(!battle.p2.pokemon[p]){
+                battle.p2.pokemon[p] = pokemon;
+                battle.p2.pokemon[p].position = p;
                 continue;
             }
 
-            battleState.p2.pokemon[p].baseMoveSlots = pokemon.baseMoveSlots;
-            battleState.p2.pokemon[p].hpType = pokemon.hpType;
-            battleState.p2.pokemon[p].baseIvs = pokemon.baseIvs;
+            battle.p2.pokemon[p].baseMoveSlots = pokemon.baseMoveSlots;
+            battle.p2.pokemon[p].hpType = pokemon.hpType;
+            battle.p2.pokemon[p].baseIvs = pokemon.baseIvs;
             //TODO:Opponent's HP-Bar is shown in %, therefore the exact number of hp is unknown.
             //We should consider that and get a range of possible hp values.
-            battleState.p2.pokemon[p].hp = parseFloat(battleState.p2.pokemon[p].hp)/battleState.p2.pokemon[p].maxhp*pokemon.maxhp;
-            battleState.p2.pokemon[p].maxhp = pokemon.maxhp;
-            battleState.p2.pokemon[p].happiness = pokemon.happiness;
-            battleState.p2.pokemon[p].level = pokemon.level;
-            battleState.p2.pokemon[p].stats = pokemon.stats;
-            battleState.p2.pokemon[p].getHealth = pokemon.getHealth;
-            battleState.p2.pokemon[p].getDetails = pokemon.getDetails;
+            battle.p2.pokemon[p].hp = parseFloat(battle.p2.pokemon[p].hp)/battle.p2.pokemon[p].maxhp*pokemon.maxhp;
+            battle.p2.pokemon[p].maxhp = pokemon.maxhp;
+            battle.p2.pokemon[p].happiness = pokemon.happiness;
+            battle.p2.pokemon[p].level = pokemon.level;
+            battle.p2.pokemon[p].stats = pokemon.stats;
+            battle.p2.pokemon[p].getHealth = pokemon.getHealth;
+            battle.p2.pokemon[p].getDetails = pokemon.getDetails;
         }
 
-        let activePokemonP2 = battleState.p2.pokemon.find(poke => poke.isActive);
+        let activePokemonP2 = battle.p2.pokemon.find(poke => poke.isActive);
 
         if(!activePokemonP2.transformed){
             activePokemonP2.moveSlots = [];
@@ -169,10 +183,6 @@ class PossibleTeam {
                 });
         }
 
-        let activePokemonP1 = battleState.p1.pokemon.filter(poke => poke.isActive)[0];
-        let currentRequest = activePokemonP2.switchFlag || activePokemonP1.switchFlag ? "switch" : "move";
-        battleState.makeRequest(currentRequest);
-        return battleState.p2.request;
     }
 
     getChosenOption(historyToken, turnLog, options, ownSide){
@@ -269,7 +279,7 @@ class PossibleTeam {
                 
                 //Mark as confirmed
                 confirmedTeamIndex = this.confirmedTeam.findIndex(pokemon => !pokemon.species);
-                if(confirmedTeamIndex === -1) throw new Error("Found new confirmed pokemon despite maximal team size already reached: " + this.confirmedTeam.length);
+                if(confirmedTeamIndex === -1) throw new Error("Found new confirmed pokemon " + opponentTeam[oppTeamIndex].speciesid + " despite maximal team size already reached: " + this.confirmedTeam.length);
                 confirmedPokemon = this.confirmedTeam[confirmedTeamIndex];
                 confirmedPokemon.species = opponentTeam[oppTeamIndex].speciesid;
 

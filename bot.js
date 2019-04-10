@@ -69,8 +69,9 @@ var webconsole = require("./console.js");// Web console
 var sockjs = require('sockjs-client-ws');
 var client = null;
 if(!program.console) client = sockjs.create(program.host);
-exports.leave = () => {
+exports.leave = (room) => {
 	client.close();
+	setTimeout(() => reconnect(room), 5000);
 }
 
 // Domain (replay button redirects here)
@@ -94,15 +95,7 @@ var GAME_TYPE = (program.ranked) ? "ou" : "ou";
 var Pokedex = require("./ServerCode/data/pokedex");
 var Typechart = require("./ServerCode/data/typechart");
 
-// Sends a piece of data to the given room
-// Room can be null for a global command
-var send = module.exports.send = function(data, room) {
-	if (room && room !== 'lobby' && room !== true) {
-		data = room+'|'+data;
-	} else if (room !== true) {
-		data = '|'+data;
-	}
-	
+function reconnect(room){
 	if(client.isClosing || client.isClosed) {
 		client = sockjs.create(program.host);
 
@@ -119,8 +112,20 @@ var send = module.exports.send = function(data, room) {
 		});
 
 		logger.info("rejoin " + room);
-		client.write(room + "|/join " + room) 
+		client.write(room + "|/join " + room);
 	}
+}
+
+// Sends a piece of data to the given room
+// Room can be null for a global command
+var send = module.exports.send = function(data, room) {
+	if (room && room !== 'lobby' && room !== true) {
+		data = room+'|'+data;
+	} else if (room !== true) {
+		data = '|'+data;
+	}
+
+	reconnect(room);
 
 	client.write(data);
 	
@@ -191,7 +196,7 @@ module.exports.searchBattle = searchBattle;
 
 // Global recieve function - tries to interpret command, or send to the correct room
 function recieve(data) {
-	logger.trace("<< " + data);
+	//logger.trace("<< " + data);
 
 	var roomid = '';
 	if (data.substr(0,1) === '>') { // First determine if this command is for a room

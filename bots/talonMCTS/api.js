@@ -17,7 +17,7 @@ var randombot = require("./../randombot");
 var greedybot = require("./../greedybot");
 var minimaxbot = require("./../minimaxbot");
 
-var clone = require("./../../clone");
+var cloneBattleState = require("./../../cloneBattleState");
 
 var TeamSimulator = require("./teamsimulator")
 
@@ -31,17 +31,19 @@ var decide = module.exports.decide = function (battle, choices) {
 
     logger.info("Starting move selection");
 
-    //TODO: Change that!
-    let action = randombot.decide(battle, choices);
+    var mcts = new MCTS(new PokemonBattle(battle), 10, 0, choices, teamSimulatorPool.get(battle.id));
+    var action = mcts.selectMove();
+    mcts.destroy();
     
     logger.info("Given choices: " + JSON.stringify(choices));
     logger.info("My action: " + action.type + " " + action.id);
     lastMove = action.id;
-    var endTime = new Date(); 
-
-    logger.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
 
     teamSimulatorPool.get(battle.id).addOwnDecisionToHistory(action);
+
+    var endTime = new Date(); 
+    logger.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
+
     return {
         type: action.type,
         id: action.id
@@ -56,7 +58,7 @@ module.exports.addStateToHistory = function(battleState, logs, ownSide){
     if(!newestLogs.includes("|switch|") && !newestLogs.includes("|move|") && !newestLogs.includes("|cant|")) return;
 
     let teamSimulator = teamSimulatorPool.get(battleState.id);
-    if(!teamSimulator) teamSimulator = new TeamSimulator(5, battleState, ownSide);
+    if(!teamSimulator) teamSimulator = new TeamSimulator(1, battleState, ownSide);
     teamSimulator.addStateToHistory(battleState);
     teamSimulator.updateTeams(battleState, logs);
     teamSimulatorPool.set(battleState.id, teamSimulator);
@@ -102,10 +104,11 @@ class Node {
     }
 
     get_child(move) {
-        var gameclone = clone(this.game);
+        var gameclone = new PokemonBattle(cloneBattleState(this.game.battle));
+        gameclone.player = this.game.player;
         //_.assign(new this.game.constructor(), _.cloneDeep(this.game))
         var child = new Node(gameclone, this, move, this.depth + 1, this.mcts)
-        this.children.push(child)
+        this.children.push(child);
         return child
     }
 
@@ -128,6 +131,59 @@ class Node {
     get_winner() {
         return this.game.getWinner()
     }
+
+    destroy(){
+        this.game.destroy();
+        for(let child of this.children)
+            child.destroy();
+    }
+}
+
+class BeforeTeamSelectedNode extends Node {
+    
+    /** Apply the move assigned to this node */
+    constructor(game, parent, move, depth, mcts, teamSimulator) {
+        super(game,parent,move,depth,mcts);
+        this.teamSimulator = teamSimulator;
+        this.untried_actions = _(this.teamSimulator.getPossibleTeams()).castArray();
+    }
+
+    get_child(simulatedTeam) {
+        var gameclone = new PokemonBattle(cloneBattleState(this.game.battle));
+        gameclone.player = this.game.player;
+        simulatedTeam.completeBattle(gameclone.battle);
+        var child = new Node(gameclone, this, null, this.depth + 1, this.mcts)
+        this.children.push(child);
+        return child
+    }
+
+    /** Expands a node with untried moves.
+     * Select a random move from the set of untried actions. */
+    expand() {
+        var oppTeam = this.teamSimulator.getRandomTeam();
+        this.untried_actions = this.untried_actions.differenceBy([oppTeam])
+        return this.get_child(oppTeam);
+    }
+
+}
+
+class CurrentChoiceNode extends Node {
+    
+    /** Apply the move assigned to this node */
+    constructor(game, parent, move, depth, mcts, teamSimulator) {
+        super(game,parent,move,depth,mcts);
+        this.teamSimulator = teamSimulator;
+    }
+
+    get_child(move) {
+        var gameclone = new PokemonBattle(cloneBattleState(this.game.battle));
+        gameclone.player = this.game.player;
+        //_.assign(new this.game.constructor(), _.cloneDeep(this.game))
+        var child = new BeforeTeamSelectedNode(gameclone, this, move, this.depth + 1, this.mcts, this.teamSimulator)
+        this.children.push(child);
+        return child
+    }
+
 }
 
 class MCTS {
@@ -143,7 +199,7 @@ class MCTS {
      * @param {int} player - The AI player, either 0 or 1 corresponding to p1 or p2.
      * @param {Array} choices - Initial choices, handles fainted pokemon, etc...
      */    
-    constructor(game, rounds, player, choices) {
+    constructor(game, rounds, player, choices, teamSimulator) {
         var self = this
         this.game = game
 
@@ -162,11 +218,15 @@ class MCTS {
         this.player = player
 
         // Create a new root node
-        this.rootNode = new Node(game, null, null, 0, this)
+        this.rootNode = new CurrentChoiceNode(game, null, null, 0, this, teamSimulator)
         if (choices)
         {
             this.rootNode.untried_actions = _(choices).castArray()
         }
+    }
+
+    destroy(){
+        this.rootNode.destroy();
     }
 
     /** Select the move that should be performed by the player this turn */
@@ -268,6 +328,10 @@ PokemonBattle.prototype.getPossibleMoves = function () {
     }
     var choices = BattleRoom.parseRequest(current_player.request).choices;
     return choices;
+};
+
+PokemonBattle.prototype.destroy = function () {
+    this.battle.destroy();
 };
 
 PokemonBattle.prototype.getCurrentPlayer = function () {
