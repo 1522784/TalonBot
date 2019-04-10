@@ -104,7 +104,7 @@ class PossibleTeam {
         let chosenOption = this.getChosenOption(historyToken, turnLog, options, ownSide);
         
         if(chosenOption.length === 0){
-            throw new Error("Chosen option for a turn can't be specified. Turnlog: " + turnLog + "\nOptions: " + options + "\nOpponent's request: " + request);
+            throw new Error("Chosen option for a turn can't be specified. Turnlog: " + turnLog + "\nOptions: " + options.map(option => option.decision.type + " " + option.decision.id) + "\nOpponent's request: " + JSON.stringify(request));
         }
 
         let probabilitySum = options.map(option => option.probability).reduce((prob1, prob2) =>  math.add(prob1, prob2));
@@ -117,9 +117,8 @@ class PossibleTeam {
 
         this.completeBattle(battleState);
 
-        let activePokemonP2 = battleState.p2.pokemon.find(poke => poke.isActive);
-
-        let activePokemonP1 = battleState.p1.pokemon.filter(poke => poke.isActive)[0];
+        let activePokemonP1 = battleState.p1.active[0];
+        let activePokemonP2 = battleState.p2.active[0];
         let currentRequest = activePokemonP2.switchFlag || activePokemonP1.switchFlag ? "switch" : "move";
         battleState.makeRequest(currentRequest);
         return battleState.p2.request;
@@ -170,7 +169,7 @@ class PossibleTeam {
             battle.p2.pokemon[p].getDetails = pokemon.getDetails;
         }
 
-        let activePokemonP2 = battle.p2.pokemon.find(poke => poke.isActive);
+        let activePokemonP2 = battle.p2.active[0];
 
         if(!activePokemonP2.transformed){
             activePokemonP2.moveSlots = [];
@@ -208,12 +207,14 @@ class PossibleTeam {
         let weActedIndex = getActedIndex(ownSide);
         let weActedFirst = weActedIndex < oppActedIndex;
 
-        //Step 2: get onfirmed speed and priority of our own choice
+        //Step 2: get confirmed speed and priority of our own choice
         let ownPriority = !historyToken.ownDecision ? -1000 : 
             historyToken.ownDecision.type === "switch" ? 7 : 
             this.teamValidator.dex.getMove(historyToken.ownDecision.id).priority;
-        let ownSpeed = historyToken.state.p1.pokemon.find(pokemon => pokemon.isActive).getActionSpeed()
-        let oppSpeed = historyToken.state.p2.pokemon.find(pokemon => pokemon.isActive).getActionSpeed();
+        let ownPokemon = historyToken.state.p1.pokemon.find(pokemon => pokemon.isActive);
+        let ownSpeed = ownPokemon ? ownPokemon.getActionSpeed() : 10000;
+        let oppPokemon = historyToken.state.p2.pokemon.find(pokemon => pokemon.isActive);
+        let oppSpeed = oppPokemon ? oppPokemon.getActionSpeed() : 10000;
         //log.info("Own speed: " + ownSpeed + " opponent's speed: " + oppSpeed);
         
         //Step 3: Filter out all options with an priority that would result in a different action order 
@@ -238,6 +239,8 @@ class PossibleTeam {
             return false;
         }
         options = options.filter(canOptionBeChosenBasedOnPriority);
+
+        if(!options.length) throw new Error("Move order wrong. \nWe acted first? " + weActedFirst + "\n Turnlog: " + turnLog + "\nOwn speed: " + ownSpeed + "\n Opp speed: " + oppSpeed);
 
         //Step 4: If the opponent switched to a different Pokemon and we know it, return only that one option that is confirmed
         let oppSwitchPrefix = "|switch|" + oppSide + "a:"

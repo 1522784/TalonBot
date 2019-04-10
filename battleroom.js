@@ -428,9 +428,8 @@ let BattleRoom = new JS.Class({
             return;
         }
 
-        pokemon.hp = 0;
-        pokemon.switchFlag = true;
-        pokemon.status = 'fnt';
+        pokemon.faint();
+        this.state.faintMessages(true)
 
         this.updatePokemon(battleside, pokemon);
     },

@@ -181,7 +181,7 @@ class CurrentChoiceNode extends Node {
         //_.assign(new this.game.constructor(), _.cloneDeep(this.game))
         var child = new BeforeTeamSelectedNode(gameclone, this, move, this.depth + 1, this.mcts, this.teamSimulator)
         this.children.push(child);
-        return child
+        return child;
     }
 
 }
@@ -233,9 +233,9 @@ class MCTS {
     selectMove() {
         var round, node
         for (round = 0; round < this.rounds; round += 1) {
+            logger.info("Round " + round)
 
             // ---- MCTS Algorithm
-            
             // Explore down to the bottom of the known tree via UCB1
             node = this.get_next_node(this.rootNode)
 
@@ -247,9 +247,12 @@ class MCTS {
             
             // Rollout to maximum depth k, or terminus
             var k = 6
+            logger.info("Start expanding")
             while (node !== undefined && node.depth < k && node.get_winner() === undefined) {
+                logger.info("Expand depth " + node.depth)
                 node = node.expand()
             }
+            logger.info("Finished expanding")
 
             // Something went wrong, bail
             if (node === undefined)
@@ -322,11 +325,19 @@ function PokemonBattle(battle) {
 
 PokemonBattle.prototype.getPossibleMoves = function () {
     var current_player = this.player === 0 ? this.battle.p1 : this.battle.p2;
+
+    let activePokemonP1 = this.battle.p1.active[0];
+    let activePokemonP2 = this.battle.p2.active[0];
+    let currentRequest = activePokemonP2.switchFlag || activePokemonP1.switchFlag ? "switch" : "move";
+    this.battle.makeRequest(currentRequest);
+
     if (current_player.request.wait)
     {
         return [null,]
     }
     var choices = BattleRoom.parseRequest(current_player.request).choices;
+    logger.info("Request for player " + (this.player + 1) + ":")
+    logger.info(current_player.request);
     return choices;
 };
 
@@ -343,16 +354,23 @@ PokemonBattle.prototype.performMove = function (action) {
     var player_side = this.player === 0 ? this.battle.p1 : this.battle.p2
 
     if (this.player === 0) {
+        logger.info("P1 chooses ");
+        logger.info(action);
         this.battle.choose('p1', BattleRoom.toChoiceString(action, this.battle.p1), this.battle.rqid);
     }
     else if (this.player === 1) {
+        logger.info("P2 chooses ");
+        logger.info(action);
         this.battle.choose('p2', BattleRoom.toChoiceString(action, this.battle.p2), this.battle.rqid);
     }
+    logger.info("Choice done"); 
 
     if(action !== undefined) {
-        this.battle.choose(player_string, BattleRoom.toChoiceString(action, player_side), this.battle.rqid);
+        logger.info("Choose again " + player_string);
+        //this.battle.choose(player_string, BattleRoom.toChoiceString(action, player_side), this.battle.rqid);
     }
     else {
+        logger.info("Set decision true");
         player_side.decision = true;
     }
     this.player = 1 - this.player;

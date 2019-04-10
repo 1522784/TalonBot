@@ -282,7 +282,6 @@ class Side {
 
 	isChoiceDone() {
 		if (!this.currentRequest) {
-			console.log("Choice done of player " + this.n + " because of no current request");
 			return true;
 		}
 		if (this.choice.forcedSwitchesLeft) return false;
