@@ -13,5 +13,13 @@ module.exports = cloneBattleState;
  */
 function cloneBattleState(battleState){
     let excludeThese = ["currentMod", "parentMod", "dataCache", "formatsCache", "templateCache", "moveCache", "itemCache", "abilityCache", "typeCache", "modsLoaded", "ModdedDex", "Data", "zMoveTable", "log", "inputLog", "format", "cachedFormat", "formatData", "itemData", "prng", "prngSeed", "teamGenerator"];
-    return clone(battleState, true, undefined, undefined, excludeThese);
+    
+    let cloned =  clone(battleState, true, undefined, undefined, excludeThese);
+
+    for(let pokemon of cloned.p1.pokemon)
+        pokemon.getHealth = (/**@param {Side} side */side => pokemon.getHealthInner(side));
+    for(let pokemon of cloned.p2.pokemon)
+        pokemon.getHealth = (/**@param {Side} side */side => pokemon.getHealthInner(side));
+
+    return cloned;
 }

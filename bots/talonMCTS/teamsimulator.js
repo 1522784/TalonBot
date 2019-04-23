@@ -3,7 +3,7 @@ var log = require('log4js').getLogger("teamSimulator");
 var TeamValidator = require("./../../ServerCode/sim/team-validator").Validator
 var cloneBattleState = require("./../../cloneBattleState");
 
-var DecisionPropCalcer = require("./simpledecisionpropcalcer")
+var decisionPropCalcer = require("./simpledecisionpropcalcer")
 
 var bot = require("./../../bot");
 
@@ -14,7 +14,6 @@ class TeamSimulator{
         let self = this;
 
         this.teamStore = [];
-        this.decisionPropCalcer = new DecisionPropCalcer();
         let format = battle.id.slice(7, -10)
         this.teamValidator = new TeamValidator(format);
         this.history = [];
@@ -36,9 +35,9 @@ class TeamSimulator{
             /*Stupid workaround. If we calculate too long the client disconnects beacause it can't respond. 
             But if we disconnect actively and reconnect when we send something, it disconnects right before,
             we send it and not before giving us time to calculate.*/
-            bot.leave(battle.id);
+            //bot.leave(battle.id);
 
-            this.teamStore.push(new PossibleTeam(battle, this.decisionPropCalcer, this.teamValidator, this.dex, this.lead));
+            this.teamStore.push(new PossibleTeam(battle, decisionPropCalcer, this.teamValidator, this.dex, this.lead));
         }
     }
 
@@ -70,10 +69,10 @@ class TeamSimulator{
             /*Stupid workaround. If we calculate too long the client disconnects beacause it can't respond. 
             But if we disconnect actively and reconnect when we send something, it disconnects right before,
             we send it and not before giving us time to calculate.*/
-            bot.leave(battle.id);
+            //bot.leave(battle.id);
 
             if(!this.teamStore[i].isStillPossible(battle, logs))
-                this.teamStore[i] = new PossibleTeam(battle, this.decisionPropCalcer, this.teamValidator, this.dex, this.lead);
+                this.teamStore[i] = new PossibleTeam(battle, decisionPropCalcer, this.teamValidator, this.dex, this.lead);
             this.teamStore[i].updateRank(battle, logs, this.getHistory(), this.ownSide);
         }
     }

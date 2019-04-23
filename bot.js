@@ -6,7 +6,7 @@ program
 	.option('--port [port]', 'The port on which to serve the web console. [3000]', "3000")
 	.option('--ranked', 'Challenge on the ranked league.')
 	.option('--net [action]', "'create' - generate a new network. 'update' - use and modify existing network. 'use' - use, but don't modify network. 'none' - use hardcoded weights. ['none']", 'none')
-	.option('--algorithm [algorithm]', "Can be 'minimax', 'mcts', 'samcts', 'expectimax', 'greedy', or 'random'. ['samcts']", "talon")
+	.option('--algorithm [algorithm]', "Can be 'talon', 'minimax', 'mcts', 'samcts', 'expectimax', 'greedy', or 'random'. ['samcts']", "talon")
 	.option('--account [file]', "File from which to load credentials. ['account.json']", "account.json")
 	.option('--nosave', "Don't save games to the in-memory db.")
 	.option('--nolog', "Don't append to log files.")
@@ -22,6 +22,10 @@ var WebSocketTransport = require('sockjs-client-ws/lib/WebSocketTransport');
 var log4js = require('log4js');
 log4js.loadAppender('file');
 var logger = require('log4js').getLogger("bot");
+
+let talonbot = require("./bots/talonMCTS/api");
+var RandomTeam = require("./servercode/data/mods/gen1/random-teams");
+var packTeam = require("./packTeam");
 
 if(!program.nolog) {
 	// Ensure that logging directory exists
@@ -305,8 +309,18 @@ function recieve(data) {
 						}
 						else
 						{
-							logger.info("Unknown format: " + challenges.challengesFrom[user]);
-							send("/reject " + user);
+							if(program.algorithm !== "talon"){
+								logger.info("Unknown format: " + challenges.challengesFrom[user]);
+								send("/reject " + user);
+							}
+
+							//Create team from AI
+							let team = talonbot.getTeam(challenges.challengesFrom[user], user);
+							console.log(team);
+							let contents = packTeam(team);
+							send("/utm " + contents, null);
+							send("/accept " + user);
+
 						}
 						
 					}

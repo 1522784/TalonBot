@@ -12,7 +12,7 @@ class SimpleDecisionPropCalcer {
         rand = math.subtract(rand, options[option].probability);
         if(math.smallerEq(rand, 0)) return options[option]
       }
-      throw new Error("mathjs is broken. ");
+      throw new Error("mathjs is broken.");
     }
     
     getSpeciesChoice(team, dex){
@@ -79,4 +79,4 @@ class SimpleDecisionPropCalcer {
     }
 }
 
-module.exports = SimpleDecisionPropCalcer
+module.exports = new SimpleDecisionPropCalcer()

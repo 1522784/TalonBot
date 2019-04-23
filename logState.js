@@ -1,7 +1,7 @@
 var util = require('util');
 
-function logState(logger, battleState){
-    logger.info(battleState.p1.pokemon.map(poke => {
+function logState(log, battleState){
+    log.info(battleState.p1.pokemon.map(poke => {
         let returnVal = {
             name: poke.name,
             health: poke.hp + "/" + poke.maxhp,
@@ -17,7 +17,7 @@ function logState(logger, battleState){
         if(poke.switchFlag) returnVal.switchFlag = poke.switchFlag;
         return returnVal
     }))
-    logger.info(battleState.p2.pokemon.map(poke => {
+    log.info(battleState.p2.pokemon.map(poke => {
         let returnVal = {
             name: poke.name,
             health: poke.hp + "/" + poke.maxhp,

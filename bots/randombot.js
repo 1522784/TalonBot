@@ -3,10 +3,10 @@ Can also be used as a fallback, in case another decision algorithm
 fails or crashes */
 
 var _ = require("underscore");
-var logger = require('log4js').getLogger("minimax");
+var log = require('log4js').getLogger("minimax");
 var logState = require("./../logState")
 
 var decide = module.exports.decide = function(battle, choices) {
-    logState(logger, battle);
+    logState(log, battle);
     return _.shuffle(choices)[0];
 };

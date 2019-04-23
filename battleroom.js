@@ -30,6 +30,7 @@ let Items = require("./ServerCode/data/items").BattleItems;
 let _ = require("underscore");
 
 let cloneBattleState = require("./cloneBattleState");
+let clone = require("./clone");
 
 let program = require('commander'); // Get Command-line arguments
 
@@ -54,6 +55,7 @@ let BattleRoom = new JS.Class({
 
         this.previousState = null; // For TD Learning
 
+        if(!account) account = require("./bot").account
         sendfunc(account.message, id); // Notify User that this is a bot
         sendfunc("/timer", id); // Start timer (for user leaving or bot screw ups)
 
@@ -233,7 +235,7 @@ let BattleRoom = new JS.Class({
             if(!pokemon.moveSlots.some(moveSlot => moveSlot.id === toId(move))){
                 let moveObj = this.state.getMove(move);
                 moveObj.pp = moveObj.pp/5*8;
-                moveObj.maxpp = moveObj.maxpp/5*8;
+                moveObj.maxpp = moveObj.pp;
                 pokemon.baseMoveSlots.push(moveObj);
                 pokemon.moveSlots.push(moveObj); 
                 logger.info("add " + toId(move) + " to moveslots")
@@ -242,12 +244,21 @@ let BattleRoom = new JS.Class({
 
         this.updatePokemon(battleside, pokemon);
         
-        move = this.state.getMove(toId(move));
+        let moveObj = this.state.getMove(move);
+        if(!moveObj) {
+            debugger; 
+            throw new Error("Can't find move " + move + " in Pokemon's moveset " + pokemon.moveSlots.map(move => move.name + " "))
+        }
         let target = targetSide.pokemon.find(poke => poke.name === targetName);
         let miss = tokens5following.some(token => token === "[miss]");
-        let source = tokens5following.find(token => token.indexOf("[from]") === 0);
-        if(source) source = source.slice(6);
+
+        let sourceString = tokens5following.find(token => token.indexOf("[from]") === 0);
+        let source = null;
+        if(sourceString) sourceString = sourceString.slice(6);
+        source = this.state.getEffect(sourceString);
         
+        let damage = null;
+
         //Remove randomness
         let getDamageBackup =  this.state.getDamage;
         this.state.getDamage = function(pokemon, target, move, suppressMessages){
@@ -304,6 +315,7 @@ let BattleRoom = new JS.Class({
 
             //This was all non-random stuff. If the damage is calculated normally (with random variables), we look a few lines ahead
             //to read the damage and return it.
+            if(damage !== null) return damage;
             while(followingLines.length){
                 let line = followingLines[0];
                 followingLines = followingLines.slice(1);
@@ -332,19 +344,31 @@ let BattleRoom = new JS.Class({
                     return;
                 }
 
-                if(health === 0) return pokemon.hp;
+                if(health == 0){ 
+                    debugger;
+                    damage = pokemon.hp;
+                    return pokemon.hp;
+                } 
                 let newHP = Math.ceil(health / maxHealth * pokemon.maxhp);
+                if(!newHP && move.id === "hyperbeam") debugger;
+                damage = pokemon.hp - newHP;
                 return pokemon.hp - newHP;
             }
         };
 
-        move.secondary = undefined;
-        move.secondaries = undefined;
-        move.accuracy = miss ? 0 : true;
+        let secondaryBackup = moveObj.secondary;
+        moveObj.secondary = undefined;
+        let secondariesBackup = moveObj.secondaries;
+        moveObj.secondaries = undefined;
+        let accuracyBackup = moveObj.accuracy;
+        moveObj.accuracy = miss ? 0 : true;
 
-        this.state.runMove(move, pokemon, target, source);
+        this.state.runMove(moveObj, pokemon, target, source);
 
         this.state.getDamage = getDamageBackup;
+        moveObj.secondary = secondaryBackup;
+        moveObj.secondaries = secondariesBackup;
+        moveObj.accuracy = accuracyBackup;
 
     },
     updatePokemonOnCant: function(tokens) {
@@ -392,13 +416,13 @@ let BattleRoom = new JS.Class({
                 break;
 
             case "partiallytrapped":
+                log.info("Can't because of PartiallyTrapped. " + tokens.join("|"))
                 //TODO
                 break;
 
             case "recharge":
-                pokemon.removeVolatile('mustrecharge');
-                pokemon.removeVolatile('truant');
-                break;
+            this.state.runMove("recharge", pokemon)
+            break;
             
             case "frz":
                 pokemon.lastMove = null;
@@ -429,7 +453,9 @@ let BattleRoom = new JS.Class({
         }
 
         pokemon.faint();
-        this.state.faintMessages(true)
+        this.state.faintMessages(true);
+        this.state.checkFainted();
+        logger.info("Is fainted Pokemon forced to switch? " + pokemon.switchFlag)
 
         this.updatePokemon(battleside, pokemon);
     },
@@ -572,7 +598,7 @@ let BattleRoom = new JS.Class({
         }
 
         if(status.substring(0,4) === 'move') {
-            status = status.substring(6);
+            status = status.substring(6); 
         } else if(status.substring(0,7) === 'ability') {
             status = status.substring(9);
         }
@@ -644,7 +670,8 @@ let BattleRoom = new JS.Class({
 
         logger.info("UpdatePokemonStatus. New? " + newStatus)
         if(newStatus) {
-            pokemon.setStatus(status);
+            let success = pokemon.setStatus(status);
+            logger.info("Speed after status: " + pokemon.getActionSpeed() + " Did it work? " + success);
             //record a new Pokemon's status
             //also keep track of how long the status has been going? relevant for toxic poison
             //actually, might be done by default
@@ -655,7 +682,7 @@ let BattleRoom = new JS.Class({
         this.updatePokemon(battleside, pokemon);
     },
 
-    updatePokemonRecharge: function(tokens){
+    /*updatePokemonRecharge: function(tokens){
         let tokens2 = tokens[2].split(': ');
         let player = tokens2[0];
         let pokeName = tokens2[1];
@@ -676,7 +703,7 @@ let BattleRoom = new JS.Class({
 
         pokemon.addVolatile('mustrecharge');
 
-    },
+    },*/
 
     updatePokemonOnItem: function(tokens, newItem) {
         //record that a pokemon has an item. Most relevant if a Pokemon has an air balloon/chesto berry
@@ -728,10 +755,13 @@ let BattleRoom = new JS.Class({
     },
     recieve: function(data) {
         if (!data) return;
+        logger.info("<< " + data)
 
         let self = this;
         //the data-string will be sliced therefore we backup
         let completeData = data;
+
+        let activePokemonFainted = false;
 
         //logger.trace("<< " + data);
 
@@ -782,6 +812,7 @@ let BattleRoom = new JS.Class({
                         battleroom.send("/leave " + battleroom.id);
                     }, 2000);
                 } else if(tokens[1] === 'turn') {
+                    this.state.nextTurn();
                     this.has_p2_moved = false
                 } else if (tokens[1] === 'poke') {
                     this.updatePokemonOnTeamPreview(tokens);
@@ -791,6 +822,7 @@ let BattleRoom = new JS.Class({
                     this.updatePokemonOnMove(tokens, log.slice(i+1));
                 } else if(tokens[1] === 'faint') { //we could outright remove a pokemon...
                     this.updatePokemonOnFaint(tokens);
+                    activePokemonFainted = true;
                     //record that pokemon has fainted
                 } else if(tokens[1] === 'detailschange' || tokens[1] === 'formechange') {
                     this.updatePokemonOnFormeChange(tokens);
@@ -853,8 +885,12 @@ let BattleRoom = new JS.Class({
 
             }
         }
-        
+
+        let requestType = activePokemonFainted ? "switch" : "move";
+        this.state.makeRequest(requestType);
+
         if(program.algorithm === "talon") talonbot.addStateToHistory(this.state, this.log, this.side);
+        
     },
     saveResult: function() {
         // Save game data to data base
@@ -880,7 +916,7 @@ let BattleRoom = new JS.Class({
 
         this.last_rqid = request.rqid
 
-        if (request.side) this.updateSide(request, true);
+        if (request.side) this.updateSide(request);
 
         if (request.active) logger.info(this.title + ": I need to make a move.");
         if (request.forceSwitch){
@@ -979,6 +1015,8 @@ let BattleRoom = new JS.Class({
         let room = this;
 
         setTimeout(function() {
+            room.orderOwnPokemon(request);
+
             if(program.net === "update") {
                 if(room.previousState != null) minimaxbot.train_net(room.previousState, room.state);
             }
@@ -999,8 +1037,28 @@ let BattleRoom = new JS.Class({
 
             room.decisions.push(result);
             room.send("/choose " + BattleRoom.toChoiceString(result, room.state.p1) + "|" + decision.rqid, room.id);
-        }, 5000);
+        }, 7500);
     },
+
+    //Order Pokemon in array this.state.p1.pokemon to match the order in the parameter request
+    orderOwnPokemon(request){
+        let orderedList = [null, null, null, null, null, null];
+
+        //Order of pokemon in request
+        let order = request.side.pokemon.map(pokemon => pokemon.ident.substr(4));
+
+        for(let poke of this.state.p1.pokemon){
+            let orderIndex = order.findIndex(pokeName => poke.name === pokeName);
+            if(orderIndex < 0)throw new Error("Index of Pokemon name " + poke.name + " can't be found in pokemon list of request: " + order);
+            if(orderedList[orderIndex]) throw new Error("Two pokemon with same name: " + poke.name + ". Both belong to index " + orderIndex);
+            orderedList[orderIndex] = poke;
+        }
+
+        orderedList = orderedList.filter(poke => poke);
+        
+        this.state.p1.pokemon = orderedList;
+    },
+
     // Static class methods
     extend: {
         toChoiceString: function(choice, battleside) {
@@ -1019,7 +1077,6 @@ let BattleRoom = new JS.Class({
             let alive = _.some(request.side.pokemon, function(pokemon, index) {
                 return (pokemon.active && pokemon.condition.indexOf("fnt") < 0)
             });
-            if(!alive) logger.info("Condition of active pokemon: " + request.side.pokemon.find(p => p.active).condition);
 
             // If we can make a move
             if (request.active) {

@@ -53,7 +53,7 @@ if (typeof module === 'object')
  *    (optional - defaults to parent prototype).
  */
 
-function clone(parent, circular, depth, prototype, excludeKeys) {
+function clone(parent, circular, depth, prototype, excludeKeys = []) {
   // maintain cache of already cloned objects, to deal with circular references
   var children = [];
   var parents = [];

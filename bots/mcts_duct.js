@@ -2,7 +2,7 @@
 
 // Logging
 var log4js = require('log4js');
-var logger = require('log4js').getLogger("mcts");
+var log = require('log4js').getLogger("mcts");
 var learnlog = require('log4js').getLogger("learning");
 
 var program = require('commander'); // Program settings
@@ -263,23 +263,23 @@ class MCTS {
         }
 
         // Tracking        
-        logger.info("p1 scores:")
+        log.info("p1 scores:")
         _.each(this.rootNode.reward_maps[0].sort(function(a,b){
             if(a.n === b.n)
             {
                 return b.q - a.q
             }
             return b.n - a.n
-        }), function(elem){logger.info(JSON.stringify(elem.move) + " " + elem.n + " " + elem.q)});
+        }), function(elem){log.info(JSON.stringify(elem.move) + " " + elem.n + " " + elem.q)});
 
-        logger.info("p2 scores:")
+        log.info("p2 scores:")
         _.each(this.rootNode.reward_maps[1].sort(function(a,b){
             if(a.n === b.n)
             {
                 return b.q - a.q
             }
             return b.n - a.n
-        }), function(elem){logger.info(JSON.stringify(elem.move) + " " + elem.n + " " + elem.q)});
+        }), function(elem){log.info(JSON.stringify(elem.move) + " " + elem.n + " " + elem.q)});
         
         
         // Select final move to make
@@ -441,22 +441,22 @@ var mcts = new MCTS(150, 4, 0)
 var decide = module.exports.decide = function (battle, choices, has_p2_moved) {
     var startTime = new Date();
 
-    logger.info("Starting move selection");
-    logger.info("Given choices: " + JSON.stringify(choices));
-    logger.info("Has P2 moved? " + has_p2_moved);
+    log.info("Starting move selection");
+    log.info("Given choices: " + JSON.stringify(choices));
+    log.info("Has P2 moved? " + has_p2_moved);
 
     mcts.initTurn(new PokemonBattle(battle), choices, !!has_p2_moved ? [] : null)
     var action = mcts.selectMove();
     if (action === undefined) {
         action = randombot.decide(battle, choices);
-        logger.info("Randomly selected action");
+        log.info("Randomly selected action");
     }
     
-    logger.info("My action: " + action.type + " " + action.id);
+    log.info("My action: " + action.type + " " + action.id);
     lastMove = action.id;
     var endTime = new Date();
 
-    logger.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
+    log.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
     return {
         type: action.type,
         id: action.id

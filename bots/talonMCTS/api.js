@@ -2,7 +2,7 @@
 
 // Logging
 var log4js = require('log4js');
-var logger = require('log4js').getLogger("mcts");
+var log = require('log4js').getLogger("mcts");
 var learnlog = require('log4js').getLogger("learning");
 
 var util = require('util')
@@ -18,6 +18,7 @@ var greedybot = require("./../greedybot");
 var minimaxbot = require("./../minimaxbot");
 
 var cloneBattleState = require("./../../cloneBattleState");
+var clone = require("./../../clone");
 
 var TeamSimulator = require("./teamsimulator")
 
@@ -26,28 +27,64 @@ var startTime
 
 // Function that decides which move to perform
 var overallMinNode = {};
-var lastMove = '';
+var lastMove = ''; 
+
+var decisionPropCalcer = require("./simpledecisionpropcalcer");
+
+//Decide what option to choose in a battle turn
 var decide = module.exports.decide = function (battle, choices) {
 
-    logger.info("Starting move selection");
+    log.info("Starting move selection");
 
-    var mcts = new MCTS(new PokemonBattle(battle), 10, 0, choices, teamSimulatorPool.get(battle.id));
-    var action = mcts.selectMove();
-    mcts.destroy();
+    var mcts = new MCTS(new PokemonBattle(battle), 100, 0, choices, teamSimulatorPool.get(battle.id));
+    try{
+        var action = mcts.selectMove();
+        mcts.destroy();
+    }catch(e){
+        debugger;
+        mcts.selectMove(); 
+    }
     
-    logger.info("Given choices: " + JSON.stringify(choices));
-    logger.info("My action: " + action.type + " " + action.id);
+    log.info("Given choices: " + JSON.stringify(choices));
+    log.info("My action: " + action.type + " " + action.id);
     lastMove = action.id;
 
     teamSimulatorPool.get(battle.id).addOwnDecisionToHistory(action);
 
     var endTime = new Date(); 
-    logger.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
+    log.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
 
     return {
         type: action.type,
         id: action.id
     };
+}
+
+var getTeam = module.exports.getTeam = function(format, opponent){
+    return [
+        {
+            name: "Caterpie",
+            species: "Caterpie",
+            moves: ["tackle"],
+            ability: "None",
+            evs: { hp: 0, atk: 255, def: 0, spa: 255, spd: 255, spe: 255 },
+            ivs: { hp: 30, atk: 30, def: 30, spa: 30, spd: 30, spe: 30 },
+            item: '',
+            level: 100,
+            shiny: false
+        },
+        {
+            name: "Magikarp",
+            species: "Magikarp",
+            moves: ["tackle"],
+            ability: "None",
+            evs: { hp: 0, atk: 255, def: 0, spa: 255, spd: 255, spe: 255 },
+            ivs: { hp: 30, atk: 30, def: 30, spa: 30, spd: 30, spe: 30 },
+            item: '',
+            level: 100,
+            shiny: false
+        }
+    ]
 }
 
 module.exports.addStateToHistory = function(battleState, logs, ownSide){
@@ -58,7 +95,7 @@ module.exports.addStateToHistory = function(battleState, logs, ownSide){
     if(!newestLogs.includes("|switch|") && !newestLogs.includes("|move|") && !newestLogs.includes("|cant|")) return;
 
     let teamSimulator = teamSimulatorPool.get(battleState.id);
-    if(!teamSimulator) teamSimulator = new TeamSimulator(1, battleState, ownSide);
+    if(!teamSimulator) teamSimulator = new TeamSimulator(10, battleState, ownSide);
     teamSimulator.addStateToHistory(battleState);
     teamSimulator.updateTeams(battleState, logs);
     teamSimulatorPool.set(battleState.id, teamSimulator);
@@ -71,18 +108,19 @@ module.exports.addStateToHistory = function(battleState, logs, ownSide){
 class Node {
     
     /** Apply the move assigned to this node */
-    constructor(game, parent, move, depth, mcts) {
+    constructor(game, parent, move, depth, mcts, maxChildren) {
         var self = this
         this.game = game
         this.mcts = mcts
         this.parent = parent
         this.move = move
         this.children = []
+        this.maxChildren = maxChildren;
         
         this.depth = depth || 0
 
         this.q = 0
-        this.visits = 0
+        this.visits = 0 
 
         // Perform the move
         if(move !== null)
@@ -91,11 +129,7 @@ class Node {
         }
 
         // Moves for the current player
-        this.untried_actions = _(this.game.getPossibleMoves(this.game.current_player)).castArray()
-        if (depth === 0)
-        {
-            logger.info("Root node choices: " + JSON.stringify(this.untried_actions));
-        }
+        this.untried_actions = this.game.getPossibleMoves(this.game.current_player);
     }
 
     /** Get UCB1 upper bound on the utility of this node. */
@@ -107,25 +141,31 @@ class Node {
         var gameclone = new PokemonBattle(cloneBattleState(this.game.battle));
         gameclone.player = this.game.player;
         //_.assign(new this.game.constructor(), _.cloneDeep(this.game))
-        var child = new Node(gameclone, this, move, this.depth + 1, this.mcts)
+        try{
+            var child = new Node(gameclone, this, move, this.depth + 1, this.mcts)
+        }
+        catch(e){
+            var player_side = this.game.player === 0 ? this.game.battle.p1 : this.game.battle.p2
+            throw new Error("Creating a new Child caused an error.\nParent depth: " + this.depth + "\nOptions" + this.untried_actions.concat({decision: move}).map(option => JSON.stringify(option.decision)) + "\nRequest: " + JSON.stringify(player_side.request) + "\nCaused by Error: " + e.stack)
+        }
         this.children.push(child);
-        return child
+        return child;
     }
 
     /** Expands a node with untried moves.
      * Select a random move from the set of untried actions. */
     expand() {
-        var action = this.untried_actions.sample()
+        if(!Array.isArray(this.untried_actions)) throw new Error;
+        var action = decisionPropCalcer.randomChoice(this.untried_actions).decision;
         if (action === undefined) {
             return undefined
         }
-        this.untried_actions = this.untried_actions.differenceBy([action])
-        return this.get_child(action)
+        return this.get_child(action);
     }
 
     /** Checks if all this node's actions have been tried */
     expanded() {
-        return this.untried_actions.size() === 0
+        return this.children.size < this.maxChildren;
     }
 
     get_winner() {
@@ -142,26 +182,26 @@ class Node {
 class BeforeTeamSelectedNode extends Node {
     
     /** Apply the move assigned to this node */
-    constructor(game, parent, move, depth, mcts, teamSimulator) {
-        super(game,parent,move,depth,mcts);
+    constructor(game, parent, move, depth, mcts, teamSimulator, maxChildren) {
+        super(game,parent,move,depth,mcts, maxChildren);
         this.teamSimulator = teamSimulator;
         this.untried_actions = _(this.teamSimulator.getPossibleTeams()).castArray();
     }
 
     get_child(simulatedTeam) {
         var gameclone = new PokemonBattle(cloneBattleState(this.game.battle));
-        gameclone.player = this.game.player;
         simulatedTeam.completeBattle(gameclone.battle);
-        var child = new Node(gameclone, this, null, this.depth + 1, this.mcts)
+
+        var child = new Node(gameclone, this, null, this.depth + 1, this.mcts, this.maxChildren)
+
         this.children.push(child);
-        return child
+        return child;
     }
 
     /** Expands a node with untried moves.
      * Select a random move from the set of untried actions. */
     expand() {
         var oppTeam = this.teamSimulator.getRandomTeam();
-        this.untried_actions = this.untried_actions.differenceBy([oppTeam])
         return this.get_child(oppTeam);
     }
 
@@ -170,18 +210,41 @@ class BeforeTeamSelectedNode extends Node {
 class CurrentChoiceNode extends Node {
     
     /** Apply the move assigned to this node */
-    constructor(game, parent, move, depth, mcts, teamSimulator) {
-        super(game,parent,move,depth,mcts);
+    constructor(game, parent, move, depth, mcts, teamSimulator, maxChildren) {
+        super(game,parent,move,depth,mcts, maxChildren);
         this.teamSimulator = teamSimulator;
     }
 
     get_child(move) {
         var gameclone = new PokemonBattle(cloneBattleState(this.game.battle));
         gameclone.player = this.game.player;
+
         //_.assign(new this.game.constructor(), _.cloneDeep(this.game))
-        var child = new BeforeTeamSelectedNode(gameclone, this, move, this.depth + 1, this.mcts, this.teamSimulator)
+        try{
+        var child = new BeforeTeamSelectedNode(gameclone, this, move, this.depth + 1, this.mcts, this.teamSimulator, this.maxChildren);
+        }
+        catch(e){
+            var player_side = this.game.player === 0 ? this.game.battle.p1 : this.game.battle.p2
+            throw new Error("Creating a new Child caused an error.\nParent depth: " + this.depth + "\nOptions" + this.untried_actions.concat({decision: move}).map(option => option.decision.action + " " + option.decision.id) + "\nRequest: " + JSON.stringify(player_side.request) + "\nCaused by Error: " + e.stack)
+        }
         this.children.push(child);
         return child;
+    }
+
+    /** Expands a node with untried moves.
+     * Select a random move from the set of untried actions. */
+    expand() {
+        var action = this.untried_actions.sample();
+        if (action === undefined) {
+            return undefined
+        }
+        this.untried_actions = this.untried_actions.differenceBy([action])
+        return this.get_child(action)
+    }
+
+    /** Checks if all this node's actions have been tried */
+    expanded() {
+        return this.untried_actions.size() === 0;
     }
 
 }
@@ -218,10 +281,10 @@ class MCTS {
         this.player = player
 
         // Create a new root node
-        this.rootNode = new CurrentChoiceNode(game, null, null, 0, this, teamSimulator)
+        this.rootNode = new CurrentChoiceNode(game, null, null, 0, this, teamSimulator, 20)
         if (choices)
         {
-            this.rootNode.untried_actions = _(choices).castArray()
+            this.rootNode.untried_actions = _(choices).castArray();
         }
     }
 
@@ -233,7 +296,6 @@ class MCTS {
     selectMove() {
         var round, node
         for (round = 0; round < this.rounds; round += 1) {
-            logger.info("Round " + round)
 
             // ---- MCTS Algorithm
             // Explore down to the bottom of the known tree via UCB1
@@ -247,12 +309,9 @@ class MCTS {
             
             // Rollout to maximum depth k, or terminus
             var k = 6
-            logger.info("Start expanding")
             while (node !== undefined && node.depth < k && node.get_winner() === undefined) {
-                logger.info("Expand depth " + node.depth)
                 node = node.expand()
             }
-            logger.info("Finished expanding")
 
             // Something went wrong, bail
             if (node === undefined)
@@ -282,11 +341,11 @@ class MCTS {
         if (this.rootNode.children.length > 0)
         {
             var action_string = JSON.stringify(_.map(this.rootNode.children, function(n){return [n.move, n.q, n.visits]}))
-            logger.info("Action scores: " + action_string);
+            log.info("Action scores: " + action_string);
         }
         else
         {
-            logger.info("No children");
+            log.info("No children");
         }
         
         // Get the move with the highest visit count
@@ -301,10 +360,10 @@ class MCTS {
                 node = this.best_child(node)
             }
             else {
-                return node.expand()
+                return node;
             }
         }
-        return node
+        return node;
     }
 
     /** Select a move according to the tree policy. */
@@ -318,7 +377,6 @@ class MCTS {
 
 function PokemonBattle(battle) {
     this.battle = battle;
-    this.battle.start();
 
     this.player = 0;
 }
@@ -326,19 +384,14 @@ function PokemonBattle(battle) {
 PokemonBattle.prototype.getPossibleMoves = function () {
     var current_player = this.player === 0 ? this.battle.p1 : this.battle.p2;
 
-    let activePokemonP1 = this.battle.p1.active[0];
-    let activePokemonP2 = this.battle.p2.active[0];
-    let currentRequest = activePokemonP2.switchFlag || activePokemonP1.switchFlag ? "switch" : "move";
-    this.battle.makeRequest(currentRequest);
+    this.battle.makeRequest();
 
     if (current_player.request.wait)
     {
-        return [null,]
+        return [{decision: null, probability: 1},]
     }
-    var choices = BattleRoom.parseRequest(current_player.request).choices;
-    logger.info("Request for player " + (this.player + 1) + ":")
-    logger.info(current_player.request);
-    return choices;
+
+    return decisionPropCalcer.getRequestOptions(current_player.request);
 };
 
 PokemonBattle.prototype.destroy = function () {
@@ -353,26 +406,28 @@ PokemonBattle.prototype.performMove = function (action) {
     var player_string = this.player === 0 ? 'p1' : 'p2'
     var player_side = this.player === 0 ? this.battle.p1 : this.battle.p2
 
-    if (this.player === 0) {
-        logger.info("P1 chooses ");
-        logger.info(action);
-        this.battle.choose('p1', BattleRoom.toChoiceString(action, this.battle.p1), this.battle.rqid);
-    }
-    else if (this.player === 1) {
-        logger.info("P2 chooses ");
-        logger.info(action);
-        this.battle.choose('p2', BattleRoom.toChoiceString(action, this.battle.p2), this.battle.rqid);
-    }
-    logger.info("Choice done"); 
+    //Stupid workaround. For some reason this method returns 1 when switching in to a fainted Pokemon. Therefore we overwrite it
+    //let getChoiceIndexBackup = player_side.getChoiceIndex;
+    //player_side.getChoiceIndex = () => 0;
 
-    if(action !== undefined) {
-        logger.info("Choose again " + player_string);
-        //this.battle.choose(player_string, BattleRoom.toChoiceString(action, player_side), this.battle.rqid);
+    let choiceSuccess = this.battle.choose(player_string, BattleRoom.toChoiceString(action, player_side), this.battle.rqid);
+    
+    //player_side.getChoiceIndex = getChoiceIndexBackup;
+
+    if(!choiceSuccess){
+        debugger;
+        this.battle.makeRequest();
+        this.battle.choose(player_string, BattleRoom.toChoiceString(action, player_side), this.battle.rqid);
+        log.error(player_string);
+        log.error(player_side.choice);
+        log.error(action)
+        let err = player_side.choice.error;
+        player_side.emitChoiceError = (message) => log.error(message);
+        this.battle.choose(player_string, BattleRoom.toChoiceString(action, player_side), this.battle.rqid);
+
+        throw new Error(err);
     }
-    else {
-        logger.info("Set decision true");
-        player_side.decision = true;
-    }
+
     this.player = 1 - this.player;
 };
 

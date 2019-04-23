@@ -104,6 +104,10 @@ class PossibleTeam {
         let chosenOption = this.getChosenOption(historyToken, turnLog, options, ownSide);
         
         if(chosenOption.length === 0){
+            debugger;
+            historyToken.state.p2.active[0].getRequestData();
+            this.getOppReqest(historyToken.state);
+            this.getChosenOption(historyToken, turnLog, options, ownSide, true);
             throw new Error("Chosen option for a turn can't be specified. Turnlog: " + turnLog + "\nOptions: " + options.map(option => option.decision.type + " " + option.decision.id) + "\nOpponent's request: " + JSON.stringify(request));
         }
 
@@ -120,6 +124,7 @@ class PossibleTeam {
         let activePokemonP1 = battleState.p1.active[0];
         let activePokemonP2 = battleState.p2.active[0];
         let currentRequest = activePokemonP2.switchFlag || activePokemonP1.switchFlag ? "switch" : "move";
+
         battleState.makeRequest(currentRequest);
         return battleState.p2.request;
     }
@@ -181,10 +186,17 @@ class PossibleTeam {
                     activePokemonP2.moveSlots.push(baseMoveSlot);
                 });
         }
+        try{
+            battle.makeRequest();
+        } catch(e){
+            debugger;
+            battle.makeRequest();
+            throw e;
+        }
 
     }
 
-    getChosenOption(historyToken, turnLog, options, ownSide){
+    getChosenOption(historyToken, turnLog, options, ownSide, doLog = false){
         let self = this;
         //log.info("Get chosen option for " + turnLog);
         //log.info("Given options: ");
@@ -215,8 +227,9 @@ class PossibleTeam {
         let ownSpeed = ownPokemon ? ownPokemon.getActionSpeed() : 10000;
         let oppPokemon = historyToken.state.p2.pokemon.find(pokemon => pokemon.isActive);
         let oppSpeed = oppPokemon ? oppPokemon.getActionSpeed() : 10000;
-        //log.info("Own speed: " + ownSpeed + " opponent's speed: " + oppSpeed);
-        
+        if(doLog) log.info("Turnlog: " + turnLog + "\nWe acted first? " + weActedFirst + "Own speed: " + ownSpeed + " opponent's speed: " + oppSpeed);
+        //log.info("We acted first? " + weActedFirst + "\n Turnlog: " + turnLog + "\nOwn speed: " + ownSpeed + "\n Opp speed: " + oppSpeed)
+
         //Step 3: Filter out all options with an priority that would result in a different action order 
         let canOptionBeChosenBasedOnPriority = function(option){
             let oppPriority = option.decision.type === "switch" ? 7 : 
@@ -239,8 +252,9 @@ class PossibleTeam {
             return false;
         }
         options = options.filter(canOptionBeChosenBasedOnPriority);
+        if(doLog) log.info("Remaining options after filtering wrong order: " + options.map(option => option.decision));
 
-        if(!options.length) throw new Error("Move order wrong. \nWe acted first? " + weActedFirst + "\n Turnlog: " + turnLog + "\nOwn speed: " + ownSpeed + "\n Opp speed: " + oppSpeed);
+        //if(!options.length) throw new Error("Move order wrong. \nWe acted first? " + weActedFirst + "\n Turnlog: " + turnLog + "\nOwn speed: " + ownSpeed + "\n Opp speed: " + oppSpeed);
 
         //Step 4: If the opponent switched to a different Pokemon and we know it, return only that one option that is confirmed
         let oppSwitchPrefix = "|switch|" + oppSide + "a:"
@@ -250,6 +264,7 @@ class PossibleTeam {
             options = options.filter(option => option.decision.type === "switch");
             let switchIn = turnLog.slice(opponentSwitchedIndex).split("|")[2].slice(5);
             let switchInId = historyToken.state.p2.pokemon.find(pokemon => pokemon.name === switchIn).position;
+
             options = options.filter(option => option.decision.id.toString() === switchInId.toString());
             return options;
         }
@@ -265,6 +280,8 @@ class PossibleTeam {
             options = options.filter(option => option.decision.id.toString() === chosenMove.toString());
             return options;
         }
+
+        if(!options.length) throw new Error("Chosen option can't be identified. \nWe acted first? " + weActedFirst + "\n Turnlog: " + turnLog + "\nOwn speed: " + ownSpeed + "\n Opp speed: " + oppSpeed);
  
         return options;
     }
@@ -340,7 +357,8 @@ class PossibleTeam {
                     }).filter(move => !unfinishedTeam[unfinishedTeamPokemonIndex].moves.includes(move));
                     let options = this.decisionPropCalcer.getMoveChoiceOptions(unfinishedTeam, unfinishedTeamPokemonIndex, legalMoveOptions);
                     let decision = options.find(option => option.move.toLowerCase() === confirmedMove.toLowerCase());
-                    this.rank = math.multiply(this.rank, decision.probability);
+                    if(!decision) debugger;
+                    this.rank = math.multiply(this.rank, decision.probability); 
 
                 }
             }
