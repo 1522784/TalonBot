@@ -6,7 +6,7 @@ program
 	.option('--port [port]', 'The port on which to serve the web console. [3000]', "3000")
 	.option('--ranked', 'Challenge on the ranked league.')
 	.option('--net [action]', "'create' - generate a new network. 'update' - use and modify existing network. 'use' - use, but don't modify network. 'none' - use hardcoded weights. ['none']", 'none')
-	.option('--algorithm [algorithm]', "Can be 'minimax', 'mcts', 'samcts', 'expectimax', 'greedy', or 'random'. ['samcts']", "talon")
+	.option('--algorithm [algorithm]', "Can be 'talon', 'minimax', 'mcts', 'samcts', 'expectimax', 'greedy', or 'random'. ['samcts']", "talon")
 	.option('--account [file]', "File from which to load credentials. ['account.json']", "account.json")
 	.option('--nosave', "Don't save games to the in-memory db.")
 	.option('--nolog', "Don't append to log files.")
@@ -16,11 +16,16 @@ program
 var request = require('request'); // Used for making post requests to login server
 var util = require('./util');
 var fs = require('fs');
+var WebSocketTransport = require('sockjs-client-ws/lib/WebSocketTransport');
 
 // Setup Logging
 var log4js = require('log4js');
 log4js.loadAppender('file');
 var logger = require('log4js').getLogger("bot");
+
+let talonbot = require("./bots/talonMCTS/api");
+var RandomTeam = require("./servercode/data/mods/gen1/random-teams");
+var packTeam = require("./packTeam");
 
 if(!program.nolog) {
 	// Ensure that logging directory exists
@@ -68,6 +73,10 @@ var webconsole = require("./console.js");// Web console
 var sockjs = require('sockjs-client-ws');
 var client = null;
 if(!program.console) client = sockjs.create(program.host);
+exports.leave = (room) => {
+	client.close();
+	setTimeout(() => reconnect(room), 5000);
+}
 
 // Domain (replay button redirects here)
 var DOMAIN = "http://play.pokemonshowdown.com/";
@@ -90,6 +99,27 @@ var GAME_TYPE = (program.ranked) ? "ou" : "ou";
 var Pokedex = require("./ServerCode/data/pokedex");
 var Typechart = require("./ServerCode/data/typechart");
 
+function reconnect(room){
+	if(client.isClosing || client.isClosed) {
+		client = sockjs.create(program.host);
+
+		client.on('connection', function() {
+			logger.info('Connected to server.');
+		});
+	
+		client.on('data', function(msg) {
+			recieve(msg); 
+		});
+	
+		client.on('error', function(e) {
+			logger.error(e);
+		});
+
+		logger.info("rejoin " + room);
+		client.write(room + "|/join " + room);
+	}
+}
+
 // Sends a piece of data to the given room
 // Room can be null for a global command
 var send = module.exports.send = function(data, room) {
@@ -98,8 +128,11 @@ var send = module.exports.send = function(data, room) {
 	} else if (room !== true) {
 		data = '|'+data;
 	}
-	client.write(data);
 
+	reconnect(room);
+
+	client.write(data);
+	
 	logger.trace(">> " + data);
 }
 
@@ -123,7 +156,7 @@ function rename(name, password) {
 		} else {
 			// We couldn't log in for some reason
 			logger.fatal("Error logging in...");
-			process.exit();
+			process.exit(); 
 		}
 	});
 }
@@ -134,6 +167,7 @@ exports.ROOMS = ROOMS;
 
 // Add a new room (only supports rooms of type battle)
 function addRoom(id, type) {
+	if(ROOMS[id]) return ROOMS[id];
 	if(type == "battle") {
 		ROOMS[id] = new BattleRoom(id, send);
 		return ROOMS[id];
@@ -166,7 +200,7 @@ module.exports.searchBattle = searchBattle;
 
 // Global recieve function - tries to interpret command, or send to the correct room
 function recieve(data) {
-	logger.trace("<< " + data);
+	//logger.trace("<< " + data);
 
 	var roomid = '';
 	if (data.substr(0,1) === '>') { // First determine if this command is for a room
@@ -275,8 +309,18 @@ function recieve(data) {
 						}
 						else
 						{
-							logger.info("Unknown format: " + challenges.challengesFrom[user]);
-							send("/reject " + user);
+							if(program.algorithm !== "talon"){
+								logger.info("Unknown format: " + challenges.challengesFrom[user]);
+								send("/reject " + user);
+							}
+
+							//Create team from AI
+							let team = talonbot.getTeam(challenges.challengesFrom[user], user);
+							console.log(team);
+							let contents = packTeam(team);
+							send("/utm " + contents, null);
+							send("/accept " + user);
+
 						}
 						
 					}

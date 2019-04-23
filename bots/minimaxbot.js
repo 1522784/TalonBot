@@ -1,6 +1,6 @@
 // Logging
 var log4js = require('log4js');
-var logger = require('log4js').getLogger("minimax");
+var log = require('log4js').getLogger("minimax");
 var learnlog = require('log4js').getLogger("learning");
 
 var program = require('commander'); // Program settings
@@ -281,7 +281,7 @@ var eval = module.exports.eval = function (battle) {
         value = net.forward(vec).w[0];
     }
 
-    //logger.trace(JSON.stringify(features) + ": " + value);
+    //log.trace(JSON.stringify(features) + ": " + value);
     return value;
 }
 
@@ -295,12 +295,12 @@ var decide = module.exports.decide = function (battle, choices) {
     var MAX_DEPTH = 2; //for now...
     var maxNode = playerTurn(battle, MAX_DEPTH, Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY, choices);
     if (!maxNode.action) return randombot.decide(battle, choices);
-    logger.info("My action: " + maxNode.action.type + " " + maxNode.action.id);
+    log.info("My action: " + maxNode.action.type + " " + maxNode.action.id);
     if (overallMinNode.action)
-        logger.info("Predicted opponent action: " + overallMinNode.action.type + " " + overallMinNode.action.id);
+        log.info("Predicted opponent action: " + overallMinNode.action.type + " " + overallMinNode.action.id);
     lastMove = maxNode.action.id;
     var endTime = new Date();
-    logger.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
+    log.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
     return {
         type: maxNode.action.type,
         id: maxNode.action.id,
@@ -315,7 +315,7 @@ var DISCOUNT = module.exports.DISCOUNT = 0.98;
 //TODO: Implement move ordering, which can be based on the original greedy algorithm
 //However, it should have slightly different priorities, such as status effects...
 function playerTurn(battle, depth, alpha, beta, givenchoices) {
-    logger.trace("Player turn at depth " + depth);
+    log.trace("Player turn at depth " + depth);
 
     // Node in the minimax tree
     var node = {
@@ -352,7 +352,7 @@ function playerTurn(battle, depth, alpha, beta, givenchoices) {
             return -priority;
         });
         for (var i = 0; i < choices.length; i++) {
-            logger.info(choices[i].id + " with priority " + choices[i].priority);
+            log.info(choices[i].id + " with priority " + choices[i].priority);
         }
         //choices = _.sample(choices, 1); // For testing
         //TODO: before looping through moves, move choices from array to priority queue to give certain moves higher priority than others
@@ -397,7 +397,7 @@ function playerTurn(battle, depth, alpha, beta, givenchoices) {
 
 // Minmax search algorithm : Minnode
 function opponentTurn(battle, depth, alpha, beta, playerAction) {
-    logger.trace("Opponent turn turn at depth " + depth);
+    log.trace("Opponent turn turn at depth " + depth);
 
     // Node in the minimax tree
     var node = {
@@ -442,14 +442,14 @@ function opponentTurn(battle, depth, alpha, beta, playerAction) {
         return -priority;
     });
     for (var i = 0; i < choices.length; i++) {
-        logger.info(choices[i].id + " with priority " + choices[i].priority);
+        log.info(choices[i].id + " with priority " + choices[i].priority);
     }
 
     // Take top 10 choices, to limit breadth of tree
     choices = _.take(choices, 10);
 
     for (var i = 0; i < choices.length; ++i) {
-        logger.trace("Cloning battle...");
+        log.trace("Cloning battle...");
         var newbattle = clone(battle);
 
         // Register action, let battle simulate
@@ -459,15 +459,15 @@ function opponentTurn(battle, depth, alpha, beta, playerAction) {
             newbattle.p1.decision = true;
         newbattle.choose('p2', BattleRoom.toChoiceString(choices[i], newbattle.p2), newbattle.rqid);
 
-        logger.info("Player action: " + BattleRoom.toChoiceString(playerAction, newbattle.p1));
-        logger.info("Opponent action: " + BattleRoom.toChoiceString(choices[i], newbattle.p2));
-        logger.info("My Resulting Health:");
+        log.info("Player action: " + BattleRoom.toChoiceString(playerAction, newbattle.p1));
+        log.info("Opponent action: " + BattleRoom.toChoiceString(choices[i], newbattle.p2));
+        log.info("My Resulting Health:");
         for (var j = 0; j < newbattle.p1.pokemon.length; j++) {
-            logger.info(newbattle.p1.pokemon[j].id + ": " + newbattle.p1.pokemon[j].hp + "/" + newbattle.p1.pokemon[j].maxhp);
+            log.info(newbattle.p1.pokemon[j].id + ": " + newbattle.p1.pokemon[j].hp + "/" + newbattle.p1.pokemon[j].maxhp);
         }
-        logger.info("Opponent's Resulting Health:");
+        log.info("Opponent's Resulting Health:");
         for (var j = 0; j < newbattle.p2.pokemon.length; j++) {
-            logger.info(newbattle.p2.pokemon[j].id + ": " + newbattle.p2.pokemon[j].hp + "/" + newbattle.p2.pokemon[j].maxhp);
+            log.info(newbattle.p2.pokemon[j].id + ": " + newbattle.p2.pokemon[j].hp + "/" + newbattle.p2.pokemon[j].maxhp);
         }
         var maxNode = playerTurn(newbattle, depth - 1, alpha, beta);
         node.children.push(maxNode);

@@ -2,7 +2,7 @@ TalonBot: A Pokemon Showdown AI
 ===========
 
 ## Disclosure
-Credit goes to the [Percymon](https://github.com/rameshvarun/showdownbot) and [LANCE](https://github.com/A-Malone/showdownbot) projects built in Node.js, on top of which this AI is built. Percymon is a Pokemon battling AI that runs on the Pokemon Showdown server.
+Credit goes to the [Percymon](https://github.com/rameshvarun/showdownbot) and [LANCE](https://github.com/A-Malone/showdownbot) projects built in Node.js, on top of which this AI is built. Percymon is a Pokemon battling AI that runs on the Pokemon Showdown client.
 
 ![Imgur](http://i.imgur.com/uasrTOy.png)
 

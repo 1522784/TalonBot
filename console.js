@@ -15,7 +15,7 @@ var _ = require("underscore")
 
 // Setup Logging
 var log4js = require('log4js');
-var logger = require('log4js').getLogger("webconsole");
+var log = require('log4js').getLogger("webconsole");
 
 var CHALLENGING = false;
 if(program.startchallenging) CHALLENGING = true;
@@ -26,7 +26,7 @@ var minimaxbot = require("./bots/minimaxbot");
 var MAX_ROOMS = 1;
 setInterval(function() {
 	if(CHALLENGING && _.values(bot.ROOMS).length < MAX_ROOMS) {
-		logger.info("Challenging...");
+		log.info("Challenging...");
 		bot.searchBattle();
 	}
 }, 45000);
@@ -59,7 +59,7 @@ app.get('/challenge/:user/:format/', function(req, res) {
 	// Read the team from a file and update the team
 	fs.readFile('teams/' + req.params.format + '.req', 'ascii', function(err, contents) {
 		console.log(contents);
-		bot.send("/utm " + contents, null);
+		bot.send("/utm " + contents, null); 
 	});
 
 	bot.send("/challenge " + req.params.user + ", " + req.params.format, null);
@@ -115,13 +115,13 @@ app.get('/replay', function(req, res){
 });
 
 app.get('/search', function(req, res){
-	logger.debug("Asked to query from web console.");
+	log.debug("Asked to query from web console.");
 	bot.searchBattle();
 	res.redirect("/");
 });
 
 var port = parseInt(program.port);
 app.listen(port);
-logger.info("Started web console on port " + port + "...");
+log.info("Started web console on port " + port + "...");
 
 module.exports = app;

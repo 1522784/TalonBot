@@ -1,5 +1,7 @@
 'use strict';
 
+var Battle = require("./servercode/sim/battle")
+
 function objectToString(o) {
   return Object.prototype.toString.call(o);
 }
@@ -22,6 +24,9 @@ var util = {
     re.ignoreCase && (flags += 'i');
     re.multiline && (flags += 'm');
     return flags;
+  },
+  isMap: function (ma){
+    return ma instanceof Map;
   }
 };
 
@@ -48,7 +53,7 @@ if (typeof module === 'object')
  *    (optional - defaults to parent prototype).
  */
 
-function clone(parent, circular, depth, prototype) {
+function clone(parent, circular, depth, prototype, excludeKeys = []) {
   // maintain cache of already cloned objects, to deal with circular references
   var children = [];
   var parents = [];
@@ -62,7 +67,7 @@ function clone(parent, circular, depth, prototype) {
     depth = Infinity;
 
   // recurse this function so we don't reset allParents and allChildren
-  function _clone(parent, depth) {
+  function _clone(parent, depth, excludeKeys) {
     // cloning null always returns null
     if (parent === null)
       return null;
@@ -78,6 +83,8 @@ function clone(parent, circular, depth, prototype) {
 
     if (util.isArray(parent)) {
       child = [];
+    } else if (util.isMap(parent)) {
+      child = new Map();
     } else if (util.isRegExp(parent)) {
       child = new RegExp(parent.source, util.getRegExpFlags(parent));
       if (parent.lastIndex) child.lastIndex = parent.lastIndex;
@@ -109,13 +116,15 @@ function clone(parent, circular, depth, prototype) {
     }
 
     for (var i in parent) {
-      if(parent.hasOwnProperty(i)) child[i] = _clone(parent[i], depth - 1);
+      if(parent.hasOwnProperty(i)) {
+        child[i] = excludeKeys.includes(i) ? parent[i] : _clone(parent[i], depth - 1, []);
+      }
     }
 
     return child;
   }
 
-  var cloned = _clone(parent, depth);
+  var cloned = _clone(parent, depth, excludeKeys);
 
   // Remove the temporary clone id's
   for(var i in parents) delete parents[i].clone_id;

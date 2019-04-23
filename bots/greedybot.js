@@ -1,6 +1,6 @@
 //Logging
 var log4js = require('log4js');
-var logger = log4js.getLogger("greedy");
+var log = log4js.getLogger("greedy");
 
 var _ = require("underscore");
 var BattleRoom = require("./../battleroom");
@@ -137,22 +137,22 @@ var decide = module.exports.decide = function(battle, choices, p1, p2) {
     });
 
     switch(bestChoice.priority) {
-        case 12: logger.info("Chose " + bestChoice.id + " because it provides helpful side effects."); break;
-        case 11: logger.info("Chose " + bestChoice.id + " because it is an entry hazard."); break;
-        case 10: logger.info("Chose " + bestChoice.id + " because it causes a status effect."); break;
-        case 9: logger.info("Chose " + bestChoice.id + " because it recovers hp."); break;
-        case 8: logger.info("Chose " + bestChoice.id + " because it is super effective with STAB."); break;
-        case 7: logger.info("Chose " + bestChoice.id + " because it is super effective."); break;
-        case 6: logger.info("Chose " + bestChoice.id + " because it has STAB."); break;
-        case 5: logger.info("Switched to " + p1.pokemon[bestChoice.id].name + " because it is immmune to the opponent's types."); break;
-        case 4: logger.info("Switched to " + p1.pokemon[bestChoice.id].name + " because it resists the opponent's types."); break;
-        case 3: logger.info("Switched to " + p1.pokemon[bestChoice.id].name + " because it recieves neutral damage from the opponent."); break;
-        case 2: logger.info("Switched to " + p1.pokemon[bestChoice.id].name + " because it can deal super effective damage to the opponent."); break;
-        case 1: logger.info("Chose " + bestChoice.id + " because it is normally effective."); break;
-        case 0: logger.info("Chose " + bestChoice.id + " because we had no better option."); break;
-        default: logger.error("Unknown priority.");
+        case 12: log.info("Chose " + bestChoice.id + " because it provides helpful side effects."); break;
+        case 11: log.info("Chose " + bestChoice.id + " because it is an entry hazard."); break;
+        case 10: log.info("Chose " + bestChoice.id + " because it causes a status effect."); break;
+        case 9: log.info("Chose " + bestChoice.id + " because it recovers hp."); break;
+        case 8: log.info("Chose " + bestChoice.id + " because it is super effective with STAB."); break;
+        case 7: log.info("Chose " + bestChoice.id + " because it is super effective."); break;
+        case 6: log.info("Chose " + bestChoice.id + " because it has STAB."); break;
+        case 5: log.info("Switched to " + p1.pokemon[bestChoice.id].name + " because it is immmune to the opponent's types."); break;
+        case 4: log.info("Switched to " + p1.pokemon[bestChoice.id].name + " because it resists the opponent's types."); break;
+        case 3: log.info("Switched to " + p1.pokemon[bestChoice.id].name + " because it recieves neutral damage from the opponent."); break;
+        case 2: log.info("Switched to " + p1.pokemon[bestChoice.id].name + " because it can deal super effective damage to the opponent."); break;
+        case 1: log.info("Chose " + bestChoice.id + " because it is normally effective."); break;
+        case 0: log.info("Chose " + bestChoice.id + " because we had no better option."); break;
+        default: log.error("Unknown priority.");
     }
-    logger.info("Move has priority: " + bestChoice.priority);
+    log.info("Move has priority: " + bestChoice.priority);
     return {
         type: bestChoice.type,
         id: bestChoice.id,
