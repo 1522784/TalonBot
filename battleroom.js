@@ -345,12 +345,10 @@ let BattleRoom = new JS.Class({
                 }
 
                 if(health == 0){ 
-                    debugger;
                     damage = pokemon.hp;
                     return pokemon.hp;
                 } 
                 let newHP = Math.ceil(health / maxHealth * pokemon.maxhp);
-                if(!newHP && move.id === "hyperbeam") debugger;
                 damage = pokemon.hp - newHP;
                 return pokemon.hp - newHP;
             }
@@ -491,6 +489,8 @@ let BattleRoom = new JS.Class({
         //update hp
         pokemon.hp = newHP;
         this.updatePokemon(battleside, pokemon);
+
+        if(tokens3[2]) this.updatePokemonStatus([tokens[0], tokens[1], tokens[2], tokens3[2]], true);
 
     },
     updatePokemonOnBoost: function(tokens, isBoost) {
@@ -671,13 +671,15 @@ let BattleRoom = new JS.Class({
         logger.info("UpdatePokemonStatus. New? " + newStatus)
         if(newStatus) {
             let success = pokemon.setStatus(status);
-            logger.info("Speed after status: " + pokemon.getActionSpeed() + " Did it work? " + success);
-            //record a new Pokemon's status
-            //also keep track of how long the status has been going? relevant for toxic poison
-            //actually, might be done by default
+
+            if(this.state.gen === 1){
+                if (status === 'brn') pokemon.modifyStat('atk', 0.5);
+                // @ts-ignore
+                if (status === 'par') pokemon.modifyStat('spe', 0.25);
+            }
         } else {
-            pokemon.clearStatus();
             //heal a Pokemon's status
+            pokemon.clearStatus();
         }
         this.updatePokemon(battleside, pokemon);
     },

@@ -105,7 +105,6 @@ class PossibleTeam {
         
         if(chosenOption.length === 0){
             debugger;
-            historyToken.state.p2.active[0].getRequestData();
             this.getOppReqest(historyToken.state);
             this.getChosenOption(historyToken, turnLog, options, ownSide, true);
             throw new Error("Chosen option for a turn can't be specified. Turnlog: " + turnLog + "\nOptions: " + options.map(option => option.decision.type + " " + option.decision.id) + "\nOpponent's request: " + JSON.stringify(request));
