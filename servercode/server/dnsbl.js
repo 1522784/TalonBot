@@ -19,7 +19,8 @@
 const BLOCKLISTS = ['sbl.spamhaus.org', 'rbl.efnetrbl.org'];
 
 const dns = require('dns');
-const FS = require('../lib/fs');
+/** @type {typeof import('../lib/fs').FS} */
+const FS = require(/** @type {any} */('../.lib-dist/fs')).FS;
 
 let Dnsbl = module.exports;
 
@@ -57,8 +58,10 @@ function queryDnsblLoop(ip, callback, reversedIpDot, index) {
  * Dnsbl.query(ip, callback)
  *
  * Calls callback(blocklist), where blocklist is the blocklist domain
- * if the passed IP is in a blocklist, or boolean false if the IP is
- * not in any blocklist.
+ * if the passed IP is in a blocklist, or null if the IP is not in
+ * any blocklist.
+ *
+ * Return value matches isBlocked when treated as a boolean.
  *
  * @param {string} ip
  * @return {Promise<string?>}
@@ -82,6 +85,12 @@ Dnsbl.query = function queryDnsbl(ip) {
  * @return {number}
  */
 Dnsbl.ipToNumber = function (ip) {
+	if (ip.includes(':') && !ip.includes('.')) {
+		// IPv6
+		return -1;
+	}
+	if (ip.startsWith('::ffff:')) ip = ip.slice(7);
+	else if (ip.startsWith('::')) ip = ip.slice(2);
 	let num = 0;
 	let parts = ip.split('.');
 	for (const part of parts) {

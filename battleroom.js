@@ -361,6 +361,8 @@ let BattleRoom = new JS.Class({
         let accuracyBackup = moveObj.accuracy;
         moveObj.accuracy = miss ? 0 : true;
 
+        if(move === "Transform") debugger;
+
         this.state.runMove(moveObj, pokemon, target, source);
 
         this.state.getDamage = getDamageBackup;

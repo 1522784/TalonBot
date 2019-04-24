@@ -63,22 +63,11 @@ var decide = module.exports.decide = function (battle, choices) {
 var getTeam = module.exports.getTeam = function(format, opponent){
     return [
         {
-            name: "Caterpie",
-            species: "Caterpie",
+            name: "Tauros",
+            species: "Starmie",
             moves: ["tackle"],
             ability: "None",
-            evs: { hp: 0, atk: 255, def: 0, spa: 255, spd: 255, spe: 255 },
-            ivs: { hp: 30, atk: 30, def: 30, spa: 30, spd: 30, spe: 30 },
-            item: '',
-            level: 100,
-            shiny: false
-        },
-        {
-            name: "Magikarp",
-            species: "Magikarp",
-            moves: ["tackle"],
-            ability: "None",
-            evs: { hp: 0, atk: 255, def: 0, spa: 255, spd: 255, spe: 255 },
+            evs: { hp: 255, atk: 255, def: 255, spa: 255, spd: 255, spe: 255 },
             ivs: { hp: 30, atk: 30, def: 30, spa: 30, spd: 30, spe: 30 },
             item: '',
             level: 100,
@@ -410,6 +399,7 @@ PokemonBattle.prototype.performMove = function (action) {
     //let getChoiceIndexBackup = player_side.getChoiceIndex;
     //player_side.getChoiceIndex = () => 0;
 
+    if(action.id === "transform") debugger;
     let choiceSuccess = this.battle.choose(player_string, BattleRoom.toChoiceString(action, player_side), this.battle.rqid);
     
     //player_side.getChoiceIndex = getChoiceIndexBackup;

@@ -17,7 +17,14 @@ const MINUTES = 60 * 1000;
 
 const cluster = require('cluster');
 const fs = require('fs');
-const FS = require('../lib/fs');
+/** @type {typeof import('../lib/fs').FS} */
+const FS = require(/** @type {any} */('../.lib-dist/fs')).FS;
+
+/** @typedef {0 | 1 | 2 | 3 | 4} ChannelID */
+
+const Monitor = {
+	crashlog: require(/** @type {any} */('../.lib-dist/crashlogger')),
+};
 
 if (cluster.isMaster) {
 	cluster.setupMaster({
@@ -77,14 +84,14 @@ if (cluster.isMaster) {
 			workers.delete(worker.id);
 		} else if (code > 0) {
 			// Worker was killed abnormally, likely because of a crash.
-			require('../lib/crashlogger')(new Error(`Worker ${worker.id} abruptly died with code ${code} and signal ${signal}`), "The main process");
+			Monitor.crashlog(new Error(`Worker ${worker.id} abruptly died with code ${code} and signal ${signal}`), "The main process");
 			// Don't delete the worker so it can be inspected if need be.
 		}
 
 		if (worker.isConnected()) worker.disconnect();
 		// FIXME: this is a bad hack to get around a race condition in
 		// Connection#onDisconnect sending room deinit messages after already
-		// having removed the sockets from their channels.
+		// having removed the sockets from their rooms.
 		// @ts-ignore
 		worker.send = () => {};
 
@@ -172,7 +179,7 @@ if (cluster.isMaster) {
 
 	/**
 	 * @param {cluster.Worker} worker
-	 * @param {number} socketid
+	 * @param {string} socketid
 	 * @param {string} message
 	 */
 	exports.socketSend = function (worker, socketid, message) {
@@ -181,67 +188,58 @@ if (cluster.isMaster) {
 
 	/**
 	 * @param {cluster.Worker} worker
-	 * @param {number} socketid
+	 * @param {string} socketid
 	 */
 	exports.socketDisconnect = function (worker, socketid) {
 		worker.send(`!${socketid}`);
 	};
 
 	/**
-	 * @param {string} channelid
+	 * @param {string} roomid
 	 * @param {string} message
 	 */
-	exports.channelBroadcast = function (channelid, message) {
+	exports.roomBroadcast = function (roomid, message) {
 		for (const worker of workers.values()) {
-			worker.send(`#${channelid}\n${message}`);
+			worker.send(`#${roomid}\n${message}`);
 		}
 	};
 
 	/**
 	 * @param {cluster.Worker} worker
-	 * @param {string} channelid
-	 * @param {string} message
+	 * @param {string} roomid
+	 * @param {string} socketid
 	 */
-	exports.channelSend = function (worker, channelid, message) {
-		worker.send(`#${channelid}\n${message}`);
+	exports.roomAdd = function (worker, roomid, socketid) {
+		worker.send(`+${roomid}\n${socketid}`);
 	};
 
 	/**
 	 * @param {cluster.Worker} worker
-	 * @param {string} channelid
-	 * @param {number} socketid
+	 * @param {string} roomid
+	 * @param {string} socketid
 	 */
-	exports.channelAdd = function (worker, channelid, socketid) {
-		worker.send(`+${channelid}\n${socketid}`);
+	exports.roomRemove = function (worker, roomid, socketid) {
+		worker.send(`-${roomid}\n${socketid}`);
 	};
 
 	/**
-	 * @param {cluster.Worker} worker
-	 * @param {string} channelid
-	 * @param {number} socketid
-	 */
-	exports.channelRemove = function (worker, channelid, socketid) {
-		worker.send(`-${channelid}\n${socketid}`);
-	};
-
-	/**
-	 * @param {string} channelid
+	 * @param {string} roomid
 	 * @param {string} message
 	 */
-	exports.subchannelBroadcast = function (channelid, message) {
+	exports.channelBroadcast = function (roomid, message) {
 		for (const worker of workers.values()) {
-			worker.send(`:${channelid}\n${message}`);
+			worker.send(`:${roomid}\n${message}`);
 		}
 	};
 
 	/**
 	 * @param {cluster.Worker} worker
-	 * @param {string} channelid
-	 * @param {string} subchannelid
-	 * @param {number} socketid
+	 * @param {string} roomid
+	 * @param {ChannelID} channelid
+	 * @param {string} socketid
 	 */
-	exports.subchannelMove = function (worker, channelid, subchannelid, socketid) {
-		worker.send(`.${channelid}\n${subchannelid}\n${socketid}`);
+	exports.channelMove = function (worker, roomid, channelid, socketid) {
+		worker.send(`.${roomid}\n${channelid}\n${socketid}`);
 	};
 
 	/**
@@ -290,7 +288,7 @@ if (cluster.isMaster) {
 	if (Config.crashguard) {
 		// graceful crash
 		process.on('uncaughtException', err => {
-			require('../lib/crashlogger')(err, `Socket process ${cluster.worker.id} (${process.pid})`);
+			Monitor.crashlog(err, `Socket process ${cluster.worker.id} (${process.pid})`);
 		});
 	}
 
@@ -305,7 +303,7 @@ if (cluster.isMaster) {
 			try {
 				key = fs.readFileSync(key);
 			} catch (e) {
-				require('../lib/crashlogger')(new Error(`Failed to read the configured SSL private key PEM file:\n${e.stack}`), `Socket process ${cluster.worker.id} (${process.pid})`);
+				Monitor.crashlog(new Error(`Failed to read the configured SSL private key PEM file:\n${e.stack}`), `Socket process ${cluster.worker.id} (${process.pid})`);
 			}
 		} catch (e) {
 			console.warn('SSL private key config values will not support HTTPS server option values in the future. Please set it to use the absolute path of its PEM file.');
@@ -319,7 +317,7 @@ if (cluster.isMaster) {
 			try {
 				cert = fs.readFileSync(cert);
 			} catch (e) {
-				require('../lib/crashlogger')(new Error(`Failed to read the configured SSL certificate PEM file:\n${e.stack}`), `Socket process ${cluster.worker.id} (${process.pid})`);
+				Monitor.crashlog(new Error(`Failed to read the configured SSL certificate PEM file:\n${e.stack}`), `Socket process ${cluster.worker.id} (${process.pid})`);
 			}
 		} catch (e) {
 			console.warn('SSL certificate config values will not support HTTPS server option values in the future. Please set it to use the absolute path of its PEM file.');
@@ -331,7 +329,7 @@ if (cluster.isMaster) {
 				// In case there are additional SSL config settings besides the key and cert...
 				appssl = require('https').createServer(Object.assign({}, Config.ssl.options, {key, cert}));
 			} catch (e) {
-				require('../lib/crashlogger')(`The SSL settings are misconfigured:\n${e.stack}`, `Socket process ${cluster.worker.id} (${process.pid})`);
+				Monitor.crashlog(new Error(`The SSL settings are misconfigured:\n${e.stack}`), `Socket process ${cluster.worker.id} (${process.pid})`);
 			}
 		}
 	}
@@ -343,7 +341,7 @@ if (cluster.isMaster) {
 		const roomidRegex = /^\/(?:[A-Za-z0-9][A-Za-z0-9-]*)\/?$/;
 		const cssServer = new StaticServer('./config');
 		const avatarServer = new StaticServer('./config/avatars');
-		const staticServer = new StaticServer('./static');
+		const staticServer = new StaticServer('./server/static');
 		/**
 		 * @param {import('http').IncomingMessage} req
 		 * @param {import('http').ServerResponse} res
@@ -413,7 +411,7 @@ if (cluster.isMaster) {
 			// @ts-ignore
 			options.faye_server_options = {extensions: [deflate]};
 		} catch (e) {
-			require('../lib/crashlogger')(new Error("Dependency permessage-deflate is not installed or is otherwise unaccessable. No message compression will take place until server restart."), "Sockets");
+			Monitor.crashlog(new Error("Dependency permessage-deflate is not installed or is otherwise unaccessable. No message compression will take place until server restart."), "Sockets");
 		}
 	}
 
@@ -424,15 +422,15 @@ if (cluster.isMaster) {
 	 */
 	const sockets = new Map();
 	/**
-	 * channelid:socketid:Connection
+	 * roomid:socketid:Connection
 	 * @type {Map<string, Map<string, import('sockjs').Connection>>}
 	 */
-	const channels = new Map();
+	const rooms = new Map();
 	/**
-	 * channelid:socketid:subchannelid
-	 * @type {Map<string, Map<string, string>>}
+	 * roomid:socketid:channelid
+	 * @type {Map<string, Map<string, ChannelID>>}
 	 */
-	const subchannels = new Map();
+	const roomChannels = new Map();
 
 	/** @type {WriteStream} */
 	const logger = FS(`logs/sockets-${process.pid}`).createAppendStream();
@@ -442,12 +440,36 @@ if (cluster.isMaster) {
 		for (const socket of sockets.values()) {
 			// @ts-ignore
 			if (socket.protocol === 'xhr-streaming' && socket._session && socket._session.recv) {
-				logger.write('Found a ghost connection with protocol xhr-streaming\n');
+				// @ts-ignore
+				logger.write(`Found a ghost connection with protocol xhr-streaming and ready state ${socket._session.readyState}\n`);
 				// @ts-ignore
 				socket._session.recv.didClose();
 			}
 		}
 	}, 10 * MINUTES);
+
+	/**
+	 * @param {string} message
+	 * @param {-1 | ChannelID} channelid
+	 */
+	const extractChannel = (message, channelid) => {
+		if (channelid === -1) {
+			// Grab all privileged messages
+			return message.replace(/\n\|split\|p[1234]\n([^\n]*)\n(?:[^\n]*)/g, '\n$1');
+		}
+
+		// Grab privileged messages channel has access to
+		switch (channelid) {
+		case 1: message = message.replace(/\n\|split\|p1\n([^\n]*)\n(?:[^\n]*)/g, '\n$1'); break;
+		case 2: message = message.replace(/\n\|split\|p2\n([^\n]*)\n(?:[^\n]*)/g, '\n$1'); break;
+		case 3: message = message.replace(/\n\|split\|p3\n([^\n]*)\n(?:[^\n]*)/g, '\n$1'); break;
+		case 4: message = message.replace(/\n\|split\|p4\n([^\n]*)\n(?:[^\n]*)/g, '\n$1'); break;
+		}
+
+		// Discard remaining privileged messages
+		// Note: the last \n? is for privileged messages that are empty when non-privileged
+		return message.replace(/\n\|split\|(?:[^\n]*)\n(?:[^\n]*)\n\n?/g, '\n');
+	};
 
 	process.on('message', data => {
 		// console.log('worker received: ' + data);
@@ -455,11 +477,12 @@ if (cluster.isMaster) {
 		let socket = null;
 		let socketid = '';
 		/** @type {Map<string, import('sockjs').Connection> | undefined?} */
-		let channel = null;
-		let channelid = '';
-		/** @type {Map<string, string> | undefined?} */
-		let subchannel = null;
-		let subchannelid = '';
+		let room = null;
+		let roomid = '';
+		/** @type {Map<string, ChannelID> | undefined?} */
+		let roomChannel = null;
+		/** @type {ChannelID} */
+		let channelid = 0;
 		let nlLoc = -1;
 		let message = '';
 
@@ -475,20 +498,20 @@ if (cluster.isMaster) {
 			if (!socket) return;
 			socket.destroy();
 			sockets.delete(socketid);
-			for (const [channelid, channel] of channels) {
-				channel.delete(socketid);
-				subchannel = subchannels.get(channelid);
-				if (subchannel) subchannel.delete(socketid);
-				if (!channel.size) {
-					channels.delete(channelid);
-					if (subchannel) subchannels.delete(channelid);
+			for (const [roomid, room] of rooms) {
+				room.delete(socketid);
+				roomChannel = roomChannels.get(roomid);
+				if (roomChannel) roomChannel.delete(socketid);
+				if (!room.size) {
+					rooms.delete(roomid);
+					if (roomChannel) roomChannels.delete(roomid);
 				}
 			}
 			break;
 
 		case '>':
 			// >socketid, message
-			// message
+			// message to single connection
 			nlLoc = data.indexOf('\n');
 			socketid = data.substr(1, nlLoc - 1);
 			socket = sockets.get(socketid);
@@ -498,103 +521,86 @@ if (cluster.isMaster) {
 			break;
 
 		case '#':
-			// #channelid, message
-			// message to channel
+			// #roomid, message
+			// message to all connections in room
 			nlLoc = data.indexOf('\n');
-			channelid = data.substr(1, nlLoc - 1);
-			channel = channels.get(channelid);
-			if (!channel) return;
+			roomid = data.substr(1, nlLoc - 1);
+			room = rooms.get(roomid);
+			if (!room) return;
 			message = data.substr(nlLoc + 1);
-			for (const socket of channel.values()) socket.write(message);
+			for (const socket of room.values()) socket.write(message);
 			break;
 
 		case '+':
-			// +channelid, socketid
-			// add to channel
+			// +roomid, socketid
+			// join room with connection
 			nlLoc = data.indexOf('\n');
 			socketid = data.substr(nlLoc + 1);
 			socket = sockets.get(socketid);
 			if (!socket) return;
-			channelid = data.substr(1, nlLoc - 1);
-			channel = channels.get(channelid);
-			if (!channel) {
-				channel = new Map();
-				channels.set(channelid, channel);
+			roomid = data.substr(1, nlLoc - 1);
+			room = rooms.get(roomid);
+			if (!room) {
+				room = new Map();
+				rooms.set(roomid, room);
 			}
-			channel.set(socketid, socket);
+			room.set(socketid, socket);
 			break;
 
 		case '-':
-			// -channelid, socketid
-			// remove from channel
+			// -roomid, socketid
+			// leave room with connection
 			nlLoc = data.indexOf('\n');
-			channelid = data.slice(1, nlLoc);
-			channel = channels.get(channelid);
-			if (!channel) return;
+			roomid = data.slice(1, nlLoc);
+			room = rooms.get(roomid);
+			if (!room) return;
 			socketid = data.slice(nlLoc + 1);
-			channel.delete(socketid);
-			subchannel = subchannels.get(channelid);
-			if (subchannel) subchannel.delete(socketid);
-			if (!channel.size) {
-				channels.delete(channelid);
-				if (subchannel) subchannels.delete(channelid);
+			room.delete(socketid);
+			roomChannel = roomChannels.get(roomid);
+			if (roomChannel) roomChannel.delete(socketid);
+			if (!room.size) {
+				rooms.delete(roomid);
+				if (roomChannel) roomChannels.delete(roomid);
 			}
 			break;
 
 		case '.':
-			// .channelid, subchannelid, socketid
-			// move subchannel
+			// .roomid, channelid, socketid
+			// move connection to different channel in room
 			nlLoc = data.indexOf('\n');
-			channelid = data.slice(1, nlLoc);
+			roomid = data.slice(1, nlLoc);
 			let nlLoc2 = data.indexOf('\n', nlLoc + 1);
-			subchannelid = data.slice(nlLoc + 1, nlLoc2);
+			channelid = /** @type {ChannelID} */(Number(data.slice(nlLoc + 1, nlLoc2)));
 			socketid = data.slice(nlLoc2 + 1);
 
-			subchannel = subchannels.get(channelid);
-			if (!subchannel) {
-				subchannel = new Map();
-				subchannels.set(channelid, subchannel);
+			roomChannel = roomChannels.get(roomid);
+			if (!roomChannel) {
+				roomChannel = new Map();
+				roomChannels.set(roomid, roomChannel);
 			}
-			if (subchannelid === '0') {
-				subchannel.delete(socketid);
+			if (channelid === 0) {
+				roomChannel.delete(socketid);
 			} else {
-				subchannel.set(socketid, subchannelid);
+				roomChannel.set(socketid, channelid);
 			}
 			break;
 
 		case ':':
-			// :channelid, message
-			// message to subchannel
+			// :roomid, message
+			// message to a room, splitting `|split` by channel
 			nlLoc = data.indexOf('\n');
-			channelid = data.slice(1, nlLoc);
-			channel = channels.get(channelid);
-			if (!channel) return;
+			roomid = data.slice(1, nlLoc);
+			room = rooms.get(roomid);
+			if (!room) return;
 
-			/** @type {[string?, string?, string?]} */
-			let messages = [null, null, null];
+			/** @type {[string?, string?, string?, string?, string?]} */
+			const messages = [null, null, null, null, null];
 			message = data.substr(nlLoc + 1);
-			subchannel = subchannels.get(channelid);
-			for (const [socketid, socket] of channel) {
-				switch (subchannel ? subchannel.get(socketid) : '0') {
-				case '1':
-					if (!messages[1]) {
-						messages[1] = message.replace(/\n\|split\n[^\n]*\n([^\n]*)\n[^\n]*\n[^\n]*/g, '\n$1').replace(/\n\n/g, '\n');
-					}
-					socket.write(messages[1]);
-					break;
-				case '2':
-					if (!messages[2]) {
-						messages[2] = message.replace(/\n\|split\n[^\n]*\n[^\n]*\n([^\n]*)\n[^\n]*/g, '\n$1').replace(/\n\n/g, '\n');
-					}
-					socket.write(messages[2]);
-					break;
-				default:
-					if (!messages[0]) {
-						messages[0] = message.replace(/\n\|split\n([^\n]*)\n[^\n]*\n[^\n]*\n[^\n]*/g, '\n$1').replace(/\n\n/g, '\n');
-					}
-					socket.write(messages[0]);
-					break;
-				}
+			roomChannel = roomChannels.get(roomid);
+			for (const [socketid, socket] of room) {
+				channelid = (roomChannel && roomChannel.get(socketid)) || 0;
+				if (!messages[channelid]) messages[channelid] = extractChannel(message, channelid);
+				socket.write(/** @type {string} */(messages[channelid]));
 			}
 			break;
 		}
@@ -612,8 +618,8 @@ if (cluster.isMaster) {
 			} catch (e) {}
 		}
 		sockets.clear();
-		channels.clear();
-		subchannels.clear();
+		rooms.clear();
+		roomChannels.clear();
 
 		app.close();
 		if (appssl) appssl.close();
@@ -667,9 +673,8 @@ if (cluster.isMaster) {
 				// @ts-ignore
 				socket._session.recv.options.heartbeat_delay + 1000,
 				() => {
-					try {
-						socket.close();
-					} catch (e) {}
+					// @ts-ignore
+					if (socket._session.recv) socket._session.recv.didClose();
 				}
 			);
 		}
@@ -700,7 +705,7 @@ if (cluster.isMaster) {
 			// @ts-ignore
 			process.send(`!${socketid}`);
 			sockets.delete(socketid);
-			for (const channel of channels.values()) channel.delete(socketid);
+			for (const room of rooms.values()) room.delete(socketid);
 		});
 	});
 	server.installHandlers(app, {});
@@ -716,5 +721,7 @@ if (cluster.isMaster) {
 
 	console.log(`Test your server at http://${Config.bindaddress === '0.0.0.0' ? 'localhost' : Config.bindaddress}:${Config.port}`);
 
-	require('../lib/repl').start(`sockets-${cluster.worker.id}-${process.pid}`, cmd => eval(cmd));
+	/** @type {typeof import('../lib/repl').Repl} */
+	const Repl = require(/** @type {any} */('../.lib-dist/repl')).Repl;
+	Repl.start(`sockets-${cluster.worker.id}-${process.pid}`, cmd => eval(cmd));
 }
