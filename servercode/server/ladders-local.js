@@ -15,8 +15,7 @@
 
 'use strict';
 
-/** @type {typeof import('../lib/fs').FS} */
-const FS = require(/** @type {any} */('../.lib-dist/fs')).FS;
+const FS = require('../lib/fs');
 
 // ladderCaches = {formatid: ladder OR Promise(ladder)}
 // Use Ladders(formatid).ladder to guarantee a Promise(ladder).
@@ -190,9 +189,9 @@ class LadderStore {
 			} else if (score > 0.5) {
 				K = 90 - (elo - 1000) * 40 / 200;
 			}
-		} else if (elo > 1350 && elo <= 1600) {
+		} else if (elo > 1350) {
 			K = 40;
-		} else {
+		} else if (elo > 1600) {
 			K = 32;
 		}
 

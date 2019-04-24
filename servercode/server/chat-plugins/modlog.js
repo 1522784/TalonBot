@@ -15,18 +15,15 @@
 
 'use strict';
 
-const FS = require('../../.lib-dist/fs').FS;
+const FS = require('../../lib/fs');
 const path = require('path');
-const Dashycode = require('../../.lib-dist/dashycode');
-const util = require('util');
-const execFile = util.promisify(require('child_process').execFile);
+const Dashycode = require('../../lib/dashycode');
+const execFileSync = require('child_process').execFileSync;
 
 const MAX_PROCESSES = 1;
 const MAX_QUERY_LENGTH = 2500;
 const DEFAULT_RESULTS_LENGTH = 100;
 const MORE_BUTTON_INCREMENTS = [200, 400, 800, 1600, 3200];
-// If a modlog query takes longer than this, it will be logged.
-const LONG_QUERY_DURATION = 2000;
 const LINES_SEPARATOR = 'lines=';
 const MAX_RESULTS_LENGTH = MORE_BUTTON_INCREMENTS[MORE_BUTTON_INCREMENTS.length - 1];
 const LOG_PATH = 'logs/modlog/';
@@ -67,15 +64,13 @@ class SortedLimitedLengthList {
 
 function checkRipgrepAvailability() {
 	if (Config.ripgrepmodlog === undefined) {
-		Config.ripgrepmodlog = (async () => {
-			try {
-				await execFile('rg', ['--version'], {cwd: path.normalize(`${__dirname}/../`)});
-				await execFile('tac', ['--version'], {cwd: path.normalize(`${__dirname}/../`)});
-				return true;
-			} catch (error) {
-				return false;
-			}
-		})();
+		try {
+			execFileSync('rg', ['--version'], {cwd: path.normalize(`${__dirname}/../`)});
+			execFileSync('tac', ['--version'], {cwd: path.normalize(`${__dirname}/../`)});
+			Config.ripgrepmodlog = true;
+		} catch (error) {
+			Config.ripgrepmodlog = false;
+		}
 	}
 	return Config.ripgrepmodlog;
 }
@@ -97,7 +92,7 @@ function getMoreButton(roomid, search, useExactSearch, lines, maxLines) {
 }
 
 async function runModlog(roomidList, searchString, exactSearch, maxLines) {
-	const useRipgrep = await checkRipgrepAvailability();
+	const useRipgrep = checkRipgrepAvailability();
 	let fileNameList = [];
 	let checkAllRooms = false;
 	for (const roomid of roomidList) {
@@ -132,7 +127,7 @@ async function runModlog(roomidList, searchString, exactSearch, maxLines) {
 	if (useRipgrep) {
 		// the entire directory is searched by default, no need to list every file manually
 		if (checkAllRooms) fileNameList = [LOG_PATH];
-		await runRipgrepModlog(fileNameList, regexString, results, maxLines);
+		runRipgrepModlog(fileNameList, regexString, results, maxLines);
 	} else {
 		const searchStringRegex = searchString ? new RegExp(regexString, 'i') : null;
 		for (const fileName of fileNameList) {
@@ -155,8 +150,8 @@ async function checkRoomModlog(path, regex, results) {
 	return results;
 }
 
-async function runRipgrepModlog(paths, regexString, results, lines) {
-	let output;
+function runRipgrepModlog(paths, regexString, results, lines) {
+	let stdout;
 	try {
 		const options = [
 			'-i',
@@ -168,11 +163,11 @@ async function runRipgrepModlog(paths, regexString, results, lines) {
 			...paths,
 			'-g', '!modlog_global.txt', '-g', '!README.md',
 		];
-		output = await execFile('rg', options, {cwd: path.normalize(`${__dirname}/../../`)});
+		stdout = execFileSync('rg', options, {cwd: path.normalize(`${__dirname}/../`)});
 	} catch (error) {
 		return results;
 	}
-	for (const fileName of output.stdout.split('\n').reverse()) {
+	for (const fileName of stdout.toString().split('\n').reverse()) {
 		if (fileName) results.insert(fileName);
 	}
 	return results;
@@ -245,7 +240,7 @@ function prettifyResults(resultArray, roomid, searchString, exactSearch, addModl
 	return `${preamble}${resultString}${moreButton}</div>`;
 }
 
-async function getModlog(connection, roomid = 'global', searchString = '', maxLines = 20, timed = false) {
+function getModlog(connection, roomid = 'global', searchString = '', maxLines = 20, timed = false) {
 	const startTime = Date.now();
 	const targetRoom = Rooms.search(roomid);
 	const user = connection.user;
@@ -279,17 +274,15 @@ async function getModlog(connection, roomid = 'global', searchString = '', maxLi
 	// handle this here so the child process doesn't have to load rooms data
 	if (roomid === 'public') {
 		const isPublicRoom = (room => !(room.isPrivate || room.battle || room.isPersonal || room.id === 'global'));
-		roomidList = [...Rooms.rooms.values()].filter(isPublicRoom).map(room => room.id);
+		roomidList = Array.from(Rooms.rooms.values()).filter(isPublicRoom).map(room => room.id);
 	} else {
 		roomidList = [roomid];
 	}
 
-	const query = {cmd: 'modlog', roomidList, searchString, exactSearch, maxLines};
-	const response = await PM.query(query);
-	connection.send(prettifyResults(response, roomid, searchString, exactSearch, addModlogLinks, hideIps, maxLines));
-	const duration = Date.now() - startTime;
-	if (timed) connection.popup(`The modlog query took ${duration} ms to complete.`);
-	if (duration > LONG_QUERY_DURATION) console.log(`Long modlog query took ${duration} ms to complete:`, query);
+	PM.query({cmd: 'modlog', roomidList, searchString, exactSearch, maxLines}).then(response => {
+		connection.send(prettifyResults(response, roomid, searchString, exactSearch, addModlogLinks, hideIps, maxLines));
+		if (timed) connection.popup(`The modlog query took ${Date.now() - startTime} ms to complete.`);
+	});
 }
 
 /*********************************************************
@@ -297,7 +290,7 @@ async function getModlog(connection, roomid = 'global', searchString = '', maxLi
  *********************************************************/
 
 async function runBattleSearch(userid, turnLimit, month, tierid, date) {
-	const useRipgrep = await checkRipgrepAvailability();
+	const useRipgrep = checkRipgrepAvailability();
 	let path = `logs/${month}/${tierid}/${date}`;
 	let results = {
 		totalBattles: 0,
@@ -319,13 +312,13 @@ async function runBattleSearch(userid, turnLimit, month, tierid, date) {
 		// Matches non-word (including _ which counts as a word) characters between letters/numbers
 		// in a user's name so the userid can case-insensitively be matched to the name.
 		const regexString = `("p1":"${userid.split('').join('[^a-zA-Z0-9]*')}[^a-zA-Z0-9]*"|"p2":"${userid.split('').join('[^a-zA-Z0-9]*')}[^a-zA-Z0-9]*")`;
-		let output;
+		let stdout;
 		try {
-			output = await execFile('rg', ['-i', regexString, '--no-filename', '--no-line-number', '-tjson', path]);
+			stdout = execFileSync('rg', ['-i', regexString, '--no-filename', '--no-line-number', '-tjson', path]);
 		} catch (error) {
 			return results;
 		}
-		for (const file of output.stdout.split('\n').reverse()) {
+		for (const file of stdout.toString().split('\n').reverse()) {
 			if (!file) continue;
 			let data = JSON.parse(file);
 			if (data.turns > turnLimit) continue;
@@ -377,12 +370,13 @@ function buildResults(data, userid, turnLimit, month, tierid, date) {
 	return buf;
 }
 
-async function getBattleSearch(connection, userid, turnLimit = 1, month, tierid, date) {
+function getBattleSearch(connection, userid, turnLimit = 1, month, tierid, date) {
 	const user = connection.user;
 	if (!user.can('forcewin')) return connection.popup(`/battlesearch - Access Denied`);
 
-	const response = await PM.query({cmd: 'battlesearch', userid, turnLimit, month, tierid, date});
-	connection.send(buildResults(response, userid, turnLimit, month, tierid, date));
+	PM.query({cmd: 'battlesearch', userid, turnLimit, month, tierid, date}).then(response => {
+		connection.send(buildResults(response, userid, turnLimit, month, tierid, date));
+	});
 }
 
 exports.pages = {
@@ -393,20 +387,25 @@ exports.pages = {
 
 		getModlog(connection, roomid, target);
 	},
-	async battlesearch(args, user, connection) {
+	battlesearch(args, user, connection) {
 		if (!user.named) return Rooms.RETRY_AFTER_LOGIN;
-		if (!this.can('forcewin')) return;
+		if (!user.can('forcewin')) return `|title|[Battle Search]\n|pagehtml|<div class="pad ladder">/battlesearch - Access Denied.</div>`;
 		let userid = toId(args.shift());
 		let turnLimit = parseInt(args.shift());
 		if (!userid || !turnLimit || turnLimit < 1) return user.popup(`Some arguments are missing or invalid for battlesearch. Use /battlesearch to start over.`);
-		this.title = `[Battle Search][${userid}]`;
-		let buf = `<div class="pad ladder"><h2>Battle Search</h2><p>Userid: ${userid}</p><p>Maximum Turns: ${turnLimit}</p>`;
+		let title = `|title|[Battle Search][${userid}]`;
+		let buf = `\n|pagehtml|<div class="pad ladder"><h2>Battle Search</h2><p>Userid: ${userid}</p><p>Maximum Turns: ${turnLimit}</p>`;
 
-		const months = (await FS('logs/').readdir()).filter(f => f.length === 7 && f.includes('-')).sort((aKey, bKey) => {
-			const a = aKey.split('-').map(n => parseInt(n));
-			const b = bKey.split('-').map(n => parseInt(n));
-			if (a[0] !== b[0]) return b[0] - a[0];
-			return b[1] - a[1];
+		let months = FS('logs/').readdirSync();
+		months = months.filter(f => f.length === 7 && f.includes('-')).sort((aKey, bKey) => {
+			const a = aKey.split('-').map(parseInt);
+			const b = bKey.split('-').map(parseInt);
+			if (a[0] === b[0]) {
+				if (a[1] > b[1]) return -1;
+				return 1;
+			}
+			if (a[0] > b[0]) return -1;
+			return 1;
 		});
 		let month = args.shift();
 		if (!month) {
@@ -414,80 +413,51 @@ exports.pages = {
 			for (const i of months) {
 				buf += `<li style="display: inline; list-style: none"><a href="/view-battlesearch-${userid}-${turnLimit}-${i}" target="replace"><button class="button">${i}</button></li>`;
 			}
-			return buf + `</ul></div>`;
+			return title + buf + `</ul></div>`;
 		} else {
 			month = month += `-${args.shift()}`;
-			if (!months.includes(month)) return buf + `Invalid month selected. <a href="/view-battlesearch-${userid}-${turnLimit}" target="replace"><button class="button">Back to month selection</button></a></div>`;
+			if (!months.includes(month)) return title + buf + `Invalid month selected. <a href="/view-battlesearch-${userid}-${turnLimit}" target="replace"><button class="button">Back to month selection</button></a></div>`;
 			buf += `<p><a href="/view-battlesearch-${userid}-${turnLimit}" target="replace"><button class="button">Back</button></a> <button class="button disabled">${month}</button></p>`;
 		}
 
 		let tierid = toId(args.shift());
-		const tiers = (await FS(`logs/${month}/`).readdir()).sort((a, b) => {
-			// First sort by gen with the latest being first
-			let aGen = 6;
-			let bGen = 6;
-			if (a.substring(0, 3) === 'gen') aGen = parseInt(a.substring(3, 4));
-			if (b.substring(0, 3) === 'gen') bGen = parseInt(b.substring(3, 4));
-			if (aGen !== bGen) return bGen - aGen;
-			// Sort alphabetically
-			let aTier = a.substring(4);
-			let bTier = b.substring(4);
-			if (aTier < bTier) return -1;
-			if (aTier > bTier) return 1;
-			return 0;
-		}).map(tier => {
-			// Use the official tier name
-			let format = Dex.getFormat(tier);
-			if (format && format.exists) tier = format.name;
-			// Otherwise format as best as possible
-			if (tier.substring(0, 3) === 'gen') {
-				return `[Gen ${tier.substring(3, 4)}] ${tier.substring(4)}`;
-			}
-			return tier;
-		});
+		const tiers = FS(`logs/${month}/`).readdirSync();
 		if (!tierid) {
 			buf += `<p>Please select the tier to search:</p><ul style="list-style: none; display: block; padding: 0">`;
 			for (const tier of tiers) {
-				buf += `<li style="display: inline; list-style: none"><a href="/view-battlesearch-${userid}-${turnLimit}-${month}-${toId(tier)}" target="replace"><button class="button">${tier}</button></a></li>`;
+				buf += `<li style="display: inline; list-style: none"><a href="/view-battlesearch-${userid}-${turnLimit}-${month}-${tier}" target="replace"><button class="button">${tier}</button></a></li>`;
 			}
-			return buf + `</ul></div>`;
+			return title + buf + `</ul></div>`;
 		} else {
-			let tierids = tiers.map(toId);
-			if (!tierids.includes(tierid)) return buf + `Invalid tier selected. <a href="/view-battlesearch-${userid}-${turnLimit}-${month}" target="replace"><button class="button">Back to tier selection</button></a></div>`;
-			this.title += `[${tierid}]`;
+			if (!tiers.includes(tierid)) return title + buf + `Invalid tier selected. <a href="/view-battlesearch-${userid}-${turnLimit}-${month}" target="replace"><button class="button">Back to tier selection</button></a></div>`;
+			title += `[${tierid}]`;
 			buf += `<p><a href="/view-battlesearch-${userid}-${turnLimit}-${month}" target="replace"><button class="button">Back</button></a> <button class="button disabled">${tierid}</button></p>`;
 		}
 
 		let date = args.shift();
-		const days = (await FS(`logs/${month}/${tierid}/`).readdir()).sort((a, b) => {
-			a = a.split('-').map(n => parseInt(n));
-			b = b.split('-').map(n => parseInt(n));
-			if (a[0] !== b[0]) return b[0] - a[0];
-			if (a[1] !== b[1]) return b[1] - a[1];
-			return b[2] - a[2];
-		});
+		const days = FS(`logs/${month}/${tierid}/`).readdirSync();
 		if (!date) {
 			buf += `<p>Please select the date to search:</p><ul style="list-style: none; display: block; padding: 0">`;
 			for (const day of days) {
 				buf += `<li style="display: inline; list-style: none"><a href="/view-battlesearch-${userid}-${turnLimit}-${month}-${tierid}-${day}" target="replace"><button class="button">${day}</button></a></li>`;
 			}
-			return buf + `</ul></div>`;
+			return title + buf + `</ul></div>`;
 		} else {
 			date = date += `-${args.shift()}-${args.shift()}`;
-			if (!days.includes(date)) return buf + `Invalid date selected. <a href="/view-battlesearch-${userid}-${turnLimit}-${month}-${tierid}" target="replace"><button class="button">Back to date selection</button></a></div>`;
-			this.title += `[${date}]`;
+			if (!days.includes(date)) return title + buf + `Invalid date selected. <a href="/view-battlesearch-${userid}-${turnLimit}-${month}-${tierid}" target="replace"><button class="button">Back to date selection</button></a></div>`;
+			title += `[${date}]`;
 			buf += `<p><a href="/view-battlesearch-${userid}-${turnLimit}-${month}-${tierid}" target="replace"><button class="button">Back</button></a> <button class="button disabled">${date}</button></p>`;
 		}
 
 		if (args[0] !== 'confirm') {
 			buf += `<p>Are you sure you want to run a battle search for for ${tierid} battles on ${date} where ${userid} was a player and the battle lasted less than ${turnLimit} turn${Chat.plural(turnLimit)}?</p>`;
 			buf += `<p><a href="/view-battlesearch-${userid}-${turnLimit}-${month}-${tierid}-${date}-confirm" target="replace"><button class="button notifying">Yes, run the battle search</button></a> <a href="/view-battlesearch-${userid}-${turnLimit}-${month}-${tierid}" target="replace"><button class="button">No, go back</button></a></p>`;
-			return buf + `</div>`;
+			return title + buf + `</div>`;
 		}
 
 		// Run search
 		getBattleSearch(connection, userid, turnLimit, month, tierid, date);
-		return `<div class="pad ladder"><h2>Battle Search</h2><p>Searching for ${tierid} battles on ${date} where ${userid} was a player and the battle lasted less than ${turnLimit} turn${Chat.plural(turnLimit)}.</p><p>Loading... (this will take a while)</p></div>`;
+		return title + `\n|pagehtml|<div class="pad ladder"><h2>Battle Search</h2><p>Searching for ${tierid} battles on ${date} where ${userid} was a player and the battle lasted less than ${turnLimit} turn${Chat.plural(turnLimit)}.</p><p>Loading... (this will take a while)</p></div>`;
 	},
 };
 
@@ -495,7 +465,7 @@ exports.commands = {
 	'!modlog': true,
 	ml: 'modlog',
 	timedmodlog: 'modlog',
-	modlog(target, room, user, connection, cmd) {
+	modlog: function (target, room, user, connection, cmd) {
 		if (!room) room = Rooms('global');
 		let roomid = (room.id === 'staff' ? 'global' : room.id);
 
@@ -533,10 +503,10 @@ exports.commands = {
 	modloghelp: [
 		`/modlog OR /ml [roomid], [search] - Searches the moderator log - defaults to the current room unless specified otherwise.`,
 		`If you set [roomid] as [all], it searches for [search] on all rooms' moderator logs.`,
-		`If you set [roomid] as [public], it searches for [search] in all public rooms' moderator logs, excluding battles. Requires: % @ # & ~`,
+		`If you set [roomid] as [public], it searches for [search] in all public rooms' moderator logs, excluding battles. Requires: % @ * # & ~`,
 	],
 
-	battlesearch(target, room, user, connection) {
+	battlesearch: function (target, room, user, connection) {
 		if (!target.trim()) return this.parse('/help battlesearch');
 		if (!this.can('forcewin')) return;
 
@@ -559,7 +529,7 @@ exports.commands = {
  * Process manager
  *********************************************************/
 
-const QueryProcessManager = require('../../.lib-dist/process-manager').QueryProcessManager;
+const QueryProcessManager = require('../../lib/process-manager').QueryProcessManager;
 
 const PM = new QueryProcessManager(module, async data => {
 	switch (data.cmd) {
@@ -568,7 +538,7 @@ const PM = new QueryProcessManager(module, async data => {
 		try {
 			return await runModlog(roomidList, searchString, exactSearch, maxLines);
 		} catch (err) {
-			Monitor.crashlog(err, 'A modlog query', {
+			require('../../lib/crashlogger')(err, 'A modlog query', {
 				roomidList,
 				searchString,
 				exactSearch,
@@ -581,7 +551,7 @@ const PM = new QueryProcessManager(module, async data => {
 		try {
 			return await runBattleSearch(userid, turnLimit, month, tierid, date);
 		} catch (err) {
-			Monitor.crashlog(err, 'A battle search query', {
+			require('../../lib/crashlogger')(err, 'A battle search query', {
 				userid,
 				turnLimit,
 				month,
@@ -597,28 +567,15 @@ const PM = new QueryProcessManager(module, async data => {
 if (!PM.isParentProcess) {
 	// This is a child process!
 	global.Config = require('../../config/config');
-	// @ts-ignore ???
-	global.Monitor = {
-		/**
-		 * @param {Error} error
-		 * @param {string} source
-		 * @param {{}?} details
-		 */
-		crashlog(error, source = 'A modlog process', details = null) {
-			const repr = JSON.stringify([error.name, error.message, source, details]);
-			// @ts-ignore
-			process.send(`THROW\n@!!@${repr}\n${error.stack}`);
-		},
-	};
 	process.on('uncaughtException', err => {
 		if (Config.crashguard) {
-			Monitor.crashlog(err, 'A modlog child process');
+			require('../../lib/crashlogger')(err, 'A modlog child process');
 		}
 	});
-	global.Dex = require('../../.sim-dist/dex');
+	global.Dex = require('../../sim/dex');
 	global.toId = Dex.getId;
 
-	require('../../.lib-dist/repl').Repl.start('modlog', cmd => eval(cmd));
+	require('../../lib/repl').start('modlog', cmd => eval(cmd));
 } else {
 	PM.spawn(MAX_PROCESSES);
 }

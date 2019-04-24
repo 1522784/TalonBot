@@ -2,26 +2,10 @@
 
 /**@type {{[k: string]: ModdedAbilityData}} */
 let BattleAbilities = {
-	"anticipation": {
-		inherit: true,
-		desc: "On switch-in, this Pokemon is alerted if any opposing Pokemon has an attack that is super effective on this Pokemon, or an OHKO move. Counter, Metal Burst, and Mirror Coat count as attacking moves of their respective types, while Hidden Power, Judgment, Natural Gift, Techno Blast, and Weather Ball are considered Normal-type moves.",
-		onStart(pokemon) {
-			for (const target of pokemon.side.foe.active) {
-				if (!target || target.fainted) continue;
-				for (const moveSlot of target.moveSlots) {
-					const move = this.getMove(moveSlot.move);
-					if (move.category !== 'Status' && (this.getImmunity(move.type, pokemon) && this.getEffectiveness(move.type, pokemon) > 0 || move.ohko)) {
-						this.add('-ability', pokemon, 'Anticipation');
-						return;
-					}
-				}
-			}
-		},
-	},
 	"frisk": {
 		inherit: true,
 		shortDesc: "On switch-in, this Pokemon identifies a random foe's held item.",
-		onStart(pokemon) {
+		onStart: function (pokemon) {
 			let target = pokemon.side.foe.randomActive();
 			if (target && target.item) {
 				this.add('-item', target, target.getItem().name, '[from] ability: Frisk', '[of] ' + pokemon);
@@ -37,19 +21,19 @@ let BattleAbilities = {
 		inherit: true,
 		desc: "Prevents other Pokemon from lowering this Pokemon's accuracy stat stage.",
 		shortDesc: "Prevents other Pokemon from lowering this Pokemon's accuracy stat stage.",
-		onModifyMove() {},
+		onModifyMove: function () {},
 	},
 	"oblivious": {
 		inherit: true,
 		desc: "This Pokemon cannot be infatuated. Gaining this Ability while infatuated cures it.",
 		shortDesc: "This Pokemon cannot be infatuated. Gaining this Ability while infatuated cures it.",
-		onUpdate(pokemon) {
+		onUpdate: function (pokemon) {
 			if (pokemon.volatiles['attract']) {
 				pokemon.removeVolatile('attract');
 				this.add('-end', pokemon, 'move: Attract', '[from] ability: Oblivious');
 			}
 		},
-		onTryHit(pokemon, target, move) {
+		onTryHit: function (pokemon, target, move) {
 			if (move.id === 'captivate') {
 				this.add('-immune', pokemon, '[from] Oblivious');
 				return null;
@@ -60,15 +44,15 @@ let BattleAbilities = {
 	"overcoat": {
 		inherit: true,
 		shortDesc: "This Pokemon is immune to damage from Sandstorm or Hail.",
-		onTryHit() {},
+		onTryHit: function () {},
 	},
 	"sapsipper": {
 		inherit: true,
-		onAllyTryHitSide() {},
+		onAllyTryHitSide: function () {},
 	},
 	"serenegrace": {
 		inherit: true,
-		onModifyMove(move) {
+		onModifyMove: function (move) {
 			if (move.secondaries && move.id !== 'secretpower') {
 				this.debug('doubling secondary chance');
 				for (const secondary of move.secondaries) {
@@ -80,7 +64,7 @@ let BattleAbilities = {
 	"soundproof": {
 		inherit: true,
 		shortDesc: "This Pokemon is immune to sound-based moves, except Heal Bell.",
-		onAllyTryHitSide() {},
+		onAllyTryHitSide: function () {},
 	},
 };
 

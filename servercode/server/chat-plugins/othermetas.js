@@ -29,7 +29,7 @@ function getMegaStone(stone) {
 const commands = {
 	'!othermetas': true,
 	om: 'othermetas',
-	othermetas(target, room, user) {
+	othermetas: function (target, room, user) {
 		if (!this.runBroadcast()) return;
 		target = toId(target);
 		let buffer = ``;
@@ -61,12 +61,12 @@ const commands = {
 	},
 	othermetashelp: [
 		`/om - Provides links to information on the Other Metagames.`,
-		`!om - Show everyone that information. Requires: + % @ # & ~`,
+		`!om - Show everyone that information. Requires: + % @ * # & ~`,
 	],
 
 	'!mixandmega': true,
 	mnm: 'mixandmega',
-	mixandmega(target, room, user) {
+	mixandmega: function (target, room, user) {
 		if (!this.runBroadcast()) return;
 		if (!toId(target) || !target.includes('@')) return this.parse('/help mixandmega');
 		let sep = target.split('@');
@@ -176,7 +176,7 @@ const commands = {
 	'!stone': true,
 	orb: 'stone',
 	megastone: 'stone',
-	stone(target) {
+	stone: function (target) {
 		if (!this.runBroadcast()) return;
 		let targetid = toId(target);
 		if (!targetid) return this.parse('/help stone');
@@ -275,7 +275,7 @@ const commands = {
 
 	'!350cup': true,
 	'350': '350cup',
-	'350cup'(target, room, user) {
+	'350cup': function (target, room, user) {
 		if (!this.runBroadcast()) return;
 		if (!toId(target)) return this.parse('/help 350cup');
 		let template = Dex.deepClone(Dex.getTemplate(target));
@@ -293,7 +293,7 @@ const commands = {
 
 	'!tiershift': true,
 	ts: 'tiershift',
-	tiershift(target, room, user) {
+	tiershift: function (target, room, user) {
 		if (!this.runBroadcast()) return;
 		if (!toId(target)) return this.parse('/help tiershift');
 		let template = Dex.deepClone(Dex.getTemplate(target));
@@ -316,7 +316,6 @@ const commands = {
 		if (!(tier in boosts)) return this.sendReply(`|html|${Chat.getDataPokemonHTML(template)}`);
 		let boost = boosts[tier];
 		for (let statName in template.baseStats) {
-			if (statName === 'hp') continue;
 			template.baseStats[statName] = Dex.clampIntRange(template.baseStats[statName] + boost, 1, 255);
 		}
 		this.sendReply(`|raw|${Chat.getDataPokemonHTML(template)}`);
@@ -325,7 +324,7 @@ const commands = {
 
 	'!scalemons': true,
 	scale: 'scalemons',
-	scalemons(target, room, user) {
+	scalemons: function (target, room, user) {
 		if (!this.runBroadcast()) return;
 		if (!toId(target)) return this.parse(`/help scalemons`);
 		let template = Dex.deepClone(Dex.getTemplate(target));

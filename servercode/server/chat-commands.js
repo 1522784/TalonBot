@@ -18,7 +18,7 @@
 /* eslint no-else-return: "error" */
 
 const crypto = require('crypto');
-const FS = require('../.lib-dist/fs').FS;
+const FS = require('../lib/fs');
 
 const MAX_REASON_LENGTH = 300;
 const MUTE_LENGTH = 7 * 60 * 1000;
@@ -29,312 +29,11 @@ const MAX_CHATROOM_ID_LENGTH = 225;
 /** Require reasons */
 const REQUIRE_REASONS = true;
 
-const avatarTable = new Set([
-	'aaron',
-	'acetrainercouple-gen3', 'acetrainercouple',
-	'acetrainerf-gen1', 'acetrainerf-gen1rb', 'acetrainerf-gen2', 'acetrainerf-gen3', 'acetrainerf-gen3rs', 'acetrainerf-gen4dp', 'acetrainerf-gen4', 'acetrainerf',
-	'acetrainer-gen1', 'acetrainer-gen1rb', 'acetrainer-gen2', 'acetrainer-gen3jp', 'acetrainer-gen3', 'acetrainer-gen3rs', 'acetrainer-gen4dp', 'acetrainer-gen4', 'acetrainer',
-	'acetrainersnowf',
-	'acetrainersnow',
-	'agatha-gen1', 'agatha-gen1rb', 'agatha-gen3',
-	'alder',
-	'anabel-gen3',
-	'archer',
-	'archie-gen3',
-	'argenta',
-	'ariana',
-	'aromalady-gen3', 'aromalady-gen3rs', 'aromalady',
-	'artist-gen4', 'artist',
-	'ash',
-	'backersf',
-	'backers',
-	'backpackerf',
-	'backpacker',
-	'baker',
-	'barry',
-	'battlegirl-gen3', 'battlegirl-gen4', 'battlegirl',
-	'beauty-gen1', 'beauty-gen1rb', 'beauty-gen2jp', 'beauty-gen2', 'beauty-gen3', 'beauty-gen3rs', 'beauty-gen4dp', 'beauty-gen5bw2', 'beauty',
-	'bellelba',
-	'bellepa',
-	'benga',
-	'bertha',
-	'bianca',
-	'biker-gen1', 'biker-gen1rb', 'biker-gen2', 'biker-gen3', 'biker-gen4', 'biker',
-	'bill-gen3',
-	'birch-gen3',
-	'birdkeeper-gen1', 'birdkeeper-gen1rb', 'birdkeeper-gen2', 'birdkeeper-gen3', 'birdkeeper-gen3rs', 'birdkeeper-gen4dp', 'birdkeeper',
-	'blackbelt-gen1', 'blackbelt-gen1rb', 'blackbelt-gen2', 'blackbelt-gen3', 'blackbelt-gen3rs', 'blackbelt-gen4dp', 'blackbelt-gen4', 'blackbelt',
-	'blaine-gen1', 'blaine-gen1rb', 'blaine-gen2', 'blaine-gen3', 'blaine',
-	'blue-gen1champion', 'blue-gen1', 'blue-gen1rbchampion', 'blue-gen1rb', 'blue-gen1rbtwo', 'blue-gen1two', 'blue-gen2', 'blue-gen3champion', 'blue-gen3', 'blue-gen3two', 'blue',
-	'boarder-gen2', 'boarder',
-	'brandon-gen3',
-	'brawly-gen3', 'brawly',
-	'brendan-gen3', 'brendan-gen3rs',
-	'brock-gen1', 'brock-gen1rb', 'brock-gen2', 'brock-gen3', 'brock',
-	'bruno-gen1', 'bruno-gen1rb', 'bruno-gen2', 'bruno-gen3', 'bruno',
-	'brycenman',
-	'brycen',
-	'buck',
-	'bugcatcher-gen1', 'bugcatcher-gen1rb', 'bugcatcher-gen2', 'bugcatcher-gen3', 'bugcatcher-gen3rs', 'bugcatcher',
-	'bugmaniac-gen3',
-	'bugsy-gen2', 'bugsy',
-	'burgh',
-	'burglar-gen1', 'burglar-gen1rb', 'burglar-gen2', 'burglar-gen3', 'burglar',
-	'byron',
-	'caitlin',
-	'cameraman',
-	'camper-gen2', 'camper-gen3', 'camper-gen3rs', 'camper',
-	'candice',
-	'channeler-gen1', 'channeler-gen1rb', 'channeler-gen3',
-	'cheren-gen5bw2', 'cheren',
-	'cheryl',
-	'chili',
-	'chuck-gen2', 'chuck',
-	'cilan',
-	'clair-gen2', 'clair',
-	'clay',
-	'clemont',
-	'clerkf',
-	'clerk-boss', 'clerk',
-	'clown',
-	'collector-gen3', 'collector',
-	'colress',
-	'courtney-gen3',
-	'cowgirl',
-	'crasherwake',
-	'cress',
-	'crushgirl-gen3',
-	'crushkin-gen3',
-	'cueball-gen1', 'cueball-gen1rb', 'cueball-gen3',
-	'cyclistf-gen4', 'cyclistf',
-	'cyclist-gen4', 'cyclist',
-	'cynthia-gen4', 'cynthia',
-	'cyrus',
-	'dahlia',
-	'dancer',
-	'darach',
-	'dawn-gen4pt', 'dawn',
-	'depotagent',
-	'doctor',
-	'doubleteam',
-	'dragontamer-gen3', 'dragontamer',
-	'drake-gen3',
-	'drayden',
-	'elesa-gen5bw2', 'elesa',
-	'emmet',
-	'engineer-gen1', 'engineer-gen1rb', 'engineer-gen3',
-	'erika-gen1', 'erika-gen1rb', 'erika-gen2', 'erika-gen3', 'erika',
-	'ethan-gen2c', 'ethan-gen2', 'ethan',
-	'eusine-gen2', 'eusine',
-	'expertf-gen3',
-	'expert-gen3',
-	'falkner-gen2',
-	'falkner',
-	'fantina',
-	'firebreather-gen2',
-	'firebreather',
-	'fisherman-gen1', 'fisherman-gen1rb', 'fisherman-gen2jp', 'fisherman-gen3', 'fisherman-gen3rs', 'fisherman-gen4', 'fisherman',
-	'flannery-gen3', 'flannery',
-	'flint',
-	'galacticgruntf',
-	'galacticgrunt',
-	'gambler-gen1', 'gambler-gen1rb', 'gambler',
-	'gamer-gen3',
-	'gardenia',
-	'gentleman-gen1', 'gentleman-gen1rb', 'gentleman-gen3', 'gentleman-gen3rs', 'gentleman-gen4dp', 'gentleman-gen4', 'gentleman',
-	'ghetsis-gen5bw', 'ghetsis',
-	'giovanni-gen1', 'giovanni-gen1rb', 'giovanni-gen3', 'giovanni',
-	'glacia-gen3',
-	'greta-gen3',
-	'grimsley',
-	'guitarist-gen3', 'guitarist-gen4', 'guitarist',
-	'harlequin',
-	'hexmaniac-gen3jp', 'hexmaniac-gen3',
-	'hiker-gen1', 'hiker-gen1rb', 'hiker-gen3', 'hiker-gen3rs', 'hiker-gen4', 'hiker',
-	'hilbert-dueldisk', 'hilbert',
-	'hilda-dueldisk', 'hilda',
-	'hooligans',
-	'hoopster',
-	'hugh',
-	'idol',
-	'infielder',
-	'ingo',
-	'interviewers-gen3',
-	'interviewers',
-	'iris-gen5bw2', 'iris',
-	'janine-gen2', 'janine',
-	'janitor',
-	'jasmine-gen2', 'jasmine',
-	'jessiejames-gen1',
-	'jogger',
-	'jrtrainerf-gen1', 'jrtrainerf-gen1rb',
-	'jrtrainer-gen1', 'jrtrainer-gen1rb',
-	'juan-gen3',
-	'juan',
-	'juggler-gen1', 'juggler-gen1rb', 'juggler-gen2', 'juggler-gen3', 'juggler',
-	'jupiter',
-	'karen-gen2', 'karen',
-	'kimonogirl',
-	'kindler-gen3',
-	'koga-gen1', 'koga-gen1rb', 'koga-gen3', 'koga',
-	'kris-gen2',
-	'lady-gen3', 'lady-gen3rs', 'lady-gen4', 'lady',
-	'lance-gen1', 'lance-gen1rb', 'lance-gen2', 'lance-gen3', 'lance',
-	'lass-gen1', 'lass-gen1rb', 'lass-gen2', 'lass-gen3', 'lass-gen3rs', 'lass-gen4dp', 'lass-gen4', 'lass',
-	'leaf-gen3',
-	'lenora',
-	'linebacker',
-	'li',
-	'liza',
-	'lorelei-gen1', 'lorelei-gen1rb', 'lorelei-gen3',
-	'ltsurge-gen1', 'ltsurge-gen1rb', 'ltsurge-gen2', 'ltsurge-gen3', 'ltsurge',
-	'lucas-gen4pt', 'lucas',
-	'lucian',
-	'lucy-gen3',
-	'lyra',
-	'madame-gen4dp', 'madame-gen4', 'madame',
-	'maid',
-	'marley',
-	'marlon',
-	'marshal',
-	'mars',
-	'matt-gen3',
-	'maxie-gen3',
-	'may-gen3', 'may-gen3rs',
-	'maylene',
-	'medium-gen2jp', 'medium',
-	'mira',
-	'misty-gen1', 'misty-gen1rb', 'misty-gen3', 'misty',
-	'morty-gen2', 'morty',
-	'mrfuji-gen3',
-	'musician',
-	'nate',
-	'ninjaboy-gen3', 'ninjaboy',
-	'noland-gen3',
-	'norman-gen3', 'norman',
-	'n',
-	'nurse',
-	'nurseryaide',
-	'oak-gen1', 'oak-gen1rb', 'oak-gen3',
-	'oldcouple-gen3',
-	'painter-gen3',
-	'palmer',
-	'parasollady-gen3', 'parasollady-gen4', 'parasollady',
-	'petrel',
-	'phoebe-gen3',
-	'picnicker-gen2', 'picnicker-gen3', 'picnicker-gen3rs', 'picnicker',
-	'pilot',
-	'plasmagruntf-gen5bw', 'plasmagruntf',
-	'plasmagrunt-gen5bw', 'plasmagrunt',
-	'pokefanf-gen2', 'pokefanf-gen3', 'pokefanf-gen4', 'pokefanf',
-	'pokefan-gen3', 'pokefan-gen4', 'pokefan',
-	'pokekid',
-	'pokemaniac-gen1', 'pokemaniac-gen1rb', 'pokemaniac-gen3', 'pokemaniac-gen3rs', 'pokemaniac',
-	'pokemonbreederf-gen3', 'pokemonbreederf-gen3frlg', 'pokemonbreederf-gen4', 'pokemonbreederf',
-	'pokemonbreeder-gen3', 'pokemonbreeder-gen4', 'pokemonbreeder',
-	'pokemonrangerf-gen3', 'pokemonrangerf-gen3rs', 'pokemonrangerf-gen4', 'pokemonrangerf',
-	'pokemonranger-gen3', 'pokemonranger-gen3rs', 'pokemonranger-gen4', 'pokemonranger',
-	'policeman-gen4', 'policeman',
-	'preschoolerf',
-	'preschooler',
-	'proton',
-	'pryce',
-	'psychicf-gen3', 'psychicf-gen3rs', 'psychicf-gen4', 'psychicfjp-gen3', 'psychicf',
-	'psychic-gen1', 'psychic-gen1rb', 'psychic-gen3', 'psychic-gen3rs', 'psychic-gen4', 'psychic',
-	'rancher',
-	'red-gen1main', 'red-gen1', 'red-gen1rb', 'red-gen1title', 'red-gen3', 'red',
-	'reporter',
-	'richboy-gen3', 'richboy-gen4', 'richboy',
-	'riley',
-	'roark',
-	'rocker-gen1', 'rocker-gen1rb', 'rocker-gen3',
-	'rocket-gen1', 'rocket-gen1rb',
-	'rocketgruntf-gen2', 'rocketgruntf',
-	'rocketgrunt-gen2', 'rocketgrunt',
-	'rood',
-	'rosa',
-	'roughneck-gen4', 'roughneck',
-	'roxanne-gen3', 'roxanne',
-	'roxie',
-	'ruinmaniac-gen3', 'ruinmaniac-gen3rs', 'ruinmaniac',
-	'sabrina-gen1', 'sabrina-gen1rb', 'sabrina-gen2', 'sabrina-gen3', 'sabrina',
-	'sage-gen2', 'sage-gen2jp', 'sage',
-	'sailor-gen1', 'sailor-gen1rb', 'sailor-gen2', 'sailor-gen3jp', 'sailor-gen3', 'sailor-gen3rs', 'sailor',
-	'saturn',
-	'schoolboy-gen2',
-	'schoolkidf-gen3', 'schoolkidf-gen4', 'schoolkidf',
-	'schoolkid-gen3', 'schoolkid-gen4dp', 'schoolkid-gen4', 'schoolkid',
-	'scientistf',
-	'scientist-gen1', 'scientist-gen1rb', 'scientist-gen2', 'scientist-gen3', 'scientist-gen4dp', 'scientist-gen4', 'scientist',
-	'shadowtriad',
-	'shauntal',
-	'shelly-gen3',
-	'sidney-gen3',
-	'silver-gen2kanto', 'silver-gen2', 'silver',
-	'sisandbro-gen3', 'sisandbro-gen3rs', 'sisandbro',
-	'skierf-gen4dp', 'skierf',
-	'skier-gen2', 'skier',
-	'skyla',
-	'smasher',
-	'spenser-gen3',
-	'srandjr-gen3',
-	'steven-gen3', 'steven',
-	'striker',
-	'supernerd-gen1', 'supernerd-gen1rb', 'supernerd-gen2', 'supernerd-gen3', 'supernerd',
-	'swimmerf-gen2', 'swimmerf-gen3', 'swimmerf-gen3rs', 'swimmerf-gen4dp', 'swimmerf-gen4', 'swimmerfjp-gen2', 'swimmerf',
-	'swimmer-gen1', 'swimmer-gen1rb', 'swimmer-gen4dp', 'swimmer-gen4', 'swimmerm-gen2', 'swimmerm-gen3', 'swimmerm-gen3rs', 'swimmer',
-	'tabitha-gen3',
-	'tamer-gen1', 'tamer-gen1rb', 'tamer-gen3',
-	'tateandliza-gen3',
-	'tate',
-	'teacher-gen2', 'teacher',
-	'teamaquabeta-gen3',
-	'teamaquagruntf-gen3',
-	'teamaquagruntm-gen3',
-	'teammagmagruntf-gen3',
-	'teammagmagruntm-gen3',
-	'teamrocketgruntf-gen3',
-	'teamrocketgruntm-gen3',
-	'teamrocket',
-	'thorton',
-	'triathletebikerf-gen3',
-	'triathletebikerm-gen3',
-	'triathleterunnerf-gen3',
-	'triathleterunnerm-gen3',
-	'triathleteswimmerf-gen3',
-	'triathleteswimmerm-gen3',
-	'tuberf-gen3', 'tuberf-gen3rs', 'tuberf',
-	'tuber-gen3', 'tuber',
-	'tucker-gen3',
-	'twins-gen2', 'twins-gen3', 'twins-gen3rs', 'twins-gen4dp', 'twins-gen4', 'twins',
-	'unknownf',
-	'unknown',
-	'veteranf',
-	'veteran-gen4', 'veteran',
-	'volkner',
-	'waiter-gen4dp', 'waiter-gen4', 'waiter',
-	'waitress-gen4', 'waitress',
-	'wallace-gen3', 'wallace-gen3rs', 'wallace',
-	'wally-gen3', 'wally',
-	'wattson-gen3', 'wattson',
-	'whitney-gen2', 'whitney',
-	'will-gen2', 'will',
-	'winona-gen3', 'winona',
-	'worker-gen4',
-	'workerice',
-	'worker',
-	'yellow',
-	'youngcouple-gen3', 'youngcouple-gen3rs', 'youngcouple-gen4dp', 'youngcouple',
-	'youngster-gen1', 'youngster-gen1rb', 'youngster-gen2', 'youngster-gen3', 'youngster-gen3rs', 'youngster-gen4', 'youngster',
-	'zinnia',
-	'zinzolin',
-]);
-
 /** @type {ChatCommands} */
 const commands = {
 
 	'!version': true,
-	version(target, room, user) {
+	version: function (target, room, user) {
 		if (!this.runBroadcast()) return;
 		this.sendReplyBox(`Server version: <b>${Chat.package.version}</b>`);
 	},
@@ -344,7 +43,7 @@ const commands = {
 	stafflist: 'authority',
 	globalauth: 'authority',
 	authlist: 'authority',
-	authority(target, room, user, connection) {
+	authority: function (target, room, user, connection) {
 		if (target) {
 			let targetRoom = Rooms.search(target);
 			let availableRoom = targetRoom && targetRoom.checkModjoin(user);
@@ -379,7 +78,7 @@ const commands = {
 		`/auth [user] - Show what global and roomauth a user has.`,
 	],
 
-	userlist(target, room, user) {
+	userlist: function (target, room, user) {
 		let userList = [];
 
 		for (let i in room.users) {
@@ -397,7 +96,7 @@ const commands = {
 
 	'!me': true,
 	mee: 'me',
-	me(target, room, user) {
+	me: function (target, room, user) {
 		if (this.cmd === 'mee' && /[A-Z-a-z0-9/]/.test(target.charAt(0))) {
 			return this.errorReply(`/mee - must not start with a letter or number`);
 		}
@@ -421,18 +120,357 @@ const commands = {
 
 	'!battle': true,
 	'battle!': 'battle',
-	battle(target, room, user, connection, cmd) {
+	battle: function (target, room, user, connection, cmd) {
 		if (cmd === 'battle') return this.sendReply("What?! How are you not more excited to battle?! Try /battle! to show me you're ready.");
 		if (!target) target = "randombattle";
 		return this.parse(`/search ${target}`);
 	},
 
+	'!pi': true,
+	pi: function (target, room, user) {
+		return this.sendReplyBox(
+			'Did you mean: 1. 3.1415926535897932384626... (Decimal)<br />' +
+			'2. 3.184809493B91866... (Duodecimal)<br />' +
+			'3. 3.243F6A8885A308D... (Hexadecimal)<br /><br />' +
+			'How many digits of pi do YOU know? Test it out <a href="http://guangcongluo.com/mempi/">here</a>!');
+	},
+
+	code: function (target, room, user) {
+		if (!target) return this.parse('/help code');
+		if (!this.canTalk()) return;
+		if (target.startsWith('\n')) target = target.slice(1);
+		if (target.length >= 8192) return this.errorReply("Your code must be under 8192 characters long!");
+		const separator = '\n';
+		if (target.includes(separator) || target.length > 150) {
+			const params = target.split(separator);
+			let output = [];
+			for (const param of params) {
+				output.push(Chat.escapeHTML(param));
+			}
+			let code = `<div class="chat"><code style="white-space: pre-wrap; display: table">${output.join('<br />')}</code></div>`;
+			if (output.length > 3) code = `<details><summary>See code...</summary>${code}</details>`;
+
+			if (!this.canBroadcast(true, '!code')) return;
+			if (this.broadcastMessage && !this.can('broadcast', null, room)) return false;
+
+			if (!this.runBroadcast(true, '!code')) return;
+
+			this.sendReplyBox(code);
+		} else {
+			return this.errorReply("You can simply use ``[code]`` for code messages that are only one line.");
+		}
+	},
+	codehelp: [
+		`!code [code] - Broadcasts code to a room. Accepts multi-line arguments. Requires: + % @ & # ~`,
+		`/code [code] - Shows you code. Accepts multi-line arguments.`,
+	],
+
 	'!avatar': true,
-	avatar(target, room, user) {
+	avatar: function (target, room, user) {
 		if (!target) return this.parse(`${this.cmdToken}avatars`);
 		let parts = target.split(',');
 		let avatar = parts[0].toLowerCase().replace(/[^a-z0-9-]+/g, '');
-		if (!avatarTable.has(avatar)) {
+		let avatarTable = [
+			'aaron',
+			'acetrainercouple-gen3', 'acetrainercouple',
+			'acetrainerf-gen1', 'acetrainerf-gen1rb', 'acetrainerf-gen2', 'acetrainerf-gen3', 'acetrainerf-gen3rs', 'acetrainerf-gen4dp', 'acetrainerf-gen4', 'acetrainerf',
+			'acetrainer-gen1', 'acetrainer-gen1rb', 'acetrainer-gen2', 'acetrainer-gen3jp', 'acetrainer-gen3', 'acetrainer-gen3rs', 'acetrainer-gen4dp', 'acetrainer-gen4', 'acetrainer',
+			'acetrainersnowf',
+			'acetrainersnow',
+			'agatha-gen1', 'agatha-gen1rb', 'agatha-gen3',
+			'alder',
+			'anabel-gen3',
+			'archer',
+			'archie-gen3',
+			'argenta',
+			'ariana',
+			'aromalady-gen3', 'aromalady-gen3rs', 'aromalady',
+			'artist-gen4', 'artist',
+			'ash',
+			'backersf',
+			'backers',
+			'backpackerf',
+			'backpacker',
+			'baker',
+			'barry',
+			'battlegirl-gen3', 'battlegirl-gen4', 'battlegirl',
+			'beauty-gen1', 'beauty-gen1rb', 'beauty-gen2jp', 'beauty-gen2', 'beauty-gen3', 'beauty-gen3rs', 'beauty-gen4dp', 'beauty-gen5bw2', 'beauty',
+			'bellelba',
+			'bellepa',
+			'benga',
+			'bertha',
+			'bianca',
+			'biker-gen1', 'biker-gen1rb', 'biker-gen2', 'biker-gen3', 'biker-gen4', 'biker',
+			'bill-gen3',
+			'birch-gen3',
+			'birdkeeper-gen1', 'birdkeeper-gen1rb', 'birdkeeper-gen2', 'birdkeeper-gen3', 'birdkeeper-gen3rs', 'birdkeeper-gen4dp', 'birdkeeper',
+			'blackbelt-gen1', 'blackbelt-gen1rb', 'blackbelt-gen2', 'blackbelt-gen3', 'blackbelt-gen3rs', 'blackbelt-gen4dp', 'blackbelt-gen4', 'blackbelt',
+			'blaine-gen1', 'blaine-gen1rb', 'blaine-gen2', 'blaine-gen3', 'blaine',
+			'blue-gen1champion', 'blue-gen1', 'blue-gen1rbchampion', 'blue-gen1rb', 'blue-gen1rbtwo', 'blue-gen1two', 'blue-gen2', 'blue-gen3champion', 'blue-gen3', 'blue-gen3two', 'blue',
+			'boarder-gen2', 'boarder',
+			'brandon-gen3',
+			'brawly-gen3', 'brawly',
+			'brendan-gen3', 'brendan-gen3rs',
+			'brock-gen1', 'brock-gen1rb', 'brock-gen2', 'brock-gen3', 'brock',
+			'bruno-gen1', 'bruno-gen1rb', 'bruno-gen2', 'bruno-gen3', 'bruno',
+			'brycenman',
+			'brycen',
+			'buck',
+			'bugcatcher-gen1', 'bugcatcher-gen1rb', 'bugcatcher-gen2', 'bugcatcher-gen3', 'bugcatcher-gen3rs', 'bugcatcher',
+			'bugmaniac-gen3',
+			'bugsy-gen2', 'bugsy',
+			'burgh',
+			'burglar-gen1', 'burglar-gen1rb', 'burglar-gen2', 'burglar-gen3', 'burglar',
+			'byron',
+			'caitlin',
+			'cameraman',
+			'camper-gen2', 'camper-gen3', 'camper-gen3rs', 'camper',
+			'candice',
+			'channeler-gen1', 'channeler-gen1rb', 'channeler-gen3',
+			'cheren-gen5bw2', 'cheren',
+			'cheryl',
+			'chili',
+			'chuck-gen2', 'chuck',
+			'cilan',
+			'clair-gen2', 'clair',
+			'clay',
+			'clemont',
+			'clerkf',
+			'clerk-boss', 'clerk',
+			'clown',
+			'collector-gen3', 'collector',
+			'colress',
+			'courtney-gen3',
+			'cowgirl',
+			'crasherwake',
+			'cress',
+			'crushgirl-gen3',
+			'crushkin-gen3',
+			'cueball-gen1', 'cueball-gen1rb', 'cueball-gen3',
+			'cyclistf-gen4', 'cyclistf',
+			'cyclist-gen4', 'cyclist',
+			'cynthia-gen4', 'cynthia',
+			'cyrus',
+			'dahlia',
+			'dancer',
+			'darach',
+			'dawn-gen4pt', 'dawn',
+			'depotagent',
+			'doctor',
+			'doubleteam',
+			'dragontamer-gen3', 'dragontamer',
+			'drake-gen3',
+			'drayden',
+			'elesa-gen5bw2', 'elesa',
+			'emmet',
+			'engineer-gen1', 'engineer-gen1rb', 'engineer-gen3',
+			'erika-gen1', 'erika-gen1rb', 'erika-gen2', 'erika-gen3', 'erika',
+			'ethan-gen2c', 'ethan-gen2', 'ethan',
+			'eusine-gen2', 'eusine',
+			'expertf-gen3',
+			'expert-gen3',
+			'falkner-gen2',
+			'falkner',
+			'fantina',
+			'firebreather-gen2',
+			'firebreather',
+			'fisherman-gen1', 'fisherman-gen1rb', 'fisherman-gen2jp', 'fisherman-gen3', 'fisherman-gen3rs', 'fisherman-gen4', 'fisherman',
+			'flannery-gen3', 'flannery',
+			'flint',
+			'galacticgruntf',
+			'galacticgrunt',
+			'gambler-gen1', 'gambler-gen1rb', 'gambler',
+			'gamer-gen3',
+			'gardenia',
+			'gentleman-gen1', 'gentleman-gen1rb', 'gentleman-gen3', 'gentleman-gen3rs', 'gentleman-gen4dp', 'gentleman-gen4', 'gentleman',
+			'ghetsis-gen5bw', 'ghetsis',
+			'giovanni-gen1', 'giovanni-gen1rb', 'giovanni-gen3', 'giovanni',
+			'glacia-gen3',
+			'greta-gen3',
+			'grimsley',
+			'guitarist-gen3', 'guitarist-gen4', 'guitarist',
+			'harlequin',
+			'hexmaniac-gen3jp', 'hexmaniac-gen3',
+			'hiker-gen1', 'hiker-gen1rb', 'hiker-gen3', 'hiker-gen3rs', 'hiker-gen4', 'hiker',
+			'hilbert-dueldisk', 'hilbert',
+			'hilda-dueldisk', 'hilda',
+			'hooligans',
+			'hoopster',
+			'hugh',
+			'idol',
+			'infielder',
+			'ingo',
+			'interviewers-gen3',
+			'interviewers',
+			'iris-gen5bw2', 'iris',
+			'janine-gen2', 'janine',
+			'janitor',
+			'jasmine-gen2', 'jasmine',
+			'jessiejames-gen1',
+			'jogger',
+			'jrtrainerf-gen1', 'jrtrainerf-gen1rb',
+			'jrtrainer-gen1', 'jrtrainer-gen1rb',
+			'juan-gen3',
+			'juan',
+			'juggler-gen1', 'juggler-gen1rb', 'juggler-gen2', 'juggler-gen3', 'juggler',
+			'jupiter',
+			'karen-gen2', 'karen',
+			'kimonogirl',
+			'kindler-gen3',
+			'koga-gen1', 'koga-gen1rb', 'koga-gen3', 'koga',
+			'kris-gen2',
+			'lady-gen3', 'lady-gen3rs', 'lady-gen4', 'lady',
+			'lance-gen1', 'lance-gen1rb', 'lance-gen2', 'lance-gen3', 'lance',
+			'lass-gen1', 'lass-gen1rb', 'lass-gen2', 'lass-gen3', 'lass-gen3rs', 'lass-gen4dp', 'lass-gen4', 'lass',
+			'leaf-gen3',
+			'lenora',
+			'linebacker',
+			'li',
+			'liza',
+			'lorelei-gen1', 'lorelei-gen1rb', 'lorelei-gen3',
+			'ltsurge-gen1', 'ltsurge-gen1rb', 'ltsurge-gen2', 'ltsurge-gen3', 'ltsurge',
+			'lucas-gen4pt', 'lucas',
+			'lucian',
+			'lucy-gen3',
+			'lyra',
+			'madame-gen4dp', 'madame-gen4', 'madame',
+			'maid',
+			'marley',
+			'marlon',
+			'marshal',
+			'mars',
+			'matt-gen3',
+			'maxie-gen3',
+			'may-gen3', 'may-gen3rs',
+			'maylene',
+			'medium-gen2jp', 'medium',
+			'mira',
+			'misty-gen1', 'misty-gen1rb', 'misty-gen3', 'misty',
+			'morty-gen2', 'morty',
+			'mrfuji-gen3',
+			'musician',
+			'nate',
+			'ninjaboy-gen3', 'ninjaboy',
+			'noland-gen3',
+			'norman-gen3', 'norman',
+			'n',
+			'nurse',
+			'nurseryaide',
+			'oak-gen1', 'oak-gen1rb', 'oak-gen3',
+			'oldcouple-gen3',
+			'painter-gen3',
+			'palmer',
+			'parasollady-gen3', 'parasollady-gen4', 'parasollady',
+			'petrel',
+			'phoebe-gen3',
+			'picnicker-gen2', 'picnicker-gen3', 'picnicker-gen3rs', 'picnicker',
+			'pilot',
+			'plasmagruntf-gen5bw', 'plasmagruntf',
+			'plasmagrunt-gen5bw', 'plasmagrunt',
+			'pokefanf-gen2', 'pokefanf-gen3', 'pokefanf-gen4', 'pokefanf',
+			'pokefan-gen3', 'pokefan-gen4', 'pokefan',
+			'pokekid',
+			'pokemaniac-gen1', 'pokemaniac-gen1rb', 'pokemaniac-gen3', 'pokemaniac-gen3rs', 'pokemaniac',
+			'pokemonbreederf-gen3', 'pokemonbreederf-gen3frlg', 'pokemonbreederf-gen4', 'pokemonbreederf',
+			'pokemonbreeder-gen3', 'pokemonbreeder-gen4', 'pokemonbreeder',
+			'pokemonrangerf-gen3', 'pokemonrangerf-gen3rs', 'pokemonrangerf-gen4', 'pokemonrangerf',
+			'pokemonranger-gen3', 'pokemonranger-gen3rs', 'pokemonranger-gen4', 'pokemonranger',
+			'policeman-gen4', 'policeman',
+			'preschoolerf',
+			'preschooler',
+			'proton',
+			'pryce',
+			'psychicf-gen3', 'psychicf-gen3rs', 'psychicf-gen4', 'psychicfjp-gen3', 'psychicf',
+			'psychic-gen1', 'psychic-gen1rb', 'psychic-gen3', 'psychic-gen3rs', 'psychic-gen4', 'psychic',
+			'rancher',
+			'red-gen1main', 'red-gen1', 'red-gen1rb', 'red-gen1title', 'red-gen3', 'red',
+			'reporter',
+			'richboy-gen3', 'richboy-gen4', 'richboy',
+			'riley',
+			'roark',
+			'rocker-gen1', 'rocker-gen1rb', 'rocker-gen3',
+			'rocket-gen1', 'rocket-gen1rb',
+			'rocketgruntf-gen2', 'rocketgruntf',
+			'rocketgrunt-gen2', 'rocketgrunt',
+			'rood',
+			'rosa',
+			'roughneck-gen4', 'roughneck',
+			'roxanne-gen3', 'roxanne',
+			'roxie',
+			'ruinmaniac-gen3', 'ruinmaniac-gen3rs', 'ruinmaniac',
+			'sabrina-gen1', 'sabrina-gen1rb', 'sabrina-gen2', 'sabrina-gen3', 'sabrina',
+			'sage-gen2', 'sage-gen2jp', 'sage',
+			'sailor-gen1', 'sailor-gen1rb', 'sailor-gen2', 'sailor-gen3jp', 'sailor-gen3', 'sailor-gen3rs', 'sailor',
+			'saturn',
+			'schoolboy-gen2',
+			'schoolkidf-gen3', 'schoolkidf-gen4', 'schoolkidf',
+			'schoolkid-gen3', 'schoolkid-gen4dp', 'schoolkid-gen4', 'schoolkid',
+			'scientistf',
+			'scientist-gen1', 'scientist-gen1rb', 'scientist-gen2', 'scientist-gen3', 'scientist-gen4dp', 'scientist-gen4', 'scientist',
+			'shadowtriad',
+			'shauntal',
+			'shelly-gen3',
+			'sidney-gen3',
+			'silver-gen2kanto', 'silver-gen2', 'silver',
+			'sisandbro-gen3', 'sisandbro-gen3rs', 'sisandbro',
+			'skierf-gen4dp', 'skierf',
+			'skier-gen2', 'skier',
+			'skyla',
+			'smasher',
+			'spenser-gen3',
+			'srandjr-gen3',
+			'steven-gen3', 'steven',
+			'striker',
+			'supernerd-gen1', 'supernerd-gen1rb', 'supernerd-gen2', 'supernerd-gen3', 'supernerd',
+			'swimmerf-gen2', 'swimmerf-gen3', 'swimmerf-gen3rs', 'swimmerf-gen4dp', 'swimmerf-gen4', 'swimmerfjp-gen2', 'swimmerf',
+			'swimmer-gen1', 'swimmer-gen1rb', 'swimmer-gen4dp', 'swimmer-gen4', 'swimmerm-gen2', 'swimmerm-gen3', 'swimmerm-gen3rs', 'swimmer',
+			'tabitha-gen3',
+			'tamer-gen1', 'tamer-gen1rb', 'tamer-gen3',
+			'tateandliza-gen3',
+			'tate',
+			'teacher-gen2', 'teacher',
+			'teamaquabeta-gen3',
+			'teamaquagruntf-gen3',
+			'teamaquagruntm-gen3',
+			'teammagmagruntf-gen3',
+			'teammagmagruntm-gen3',
+			'teamrocketgruntf-gen3',
+			'teamrocketgruntm-gen3',
+			'teamrocket',
+			'thorton',
+			'triathletebikerf-gen3',
+			'triathletebikerm-gen3',
+			'triathleterunnerf-gen3',
+			'triathleterunnerm-gen3',
+			'triathleteswimmerf-gen3',
+			'triathleteswimmerm-gen3',
+			'tuberf-gen3', 'tuberf-gen3rs', 'tuberf',
+			'tuber-gen3', 'tuber',
+			'tucker-gen3',
+			'twins-gen2', 'twins-gen3', 'twins-gen3rs', 'twins-gen4dp', 'twins-gen4', 'twins',
+			'unknownf',
+			'unknown',
+			'veteranf',
+			'veteran-gen4', 'veteran',
+			'volkner',
+			'waiter-gen4dp', 'waiter-gen4', 'waiter',
+			'waitress-gen4', 'waitress',
+			'wallace-gen3', 'wallace-gen3rs', 'wallace',
+			'wally-gen3', 'wally',
+			'wattson-gen3', 'wattson',
+			'whitney-gen2', 'whitney',
+			'will-gen2', 'will',
+			'winona-gen3', 'winona',
+			'worker-gen4',
+			'workerice',
+			'worker',
+			'yellow',
+			'youngcouple-gen3', 'youngcouple-gen3rs', 'youngcouple-gen4dp', 'youngcouple',
+			'youngster-gen1', 'youngster-gen1rb', 'youngster-gen2', 'youngster-gen3', 'youngster-gen3rs', 'youngster-gen4', 'youngster',
+			'zinnia',
+			'zinzolin',
+		];
+		if (!avatarTable.includes(avatar)) {
 			let avatarNum = parseInt(avatar);
 			if (!avatarNum || avatarNum > 294 || avatarNum < 1) {
 				if (!parts[1]) {
@@ -453,12 +491,12 @@ const commands = {
 
 	'!logout': true,
 	signout: 'logout',
-	logout(target, room, user) {
+	logout: function (target, room, user) {
 		user.resetName();
 	},
 
 	r: 'reply',
-	reply(target, room, user) {
+	reply: function (target, room, user) {
 		if (!target) return this.parse('/help reply');
 		if (!user.lastPM) {
 			return this.errorReply("No one has PMed you yet.");
@@ -471,7 +509,7 @@ const commands = {
 	pm: 'msg',
 	whisper: 'msg',
 	w: 'msg',
-	msg(target, room, user, connection) {
+	msg: function (target, room, user, connection) {
 		if (!target) return this.parse('/help msg');
 		target = this.splitTarget(target);
 		let targetUser = this.targetUser;
@@ -501,7 +539,7 @@ const commands = {
 
 	'!invite': true,
 	inv: 'invite',
-	invite(target, room, user) {
+	invite: function (target, room, user) {
 		if (!target) return this.parse('/help invite');
 		if (!this.canTalk()) return;
 		if (room) target = this.splitTarget(target) || room.id;
@@ -539,7 +577,7 @@ const commands = {
 		`(in a PM) /invite [roomname] - Invites the player you're PMing to join the room [roomname].`,
 	],
 
-	pminfobox(target, room, user, connection) {
+	pminfobox: function (target, room, user, connection) {
 		if (!this.canTalk()) return;
 		if (!this.can('addhtml', null, room)) return false;
 		if (!target) return this.parse("/help pminfobox");
@@ -550,7 +588,7 @@ const commands = {
 
 		if (!targetUser || !targetUser.connected) return this.errorReply(`User ${this.targetUsername} is not currently online.`);
 		if (!(targetUser in room.users) && !user.can('addhtml')) return this.errorReply("You do not have permission to use this command to users who are not in this room.");
-		if (targetUser.blockPMs && targetUser.blockPMs !== user.group && !user.can('lock')) return this.errorReply("This user is currently blocking PMs.");
+		if (targetUser.ignorePMs && targetUser.ignorePMs !== user.group && !user.can('lock')) return this.errorReply("This user is currently ignoring PMs.");
 		if (targetUser.locked && !user.can('lock')) return this.errorReply("This user is currently locked, so you cannot send them a pminfobox.");
 
 		// Apply the infobox to the message
@@ -565,7 +603,7 @@ const commands = {
 	pminfoboxhelp: [`/pminfobox [user], [html]- PMs an [html] infobox to [user]. Requires * ~`],
 
 	pmuhtmlchange: 'pmuhtml',
-	pmuhtml(target, room, user, connection, cmd) {
+	pmuhtml: function (target, room, user, connection, cmd) {
 		if (!this.canTalk()) return;
 		if (!this.can('addhtml', null, room)) return false;
 		if (!target) return this.parse("/help " + cmd);
@@ -576,7 +614,7 @@ const commands = {
 
 		if (!targetUser || !targetUser.connected) return this.errorReply(`User ${this.targetUsername} is not currently online.`);
 		if (!(targetUser in room.users) && !user.can('addhtml')) return this.errorReply("You do not have permission to use this command to users who are not in this room.");
-		if (targetUser.blockPMs && targetUser.blockPMs !== user.group && !user.can('lock')) return this.errorReply("This user is currently blocking PMs.");
+		if (targetUser.ignorePMs && targetUser.ignorePMs !== user.group && !user.can('lock')) return this.errorReply("This user is currently ignoring PMs.");
 		if (targetUser.locked && !user.can('lock')) return this.errorReply("This user is currently locked, so you cannot send them UHTML.");
 
 		let message = `|pm|${user.getIdentity()}|${targetUser.getIdentity()}|/uhtml${(cmd === 'pmuhtmlchange' ? 'change' : '')} ${target}`;
@@ -589,39 +627,36 @@ const commands = {
 	pmuhtmlhelp: [`/pmuhtml [user], [name], [html] - PMs [html] that can change to [user]. Requires * ~`],
 	pmuhtmlchangehelp: [`/pmuhtmlchange [user], [name], [html] - Changes html that was previously PMed to [user] to [html]. Requires * ~`],
 
-	'!blockpms': true,
-	blockpm: 'blockpms',
-	ignorepms: 'blockpms',
-	ignorepm: 'blockpms',
-	blockpms(target, room, user) {
-		if (user.blockPMs === (target || true)) return this.errorReply("You are already blocking private messages! To unblock, use /unblockpms");
-		user.blockPMs = true;
+	'!ignorepms': true,
+	blockpm: 'ignorepms',
+	blockpms: 'ignorepms',
+	ignorepm: 'ignorepms',
+	ignorepms: function (target, room, user) {
+		if (user.ignorePMs === (target || true)) return this.errorReply("You are already blocking private messages! To unblock, use /unblockpms");
+		user.ignorePMs = true;
 		if (target in Config.groups) {
-			user.blockPMs = target;
-			user.update('blockPMs');
+			user.ignorePMs = target;
 			return this.sendReply(`You are now blocking private messages, except from staff and ${target}.`);
 		}
-		user.update();
 		return this.sendReply("You are now blocking private messages, except from staff.");
 	},
-	blockpmshelp: [`/blockpms - Blocks private messages. Unblock them with /unblockpms.`],
+	ignorepmshelp: [`/blockpms - Blocks private messages. Unblock them with /unignorepms.`],
 
-	'!unblockpms': true,
-	unblockpm: 'unblockpms',
-	unignorepms: 'unblockpms',
-	unignorepm: 'unblockpms',
-	unblockpms(target, room, user) {
-		if (!user.blockPMs) return this.errorReply("You are not blocking private messages! To block, use /blockpms");
-		user.blockPMs = false;
-		user.update('blockPMs');
+	'!unignorepms': true,
+	unblockpm: 'unignorepms',
+	unblockpms: 'unignorepms',
+	unignorepm: 'unignorepms',
+	unignorepms: function (target, room, user) {
+		if (!user.ignorePMs) return this.errorReply("You are not blocking private messages! To block, use /blockpms");
+		user.ignorePMs = false;
 		return this.sendReply("You are no longer blocking private messages.");
 	},
-	unblockpmshelp: [`/unblockpms - Unblocks private messages. Block them with /blockpms.`],
+	unignorepmshelp: [`/unblockpms - Unblocks private messages. Block them with /blockpms.`],
 
 	'!away': true,
 	idle: 'away',
 	afk: 'away',
-	away(target, room, user) {
+	away: function (target, room, user) {
 		this.parse('/blockchallenges');
 		this.parse(`/blockpms ${target}`);
 	},
@@ -630,14 +665,14 @@ const commands = {
 	'!back': true,
 	unaway: 'back',
 	unafk: 'back',
-	back() {
+	back: function () {
 		this.parse('/unblockpms');
 		this.parse('/unblockchallenges');
 	},
 	backhelp: [`/back - Unblocks challenges and/or private messages, if either are blocked.`],
 
 	'!rank': true,
-	rank(target, room, user) {
+	rank: function (target, room, user) {
 		if (!target) target = user.name;
 
 		Ladders.visualizeAll(target).then(values => {
@@ -658,7 +693,7 @@ const commands = {
 	},
 
 	makeprivatechatroom: 'makechatroom',
-	makechatroom(target, room, user, connection, cmd) {
+	makechatroom: function (target, room, user, connection, cmd) {
 		if (!this.can('makeroom')) return;
 
 		// `,` is a delimiter used by a lot of /commands
@@ -697,7 +732,7 @@ const commands = {
 	makechatroomhelp: [`/makechatroom [roomname] - Creates a new room named [roomname]. Requires: & ~`],
 
 	subroomgroupchat: 'makegroupchat',
-	makegroupchat(target, room, user, connection, cmd) {
+	makegroupchat: function (target, room, user, connection, cmd) {
 		if (!this.canTalk()) return;
 		if (!user.autoconfirmed) {
 			return this.errorReply("You must be autoconfirmed to make a groupchat.");
@@ -776,7 +811,7 @@ const commands = {
 		`/subroomgroupchat [roomname] - Creates a subroom groupchat of the current room. Can only be used in a public room you have staff in.`,
 	],
 
-	deregisterchatroom(target, room, user) {
+	deregisterchatroom: function (target, room, user) {
 		if (!this.can('makeroom')) return;
 		this.errorReply("NOTE: You probably want to use `/deleteroom` now that it exists.");
 		let id = toId(target);
@@ -805,7 +840,7 @@ const commands = {
 
 	deletechatroom: 'deleteroom',
 	deletegroupchat: 'deleteroom',
-	deleteroom(target, room, user, connection, cmd) {
+	deleteroom: function (target, room, user, connection, cmd) {
 		let roomid = target.trim();
 		if (!roomid) {
 			// allow deleting personal rooms without typing out the room name
@@ -866,7 +901,7 @@ const commands = {
 	hiddenroom: 'privateroom',
 	secretroom: 'privateroom',
 	publicroom: 'privateroom',
-	privateroom(target, room, user, connection, cmd) {
+	privateroom: function (target, room, user, connection, cmd) {
 		if (room.isPersonal) {
 			if (!this.can('editroom', null, room)) return;
 		} else if (room.battle) {
@@ -905,12 +940,12 @@ const commands = {
 			if (room.isPersonal) return this.errorReply(`This room can't be made public.`);
 			if (room.privacySetter && user.can('nooverride', null, room) && !user.can('makeroom')) {
 				if (!room.privacySetter.has(user.userid)) {
-					const privacySetters = [...room.privacySetter].join(', ');
+					const privacySetters = Array.from(room.privacySetter).join(', ');
 					return this.errorReply(`You can't make the room public since you didn't make it private - only ${privacySetters} can.`);
 				}
 				room.privacySetter.delete(user.userid);
 				if (room.privacySetter.size) {
-					const privacySetters = [...room.privacySetter].join(', ');
+					const privacySetters = Array.from(room.privacySetter).join(', ');
 					return this.sendReply(`You are no longer forcing the room to stay private, but ${privacySetters} also need${Chat.plural(room.privacySetter, "", "s")} to use /publicroom to make the room public.`);
 				}
 			}
@@ -949,7 +984,7 @@ const commands = {
 	],
 
 	officialchatroom: 'officialroom',
-	officialroom(target, room, user) {
+	officialroom: function (target, room, user) {
 		if (!this.can('makeroom')) return;
 		if (!room.chatRoomData) {
 			return this.errorReply(`/officialroom - This room can't be made official`);
@@ -971,7 +1006,7 @@ const commands = {
 		}
 	},
 
-	psplwinnerroom(target, room, user) {
+	psplwinnerroom: function (target, room, user) {
 		if (!this.can('makeroom')) return;
 		if (!room.chatRoomData) {
 			return this.errorReply(`/psplwinnerroom - This room can't be marked as a PSPL Winner room`);
@@ -994,7 +1029,7 @@ const commands = {
 	},
 
 	setsubroom: 'subroom',
-	subroom(target, room, user) {
+	subroom: function (target, room, user) {
 		if (!user.can('makeroom')) return this.errorReply(`/subroom - Access denied. Did you mean /subrooms?`);
 		if (!target) return this.parse('/help subroom');
 
@@ -1035,7 +1070,7 @@ const commands = {
 
 	removesubroom: 'unsubroom',
 	desubroom: 'unsubroom',
-	unsubroom(target, room, user) {
+	unsubroom: function (target, room, user) {
 		if (!this.can('makeroom')) return;
 		if (!room.parent || !room.chatRoomData) return this.errorReply(`This room is not currently a subroom of a public room.`);
 
@@ -1059,7 +1094,7 @@ const commands = {
 	},
 
 	parentroom: 'subrooms',
-	subrooms(target, room, user, connection, cmd) {
+	subrooms: function (target, room, user, connection, cmd) {
 		if (cmd === 'parentroom') {
 			if (!room.parent) return this.errorReply(`This room is not a subroom.`);
 			return this.sendReply(`This is a subroom of ${room.parent.title}.`);
@@ -1086,7 +1121,7 @@ const commands = {
 		`/parentroom - Displays the current room's parent room.`,
 	],
 
-	roomdesc(target, room, user) {
+	roomdesc: function (target, room, user) {
 		if (!target) {
 			if (!this.runBroadcast()) return;
 			if (!room.desc) return this.sendReply(`This room does not have a description set.`);
@@ -1120,7 +1155,7 @@ const commands = {
 	},
 
 	topic: 'roomintro',
-	roomintro(target, room, user, connection, cmd) {
+	roomintro: function (target, room, user, connection, cmd) {
 		if (!target) {
 			if (!this.runBroadcast()) return;
 			if (!room.introMessage) return this.sendReply("This room does not have an introduction set.");
@@ -1158,7 +1193,7 @@ const commands = {
 	},
 
 	deletetopic: 'deleteroomintro',
-	deleteroomintro(target, room, user) {
+	deleteroomintro: function (target, room, user) {
 		if (!this.can('declare', null, room)) return false;
 		if (!room.introMessage) return this.errorReply("This room does not have a introduction set.");
 
@@ -1174,7 +1209,7 @@ const commands = {
 	},
 
 	stafftopic: 'staffintro',
-	staffintro(target, room, user, connection, cmd) {
+	staffintro: function (target, room, user, connection, cmd) {
 		if (!target) {
 			if (!this.can('mute', null, room)) return false;
 			if (!room.staffMessage) return this.sendReply("This room does not have a staff introduction set.");
@@ -1213,7 +1248,7 @@ const commands = {
 	},
 
 	deletestafftopic: 'deletestaffintro',
-	deletestaffintro(target, room, user) {
+	deletestaffintro: function (target, room, user) {
 		if (!this.can('ban', null, room)) return false;
 		if (!room.staffMessage) return this.errorReply("This room does not have a staff introduction set.");
 
@@ -1228,7 +1263,7 @@ const commands = {
 		}
 	},
 
-	roomalias(target, room, user) {
+	roomalias: function (target, room, user) {
 		if (!target) {
 			if (!this.runBroadcast()) return;
 			if (!room.aliases || !room.aliases.length) return this.sendReplyBox("This room does not have any aliases.");
@@ -1265,7 +1300,7 @@ const commands = {
 	deleteroomalias: 'removeroomalias',
 	deroomalias: 'removeroomalias',
 	unroomalias: 'removeroomalias',
-	removeroomalias(target, room, user) {
+	removeroomalias: function (target, room, user) {
 		if (!room.aliases) return this.errorReply("This room does not have any aliases.");
 		if (!this.can('makeroom')) return false;
 		if (target.includes(',')) {
@@ -1289,7 +1324,7 @@ const commands = {
 	},
 	removeroomaliashelp: [`/removeroomalias [alias] - removes the given room alias of the room the command was entered in. Requires: & ~`],
 
-	roomowner(target, room, user) {
+	roomowner: function (target, room, user) {
 		if (!room.chatRoomData) {
 			return this.sendReply("/roomowner - This room isn't designed for per-room moderation to be added");
 		}
@@ -1326,7 +1361,7 @@ const commands = {
 
 	'!roompromote': true,
 	roomdemote: 'roompromote',
-	roompromote(target, room, user, connection, cmd) {
+	roompromote: function (target, room, user, connection, cmd) {
 		if (!room) {
 			// this command isn't marked as room-only because it's usable in PMs through /invite
 			return this.errorReply("This command is only available in rooms");
@@ -1426,15 +1461,15 @@ const commands = {
 		if (room.chatRoomData) Rooms.global.writeChatRoomData();
 	},
 	roompromotehelp: [
-		`/roompromote OR /roomdemote [username], [group symbol] - Promotes/demotes the user to the specified room rank. Requires: @ # & ~`,
-		`/room[group] [username] - Promotes/demotes the user to the specified room rank. Requires: @ # & ~`,
-		`/roomdeauth [username] - Removes all room rank from the user. Requires: @ # & ~`,
+		`/roompromote OR /roomdemote [username], [group symbol] - Promotes/demotes the user to the specified room rank. Requires: @ * # & ~`,
+		`/room[group] [username] - Promotes/demotes the user to the specified room rank. Requires: @ * # & ~`,
+		`/roomdeauth [username] - Removes all room rank from the user. Requires: @ * # & ~`,
 	],
 
 	'!roomauth': true,
 	roomstaff: 'roomauth',
 	roomauth1: 'roomauth',
-	roomauth(target, room, user, connection, cmd) {
+	roomauth: function (target, room, user, connection, cmd) {
 		let userLookup = '';
 		if (cmd === 'roomauth1') userLookup = `\n\nTo look up auth for a user, use /userauth ${target}`;
 		let targetRoom = room;
@@ -1456,20 +1491,19 @@ const commands = {
 			return `${Config.groups[r] ? `${Config.groups[r].name}s (${r})` : r}:\n${roomRankList.join(", ")}`;
 		});
 
+		if (!buffer.length) {
+			connection.popup(`The room '${targetRoom.title}' has no auth. ${userLookup}`);
+			return;
+		}
 		let curRoom = targetRoom;
 		while (curRoom.parent) {
 			const modjoinSetting = curRoom.modjoin === true ? curRoom.modchat : curRoom.modjoin;
 			const roomType = (modjoinSetting ? `modjoin ${modjoinSetting} ` : '');
 			const inheritedUserType = (modjoinSetting ? ` of rank ${modjoinSetting} and above` : '');
 			if (curRoom.parent) {
-				const also = buffer.length === 0 ? `` : ` also`;
-				buffer.push(`${curRoom.title} is a ${roomType}subroom of ${curRoom.parent.title}, so ${curRoom.parent.title} users${inheritedUserType}${also} have authority in this room.`);
+				buffer.push(`${curRoom.title} is a ${roomType}subroom of ${curRoom.parent.title}, so ${curRoom.parent.title} users${inheritedUserType} also have authority in this room.`);
 			}
 			curRoom = curRoom.parent;
-		}
-		if (!buffer.length) {
-			connection.popup(`The room '${targetRoom.title}' has no auth. ${userLookup}`);
-			return;
 		}
 		if (!curRoom.isPrivate) {
 			buffer.push(`${curRoom.title} is a public room, so global auth with no relevant roomauth will have authority in this room.`);
@@ -1481,7 +1515,7 @@ const commands = {
 	},
 
 	'!userauth': true,
-	userauth(target, room, user, connection) {
+	userauth: function (target, room, user, connection) {
 		let targetId = toId(target) || user.userid;
 		let targetUser = Users.getExact(targetId);
 		let targetUsername = (targetUser ? targetUser.name : target);
@@ -1492,24 +1526,24 @@ const commands = {
 		if (group) {
 			buffer.push(`Global auth: ${group.charAt(0)}`);
 		}
-		for (const curRoom of Rooms.rooms.values()) {
-			if (!curRoom.auth || curRoom.isPrivate) continue;
+		Rooms.rooms.forEach((curRoom, id) => {
+			if (!curRoom.auth || curRoom.isPrivate) return;
 			group = curRoom.auth[targetId];
-			if (!group) continue;
-			innerBuffer.push(group + curRoom.id);
-		}
+			if (!group) return;
+			innerBuffer.push(group + id);
+		});
 		if (innerBuffer.length) {
 			buffer.push(`Room auth: ${innerBuffer.join(', ')}`);
 		}
 		if (targetId === user.userid || user.can('lock')) {
 			innerBuffer = [];
-			for (const curRoom of Rooms.rooms.values()) {
-				if (!curRoom.auth || !curRoom.isPrivate) continue;
-				if (curRoom.isPrivate === true) continue;
+			Rooms.rooms.forEach((curRoom, id) => {
+				if (!curRoom.auth || !curRoom.isPrivate) return;
+				if (curRoom.isPrivate === true) return;
 				let auth = curRoom.auth[targetId];
-				if (!auth) continue;
-				innerBuffer.push(auth + curRoom.id);
-			}
+				if (!auth) return;
+				innerBuffer.push(auth + id);
+			});
 			if (innerBuffer.length) {
 				buffer.push(`Hidden room auth: ${innerBuffer.join(', ')}`);
 			}
@@ -1538,7 +1572,7 @@ const commands = {
 	rb: 'ban',
 	roomban: 'ban',
 	b: 'ban',
-	ban(target, room, user, connection) {
+	ban: function (target, room, user, connection) {
 		if (!target) return this.parse('/help ban');
 		if (!this.canTalk()) return;
 
@@ -1594,11 +1628,11 @@ const commands = {
 		}
 		return true;
 	},
-	banhelp: [`/ban [username], [reason] - Bans the user from the room you are in. Requires: @ # & ~`],
+	banhelp: [`/roomban [username], [reason] - Bans the user from the room you are in. Requires: @ # & ~`],
 
 	unroomban: 'unban',
 	roomunban: 'unban',
-	unban(target, room, user, connection) {
+	unban: function (target, room, user, connection) {
 		if (!target) return this.parse('/help unban');
 		if (!this.can('ban', null, room)) return false;
 
@@ -1613,48 +1647,40 @@ const commands = {
 			this.errorReply(`User '${target}' is not banned from this room.`);
 		}
 	},
-	unbanhelp: [`/unban [username] - Unbans the user from the room you are in. Requires: @ # & ~`],
+	unbanhelp: [`/roomunban [username] - Unbans the user from the room you are in. Requires: @ # & ~`],
 
 	'!autojoin': true,
-	autojoin(target, room, user, connection) {
+	autojoin: function (target, room, user, connection) {
 		let targets = target.split(',');
 		if (targets.length > 11 || connection.inRooms.size > 1) return;
 		Rooms.global.autojoinRooms(user, connection);
 		let autojoins = [];
-
-		const promises = targets.map(target =>
-			user.tryJoinRoom(target, connection).then(ret => {
-				if (ret === Rooms.RETRY_AFTER_LOGIN) {
-					autojoins.push(target);
-				}
-			})
-		);
-
-		Promise.all(promises).then(() => {
-			connection.autojoins = autojoins.join(',');
-		});
+		for (const target of targets) {
+			if (user.tryJoinRoom(target, connection) === Rooms.RETRY_AFTER_LOGIN) {
+				autojoins.push(target);
+			}
+		}
+		connection.autojoins = autojoins.join(',');
 	},
 
 	'!join': true,
 	joim: 'join',
 	j: 'join',
-	join(target, room, user, connection) {
+	join: function (target, room, user, connection) {
 		if (!target) return this.parse('/help join');
 		if (target.startsWith('http://')) target = target.slice(7);
 		if (target.startsWith('https://')) target = target.slice(8);
 		if (target.startsWith('play.pokemonshowdown.com/')) target = target.slice(25);
 		if (target.startsWith('psim.us/')) target = target.slice(8);
-		user.tryJoinRoom(target, connection).then(ret => {
-			if (ret === Rooms.RETRY_AFTER_LOGIN) {
-				connection.sendTo(target, `|noinit|namerequired|The room '${target}' does not exist or requires a login to join.`);
-			}
-		});
+		if (user.tryJoinRoom(target, connection) === Rooms.RETRY_AFTER_LOGIN) {
+			connection.sendTo(target, `|noinit|namerequired|The room '${target}' does not exist or requires a login to join.`);
+		}
 	},
 	joinhelp: [`/join [roomname] - Attempt to join the room [roomname].`],
 
 	'!part': true,
 	leave: 'part',
-	part(target, room, user, connection) {
+	part: function (target, room, user, connection) {
 		let targetRoom = target ? Rooms.search(target) : room;
 		if (!targetRoom || targetRoom === Rooms.global) {
 			if (target.startsWith('view-')) return;
@@ -1669,7 +1695,7 @@ const commands = {
 
 	kick: 'warn',
 	k: 'warn',
-	warn(target, room, user) {
+	warn: function (target, room, user) {
 		if (!target) return this.parse('/help warn');
 		if (!this.canTalk()) return;
 		if (room.isPersonal && !user.can('warn')) return this.errorReply("Warning is unavailable in group chats.");
@@ -1678,15 +1704,8 @@ const commands = {
 
 		target = this.splitTarget(target);
 		let targetUser = this.targetUser;
-		if (!targetUser || !targetUser.connected) {
-			if (!targetUser || !global) return this.errorReply(`User '${this.targetUsername}' not found.`);
-
-			this.addModAction(`${targetUser.name} would be warned by ${user.name} but is offline.${(target ? ` (${target})` : ``)}`);
-			this.modlog('WARN', targetUser, target, {noalts: 1});
-			this.globalModlog('WARN', targetUser, ` by ${user.userid}${(target ? `: ${target}` : ``)}`);
-			return;
-		}
-		if (!(targetUser in room.users) && !global) {
+		if (!targetUser || !targetUser.connected) return this.errorReply(`User '${this.targetUsername}' not found.`);
+		if (!(targetUser in room.users) && room.id !== 'staff') {
 			return this.errorReply(`User ${this.targetUsername} is not in the room ${room.id}.`);
 		}
 		if (target.length > MAX_REASON_LENGTH) {
@@ -1708,7 +1727,7 @@ const commands = {
 	warnhelp: [`/warn OR /k [username], [reason] - Warns a user showing them the Pok\u00e9mon Showdown Rules and [reason] in an overlay. Requires: % @ # & ~`],
 
 	redirect: 'redir',
-	redir(target, room, user, connection) {
+	redir: function (target, room, user, connection) {
 		if (!target) return this.parse('/help redirect');
 		if (room.isPrivate || room.isPersonal) return this.errorReply("Users cannot be redirected from private or personal rooms.");
 
@@ -1719,12 +1738,6 @@ const commands = {
 			return this.errorReply(`The room "${target}" does not exist.`);
 		}
 		if (!this.can('warn', targetUser, room) || !this.can('warn', targetUser, targetRoom)) return false;
-
-		if (!this.can('rangeban', targetUser)) {
-			this.errorReply(`Redirects have been deprecated. Instead of /redirect, use <<room links>> or /invite to guide users to the correct room, and punish if users don't cooperate.`);
-			return;
-		}
-
 		if (!targetUser || !targetUser.connected) {
 			return this.errorReply(`User ${this.targetUsername} not found.`);
 		}
@@ -1744,10 +1757,10 @@ const commands = {
 		this.modlog('REDIRECT', targetUser, `to ${targetRoom.title}`, {noip: 1, noalts: 1});
 		targetUser.leaveRoom(room);
 	},
-	redirhelp: [`/redirect OR /redir [username], [roomname] - [DEPRECATED] Attempts to redirect the user [username] to the room [roomname]. Requires: & ~`],
+	redirhelp: [`/redirect OR /redir [username], [roomname] - Attempts to redirect the user [username] to the room [roomname]. Requires: % @ & ~`],
 
 	m: 'mute',
-	mute(target, room, user, connection, cmd) {
+	mute: function (target, room, user, connection, cmd) {
 		if (!target) return this.parse('/help mute');
 		if (!this.canTalk()) return;
 
@@ -1783,17 +1796,17 @@ const commands = {
 
 		room.mute(targetUser, muteDuration, false);
 	},
-	mutehelp: [`/mute OR /m [username], [reason] - Mutes a user with reason for 7 minutes. Requires: % @ # & ~`],
+	mutehelp: [`/mute OR /m [username], [reason] - Mutes a user with reason for 7 minutes. Requires: % @ * # & ~`],
 
 	hm: 'hourmute',
-	hourmute(target) {
+	hourmute: function (target) {
 		if (!target) return this.parse('/help hourmute');
 		this.run('mute');
 	},
-	hourmutehelp: [`/hourmute OR /hm [username], [reason] - Mutes a user with reason for an hour. Requires: % @ # & ~`],
+	hourmutehelp: [`/hourmute OR /hm [username], [reason] - Mutes a user with reason for an hour. Requires: % @ * # & ~`],
 
 	um: 'unmute',
-	unmute(target, room, user) {
+	unmute: function (target, room, user) {
 		if (!target) return this.parse('/help unmute');
 		target = this.splitTarget(target);
 		if (target) return this.errorReply(`This command does not support specifying a reason.`);
@@ -1810,14 +1823,14 @@ const commands = {
 			this.errorReply(`${(targetUser ? targetUser.name : this.targetUsername)} is not muted.`);
 		}
 	},
-	unmutehelp: [`/unmute [username] - Removes mute from user. Requires: % @ # & ~`],
+	unmutehelp: [`/unmute [username] - Removes mute from user. Requires: % @ * # & ~`],
 
 	forcelock: 'lock',
 	l: 'lock',
 	ipmute: 'lock',
 	wl: 'lock',
 	weeklock: 'lock',
-	lock(target, room, user, connection, cmd) {
+	lock: function (target, room, user, connection, cmd) {
 		let week = cmd === 'wl' || cmd === 'weeklock';
 
 		if (!target) {
@@ -1827,9 +1840,7 @@ const commands = {
 
 		target = this.splitTarget(target);
 		let targetUser = this.targetUser;
-		if (!targetUser && !Punishments.search(toId(this.targetUsername)).length) {
-			return this.errorReply(`User '${this.targetUsername}' not found.`);
-		}
+		if (!targetUser && !Punishments.search(toId(this.targetUsername))[0].length) return this.errorReply(`User '${this.targetUsername}' not found.`);
 		if (target.length > MAX_REASON_LENGTH) {
 			return this.errorReply(`The reason is too long. It cannot exceed ${MAX_REASON_LENGTH} characters.`);
 		}
@@ -1882,6 +1893,17 @@ const commands = {
 			affected = Punishments.lock(null, duration, userid, userReason);
 		}
 
+		let acAccount = (targetUser && targetUser.autoconfirmed !== userid && targetUser.autoconfirmed);
+		let displayMessage = '';
+		if (affected.length > 1) {
+			displayMessage = `(${name}'s ${(acAccount ? ` ac account: ${acAccount}, ` : "")} locked alts: ${affected.slice(1).map(user => user.getLastName()).join(", ")})`;
+			this.privateModAction(displayMessage);
+		} else if (acAccount) {
+			displayMessage = `(${name}'s ac account: ${acAccount})`;
+			this.privateModAction(displayMessage);
+		}
+		room.hideText([userid, toId(this.inputUsername)]);
+
 		const globalReason = (target ? `: ${userReason} ${proof}` : '');
 		this.globalModlog((week ? "WEEKLOCK" : "LOCK"), targetUser || userid, ` by ${user.userid}${globalReason}`);
 
@@ -1891,17 +1913,6 @@ const commands = {
 		// Notify staff room when a user is locked outside of it.
 		if (room.id !== 'staff' && Rooms('staff')) {
 			Rooms('staff').addByUser(user, `<<${room.id}>> ${lockMessage}`);
-		}
-
-		room.hideText([userid, toId(this.inputUsername)]);
-		let acAccount = (targetUser && targetUser.autoconfirmed !== userid && targetUser.autoconfirmed);
-		let displayMessage = '';
-		if (affected.length > 1) {
-			displayMessage = `(${name}'s ${(acAccount ? ` ac account: ${acAccount}, ` : "")} locked alts: ${affected.slice(1).map(user => user.getLastName()).join(", ")})`;
-			this.privateModAction(displayMessage);
-		} else if (acAccount) {
-			displayMessage = `(${name}'s ac account: ${acAccount})`;
-			this.privateModAction(displayMessage);
 		}
 
 		if (targetUser) {
@@ -1942,12 +1953,12 @@ const commands = {
 		return true;
 	},
 	lockhelp: [
-		`/lock OR /l [username], [reason] - Locks the user from talking in all chats. Requires: % @ & ~`,
+		`/lock OR /l [username], [reason] - Locks the user from talking in all chats. Requires: % @ * & ~`,
 		`/weeklock OR /wl [username], [reason] - Same as /lock, but locks users for a week.`,
 		`/lock OR /l [username], [reason] spoiler: [proof] - Marks proof in modlog only.`,
 	],
 
-	unlock(target, room, user) {
+	unlock: function (target, room, user) {
 		if (!target) return this.parse('/help unlock');
 		if (!this.can('lock')) return false;
 
@@ -1975,7 +1986,7 @@ const commands = {
 			this.errorReply(`User '${target}' is not locked.`);
 		}
 	},
-	unlockname(target, room, user) {
+	unlockname: function (target, room, user) {
 		if (!target) return this.parse('/help unlock');
 		if (!this.can('lock')) return false;
 
@@ -2003,7 +2014,7 @@ const commands = {
 			Rooms('staff').addByUser(user, `<<${room.id}>> ${unlockMessage}`);
 		}
 	},
-	unlockip(target, room, user) {
+	unlockip: function (target, room, user) {
 		target = target.trim();
 		if (!target) return this.parse('/help unlock');
 		if (!this.can('ban')) return false;
@@ -2030,17 +2041,17 @@ const commands = {
 		const broadcastRoom = Rooms('staff') || room;
 		broadcastRoom.addByUser(user, `${user.name} unlocked the ${range ? "IP range" : "IP"}: ${target}`);
 	},
-	unlockiphelp: [`/unlockip [ip] - Unlocks a punished ip while leaving the original punishment intact. Requires: @ & ~`],
-	unlocknamehelp: [`/unlockname [username] - Unlocks a punished alt while leaving the original punishment intact. Requires: % @ & ~`],
+	unlockiphelp: [`/unlockip [ip] - Unlocks a punished ip while leaving the original punishment intact. Requires: @ * & ~`],
+	unlocknamehelp: [`/unlockname [username] - Unlocks a punished alt while leaving the original punishment intact. Requires: % @ * & ~`],
 	unlockhelp: [
-		`/unlock [username] - Unlocks the user. Requires: % @ & ~`,
-		`/unlockname [username] - Unlocks a punished alt while leaving the original punishment intact. Requires: % @ & ~`,
-		`/unlockip [ip] - Unlocks a punished ip while leaving the original punishment intact. Requires: @ & ~`,
+		`/unlock [username] - Unlocks the user. Requires: % @ * & ~`,
+		`/unlockname [username] - Unlocks a punished alt while leaving the original punishment intact. Requires: % @ * & ~`,
+		`/unlockip [ip] - Unlocks a punished ip while leaving the original punishment intact. Requires: @ * & ~`,
 	],
 
 	forceglobalban: 'globalban',
 	gban: 'globalban',
-	globalban(target, room, user, connection, cmd) {
+	globalban: function (target, room, user, connection, cmd) {
 		if (!target) return this.parse('/help globalban');
 
 		target = this.splitTarget(target);
@@ -2121,12 +2132,12 @@ const commands = {
 		return true;
 	},
 	globalbanhelp: [
-		`/globalban OR /gban [username], [reason] - Kick user from all rooms and ban user's IP address with reason. Requires: @ & ~`,
+		`/globalban OR /gban [username], [reason] - Kick user from all rooms and ban user's IP address with reason. Requires: @ * & ~`,
 		`/globalban OR /gban [username], [reason] spoiler: [proof] - Marks proof in modlog only.`,
 	],
 
 	globalunban: 'unglobalban',
-	unglobalban(target, room, user) {
+	unglobalban: function (target, room, user) {
 		if (!target) return this.parse(`/help unglobalban`);
 		if (!this.can('ban')) return false;
 
@@ -2145,9 +2156,9 @@ const commands = {
 			this.errorReply(`User '${target}' is not globally banned.`);
 		}
 	},
-	unglobalbanhelp: [`/unglobalban [username] - Unban a user. Requires: @ & ~`],
+	unglobalbanhelp: [`/unglobalban [username] - Unban a user. Requires: @ * & ~`],
 
-	unbanall(target, room, user) {
+	unbanall: function (target, room, user) {
 		if (!this.can('rangeban')) return false;
 		if (!target) {
 			user.lastCommand = '/unbanall';
@@ -2167,7 +2178,7 @@ const commands = {
 	},
 	unbanallhelp: [`/unbanall - Unban all IP addresses. Requires: & ~`],
 
-	deroomvoiceall(target, room, user) {
+	deroomvoiceall: function (target, room, user) {
 		if (!this.can('editroom', null, room)) return false;
 		if (!room.auth) return this.errorReply("Room does not have roomauth.");
 		if (!target) {
@@ -2200,7 +2211,7 @@ const commands = {
 	deroomvoiceallhelp: [`/deroomvoiceall - Devoice all roomvoiced users. Requires: # & ~`],
 
 	rangeban: 'banip',
-	banip(target, room, user) {
+	banip: function (target, room, user) {
 		const [ip, reason] = this.splitOne(target);
 		if (!ip || !/^[0-9.]+(?:\.\*)?$/.test(ip)) return this.parse('/help banip');
 		if (!reason) return this.errorReply("/banip requires a ban reason");
@@ -2219,7 +2230,7 @@ const commands = {
 	baniphelp: [`/banip [ip] - Globally bans this IP or IP range for an hour. Accepts wildcards to ban ranges. Existing users on the IP will not be banned. Requires: & ~`],
 
 	unrangeban: 'unbanip',
-	unbanip(target, room, user) {
+	unbanip: function (target, room, user) {
 		target = target.trim();
 		if (!target) {
 			return this.parse('/help unbanip');
@@ -2235,7 +2246,7 @@ const commands = {
 	unbaniphelp: [`/unbanip [ip] - Unbans. Accepts wildcards to ban ranges. Requires: & ~`],
 
 	rangelock: 'lockip',
-	lockip(target, room, user) {
+	lockip: function (target, room, user) {
 		const [ip, reason] = this.splitOne(target);
 		if (!ip || !/^[0-9.]+(?:\.\*)?$/.test(ip)) return this.parse('/help lockip');
 		if (!reason) return this.errorReply("/lockip requires a lock reason");
@@ -2263,7 +2274,7 @@ const commands = {
 	 *********************************************************/
 
 	mn: 'modnote',
-	modnote(target, room, user, connection) {
+	modnote: function (target, room, user, connection) {
 		if (!target) return this.parse('/help modnote');
 		if (!this.canTalk()) return;
 
@@ -2276,10 +2287,10 @@ const commands = {
 		if (room.id === 'staff' || room.id === 'upperstaff') this.globalModlog('NOTE', null, ` by ${user.userid}: ${target}`);
 		return this.privateModAction(`(${user.name} notes: ${target})`);
 	},
-	modnotehelp: [`/modnote [note] - Adds a moderator note that can be read through modlog. Requires: % @ # & ~`],
+	modnotehelp: [`/modnote [note] - Adds a moderator note that can be read through modlog. Requires: % @ * # & ~`],
 
 	globalpromote: 'promote',
-	promote(target, room, user, connection, cmd) {
+	promote: function (target, room, user, connection, cmd) {
 		if (!target) return this.parse('/help promote');
 
 		target = this.splitTarget(target, true);
@@ -2339,7 +2350,7 @@ const commands = {
 	promotehelp: [`/promote [username], [group] - Promotes the user to the specified group. Requires: & ~`],
 
 	confirmuser: 'trustuser',
-	trustuser(target, room, user) {
+	trustuser: function (target, room, user) {
 		if (!target) return this.parse('/help trustuser');
 		if (!this.can('promote')) return;
 
@@ -2362,13 +2373,13 @@ const commands = {
 	trustuserhelp: [`/trustuser [username] - Trusts the user (makes them immune to locks). Requires: & ~`],
 
 	globaldemote: 'demote',
-	demote(target) {
+	demote: function (target) {
 		if (!target) return this.parse('/help demote');
 		this.run('promote');
 	},
 	demotehelp: [`/demote [username], [group] - Demotes the user to the specified group. Requires: & ~`],
 
-	forcepromote(target, room, user) {
+	forcepromote: function (target, room, user) {
 		// warning: never document this command in /help
 		if (!this.can('forcepromote')) return false;
 		target = this.splitTarget(target, true);
@@ -2387,25 +2398,25 @@ const commands = {
 	},
 
 	devoice: 'deauth',
-	deauth(target, room, user) {
+	deauth: function (target, room, user) {
 		return this.parse(`/demote ${target}, deauth`);
 	},
 
 	deglobalvoice: 'globaldeauth',
 	deglobalauth: 'globaldeauth',
 	globaldevoice: 'globaldeauth',
-	globaldeauth(target, room, user) {
+	globaldeauth: function (target, room, user) {
 		return this.parse(`/globaldemote ${target}, deauth`);
 	},
 
 	deroomvoice: 'roomdeauth',
 	roomdevoice: 'roomdeauth',
 	deroomauth: 'roomdeauth',
-	roomdeauth(target, room, user) {
+	roomdeauth: function (target, room, user) {
 		return this.parse(`/roomdemote ${target}, deauth`);
 	},
 
-	declare(target, room, user) {
+	declare: function (target, room, user) {
 		target = target.trim();
 		if (!target) return this.parse('/help declare');
 		if (!this.can('declare', null, room)) return false;
@@ -2420,7 +2431,7 @@ const commands = {
 	},
 	declarehelp: [`/declare [message] - Anonymously announces a message. Requires: # * & ~`],
 
-	htmldeclare(target, room, user) {
+	htmldeclare: function (target, room, user) {
 		if (!target) return this.parse('/help htmldeclare');
 		if (!this.can('gdeclare', null, room)) return false;
 		if (!this.canTalk()) return;
@@ -2436,38 +2447,36 @@ const commands = {
 	htmldeclarehelp: [`/htmldeclare [message] - Anonymously announces a message using safe HTML. Requires: ~`],
 
 	gdeclare: 'globaldeclare',
-	globaldeclare(target, room, user) {
+	globaldeclare: function (target, room, user) {
 		if (!target) return this.parse('/help globaldeclare');
 		if (!this.can('gdeclare')) return false;
 		target = this.canHTML(target);
 		if (!target) return;
 
-		for (const u of Users.users.values()) {
+		Users.users.forEach(u => {
 			if (u.connected) u.send(`|pm|~|${u.group}${u.name}|/raw <div class="broadcast-blue"><b>${target}</b></div>`);
-		}
+		});
 		this.modlog(`GLOBALDECLARE`, null, target);
 	},
 	globaldeclarehelp: [`/globaldeclare [message] - Anonymously announces a message to every room on the server. Requires: ~`],
 
 	cdeclare: 'chatdeclare',
-	chatdeclare(target, room, user) {
+	chatdeclare: function (target, room, user) {
 		if (!target) return this.parse('/help chatdeclare');
 		if (!this.can('gdeclare')) return false;
 		target = this.canHTML(target);
 		if (!target) return;
 
-		for (const curRoom of Rooms.rooms.values()) {
-			if (curRoom.id !== 'global' && curRoom.type !== 'battle') {
-				curRoom.addRaw(`<div class="broadcast-blue"><b>${target}</b></div>`).update();
-			}
-		}
+		Rooms.rooms.forEach((curRoom, id) => {
+			if (id !== 'global' && curRoom.type !== 'battle') curRoom.addRaw(`<div class="broadcast-blue"><b>${target}</b></div>`).update();
+		});
 		this.modlog(`CHATDECLARE`, null, target);
 	},
 	chatdeclarehelp: [`/cdeclare [message] - Anonymously announces a message to all chatrooms on the server. Requires: ~`],
 
 	'!announce': true,
 	wall: 'announce',
-	announce(target, room, user) {
+	announce: function (target, room, user) {
 		if (!target) return this.parse('/help announce');
 
 		if (room && !this.can('announce', null, room)) return false;
@@ -2477,10 +2486,10 @@ const commands = {
 
 		return `/announce ${target}`;
 	},
-	announcehelp: [`/announce OR /wall [message] - Makes an announcement. Requires: % @ # & ~`],
+	announcehelp: [`/announce OR /wall [message] - Makes an announcement. Requires: % @ * # & ~`],
 
 	notifyoffrank: 'notifyrank',
-	notifyrank(target, room, user, connection, cmd) {
+	notifyrank: function (target, room, user, connection, cmd) {
 		if (!target) return this.parse(`/help notifyrank`);
 		if (!this.can('addhtml', null, room)) return false;
 		if (!this.canTalk()) return;
@@ -2517,7 +2526,7 @@ const commands = {
 	],
 
 	fr: 'forcerename',
-	forcerename(target, room, user) {
+	forcerename: function (target, room, user) {
 		if (!target) return this.parse('/help forcerename');
 
 		let reason = this.splitTarget(target, true);
@@ -2537,12 +2546,13 @@ const commands = {
 		Ladders.cancelSearches(targetUser);
 		targetUser.resetName(true);
 		targetUser.send(`|nametaken||${user.name} considers your name inappropriate${(reason ? `: ${reason}` : ".")}`);
+		targetUser.trackRename = targetUser.name;
 		return true;
 	},
-	forcerenamehelp: [`/forcerename OR /fr [username], [reason] - Forcibly change a user's name and shows them the [reason]. Requires: % @ & ~`],
+	forcerenamehelp: [`/forcerename OR /fr [username], [reason] - Forcibly change a user's name and shows them the [reason]. Requires: % @ * & ~`],
 
 	nl: 'namelock',
-	namelock(target, room, user) {
+	namelock: function (target, room, user) {
 		if (!target) return this.parse('/help namelock');
 
 		let reason = this.splitTarget(target, true);
@@ -2569,10 +2579,10 @@ const commands = {
 		targetUser.popup(`|modal|${user.name} has locked your name and you can't change names anymore${reasonText}`);
 		return true;
 	},
-	namelockhelp: [`/namelock OR /nl [username], [reason] - Name locks a user and shows them the [reason]. Requires: % @ & ~`],
+	namelockhelp: [`/namelock OR /nl [username], [reason] - Name locks a user and shows them the [reason]. Requires: % @ * & ~`],
 
 	unl: 'unnamelock',
-	unnamelock(target, room, user) {
+	unnamelock: function (target, room, user) {
 		if (!target) return this.parse('/help unnamelock');
 		if (!this.can('forcerename')) return false;
 
@@ -2592,13 +2602,12 @@ const commands = {
 			this.errorReply(`User '${target}' is not namelocked.`);
 		}
 	},
-	unnamelockhelp: [`/unnamelock [username] - Unnamelocks the user. Requires: % @ & ~`],
+	unnamelockhelp: [`/unnamelock [username] - Unnamelocks the user. Requires: % @ * & ~`],
 
 	hidetextalts: 'hidetext',
 	hidealttext: 'hidetext',
 	hidealtstext: 'hidetext',
-	htext: 'hidetext',
-	hidetext(target, room, user, connection, cmd) {
+	hidetext: function (target, room, user, connection, cmd) {
 		if (!target) return this.parse(`/help hidetext`);
 
 		this.splitTarget(target);
@@ -2607,7 +2616,7 @@ const commands = {
 		if (!targetUser && !room.log.hasUsername(target)) return this.errorReply(`User ${target} not found or has no roomlogs.`);
 		if (!targetUser && !user.can('lock')) return this.errorReply(`User ${name} not found.`);
 		let userid = toId(this.inputUsername);
-		if (!this.can('mute', null, room)) return;
+		if (!this.can('mute', targetUser, room)) return;
 
 		if (targetUser && (cmd === 'hidealtstext' || cmd === 'hidetextalts' || cmd === 'hidealttext')) {
 			room.sendByUser(user, `${name}'s alts messages were cleared from ${room.title} by ${user.name}.`);
@@ -2625,12 +2634,12 @@ const commands = {
 		}
 	},
 	hidetexthelp: [
-		`/hidetext [username] - Removes a user's messages from chat. Requires: % @ # & ~`,
-		`/hidealtstext [username] - Removes a user's messages, and their alternate account's messages from the chat.  Requires: % @ # & ~`,
+		`/hidetext [username] - Removes a user's messages from chat. Requires: % @ * # & ~`,
+		`/hidealtstext [username] - Removes a user's messages, and their alternate account's messages from the chat.  Requires: % @ * # & ~`,
 	],
 
 	ab: 'blacklist',
-	blacklist(target, room, user) {
+	blacklist: function (target, room, user) {
 		if (!target) return this.parse('/help blacklist');
 		if (!this.canTalk()) return;
 		if (toId(target) === 'show') return this.errorReply(`You're looking for /showbl`);
@@ -2702,7 +2711,7 @@ const commands = {
 	],
 
 	forcebattleban: 'battleban',
-	battleban(target, room, user, connection, cmd) {
+	battleban: function (target, room, user, connection, cmd) {
 		if (!target) return this.parse(`/help battleban`);
 
 		const reason = this.splitTarget(target);
@@ -2714,8 +2723,7 @@ const commands = {
 		if (!reason) {
 			return this.errorReply(`Battle bans require a reason.`);
 		}
-		const includesUrl = reason.includes('.pokemonshowdown.com/'); // lgtm [js/incomplete-url-substring-sanitization]
-		if (!room.battle && !includesUrl && cmd !== 'forcebattleban') {
+		if (!room.battle && (!reason.includes('.pokemonshowdown.com/') && cmd !== 'forcebattleban')) {
 			 return this.errorReply(`Battle bans require a battle replay if used outside of a battle; if the battle has expired, use /forcebattleban.`);
 		}
 		if (!this.can('rangeban', targetUser)) {
@@ -2751,9 +2759,9 @@ const commands = {
 		if (room.battle) this.parse('/savereplay');
 		return true;
 	},
-	battlebanhelp: [`/battleban [username], [reason] - [DEPRECATED] Prevents the user from starting new battles for 2 days and shows them the [reason]. Requires: & ~`],
+	battlebanhelp: [`/battleban [username], [reason] - Prevents the user from starting new battles for 2 days and shows them the [reason]. Requires: % @ * & ~`],
 
-	unbattleban(target, room, user) {
+	unbattleban: function (target, room, user) {
 		if (!target) return this.parse('/help unbattleban');
 		if (!this.can('lock')) return;
 
@@ -2768,10 +2776,10 @@ const commands = {
 			this.errorReply(`User ${target} is not banned from battling.`);
 		}
 	},
-	unbattlebanhelp: [`/unbattleban [username] - [DEPRECATED] Allows a user to battle again. Requires: % @ & ~`],
+	unbattlebanhelp: [`/unbattleban [username] - Allows a user to battle again. Requires: % @ * & ~`],
 
 	nameblacklist: 'blacklistname',
-	blacklistname(target, room, user) {
+	blacklistname: function (target, room, user) {
 		if (!target) return this.parse('/help blacklistname');
 		if (!this.canTalk()) return;
 		if (!this.can('editroom', null, room)) return false;
@@ -2817,7 +2825,7 @@ const commands = {
 	blacklistnamehelp: [`/blacklistname OR /nameblacklist [username1, username2, etc.] | reason - Blacklists the given username(s) from the room you are in for a year. Requires: # & ~`],
 
 	unab: 'unblacklist',
-	unblacklist(target, room, user) {
+	unblacklist: function (target, room, user) {
 		if (!target) return this.parse('/help unblacklist');
 		if (!this.can('editroom', null, room)) return false;
 
@@ -2834,7 +2842,7 @@ const commands = {
 	},
 	unblacklisthelp: [`/unblacklist [username] - Unblacklists the user from the room you are in. Requires: # & ~`],
 
-	unblacklistall(target, room, user) {
+	unblacklistall: function (target, room, user) {
 		if (!this.can('editroom', null, room)) return false;
 
 		if (!target) {
@@ -2859,7 +2867,7 @@ const commands = {
 	expiringblacklists: 'showblacklist',
 	blacklists: 'showblacklist',
 	showbl: 'showblacklist',
-	showblacklist(target, room, user, connection, cmd) {
+	showblacklist: function (target, room, user, connection, cmd) {
 		if (target) room = Rooms.search(target);
 		if (!room) return this.errorReply(`The room "${target}" was not found.`);
 		if (!this.can('mute', null, room)) return false;
@@ -2874,41 +2882,41 @@ const commands = {
 		let blMap = new Map();
 		let ips = '';
 
-		for (const [userid, punishment] of subMap) {
+		subMap.forEach((punishment, userid) => {
 			const [punishType, id, expireTime] = punishment;
 			if (punishType === 'BLACKLIST') {
 				if (!blMap.has(id)) blMap.set(id, [expireTime]);
 				if (id !== userid) blMap.get(id).push(userid);
 			}
-		}
+		});
 
 		if (user.can('ban')) {
 			const subMap = Punishments.roomIps.get(room.id);
 
 			if (subMap) {
 				ips = '/ips';
-				for (const [ip, punishment] of subMap) {
+				subMap.forEach((punishment, ip) => {
 					const [punishType, id] = punishment;
 					if (punishType === 'BLACKLIST') {
 						if (!blMap.has(id)) blMap.set(id, []);
 						blMap.get(id).push(ip);
 					}
-				}
+				});
 			}
 		}
 
 		let soonExpiring = (cmd === 'expiringblacklists' || cmd === 'expiringbls');
 		let buf = Chat.html`Blacklist for ${room.title}${soonExpiring ? ` (expiring within 3 months)` : ''}:<br />`;
 
-		for (const [userid, data] of blMap) {
+		blMap.forEach((data, userid) => {
 			const [expireTime, ...alts] = data;
-			if (soonExpiring && expireTime > Date.now() + SOON_EXPIRING_TIME) continue;
+			if (soonExpiring && expireTime > Date.now() + SOON_EXPIRING_TIME) return;
 			const expiresIn = new Date(expireTime).getTime() - Date.now();
 			const expiresDays = Math.round(expiresIn / 1000 / 60 / 60 / 24);
 			buf += `- <strong>${userid}</strong>, for ${Chat.count(expiresDays, "days")}`;
 			if (alts.length) buf += `, alts${ips}: ${alts.join(', ')}`;
 			buf += `<br />`;
-		}
+		});
 
 		this.sendReplyBox(buf);
 	},
@@ -2917,7 +2925,7 @@ const commands = {
 		`/expiringblacklists OR /expiringbls - show a list of blacklisted users from the room whose blacklists are expiring in 3 months or less. Requires: % @ # & ~`,
 	],
 
-	markshared(target, room, user) {
+	markshared: function (target, room, user) {
 		if (!target) return this.parse('/help markshared');
 		if (!this.can('ban')) return false;
 		let [ip, note] = this.splitOne(target);
@@ -2942,7 +2950,7 @@ const commands = {
 	},
 	marksharedhelp: [`/markshared [IP], [owner/organization of IP] - Marks an IP address as shared. Note: the owner/organization (i.e., University of Minnesota) of the shared IP is required. Requires @, &, ~`],
 
-	unmarkshared(target, room, user) {
+	unmarkshared: function (target, room, user) {
 		if (!target) return this.parse('/help unmarkshared');
 		if (!this.can('ban')) return false;
 		if (!/^[0-9.*]+$/.test(target)) return this.errorReply("Please enter a valid IP address.");
@@ -2959,7 +2967,7 @@ const commands = {
 	 * Server management commands
 	 *********************************************************/
 
-	async hotpatch(target, room, user) {
+	hotpatch: function (target, room, user) {
 		if (!target) return this.parse('/help hotpatch');
 		if (!this.can('hotpatch')) return;
 
@@ -2980,21 +2988,20 @@ const commands = {
 
 				Chat.destroy();
 
-				const processManagers = require('../.lib-dist/process-manager').processManagers;
+				const processManagers = require('../lib/process-manager').processManagers;
 				for (let manager of processManagers.slice()) {
-					if (manager.filename.startsWith(FS('server/chat-plugins').path)) {
+					if (manager.filename.startsWith(FS('chat-plugins').path)) {
 						manager.destroy();
 					}
 				}
 
-				Chat.uncache('./server/chat');
-				Chat.uncache('./server/chat-commands');
-				Chat.uncacheDir('./server/chat-plugins');
-				Chat.uncacheDir('./translations');
+				Chat.uncache('./chat');
+				Chat.uncache('./chat-commands');
+				Chat.uncacheDir('./chat-plugins');
 				global.Chat = require('./chat');
 
 				let runningTournaments = Tournaments.tournaments;
-				Chat.uncacheDir('./server/tournaments');
+				Chat.uncacheDir('./tournaments');
 				global.Tournaments = require('./tournaments');
 				Tournaments.tournaments = runningTournaments;
 				this.sendReply("Chat commands have been hot-patched.");
@@ -3002,21 +3009,28 @@ const commands = {
 				if (lock['tournaments']) return this.errorReply(`Hot-patching tournaments has been disabled by ${lock['tournaments'].by} (${lock['tournaments'].reason})`);
 
 				let runningTournaments = Tournaments.tournaments;
-				Chat.uncacheDir('./server/tournaments');
+				Chat.uncacheDir('./tournaments');
 				global.Tournaments = require('./tournaments');
 				Tournaments.tournaments = runningTournaments;
 				this.sendReply("Tournaments have been hot-patched.");
-			} else if (target === 'formats' || target === 'battles') {
+			} else if (target === 'battles') {
+				if (lock['battles']) return this.errorReply(`Hot-patching battles has been disabled by ${lock['battles'].by} (${lock['battles'].reason})`);
+				if (lock['formats']) return this.errorReply(`Hot-patching formats has been disabled by ${lock['formats'].by} (${lock['formats'].reason})`);
+
+				Rooms.PM.respawn();
+				this.sendReply("Battles have been hot-patched. Any battles started after now will use the new code; however, in-progress battles will continue to use the old code.");
+			} else if (target === 'formats') {
 				if (lock['formats']) return this.errorReply(`Hot-patching formats has been disabled by ${lock['formats'].by} (${lock['formats'].reason})`);
 				if (lock['battles']) return this.errorReply(`Hot-patching battles has been disabled by ${lock['battles'].by} (${lock['battles'].reason})`);
 				if (lock['validator']) return this.errorReply(`Hot-patching the validator has been disabled by ${lock['validator'].by} (${lock['validator'].reason})`);
 
-				// uncache the .sim-dist/dex.js dependency tree
-				Chat.uncacheDir('./.sim-dist');
+				// uncache the sim/dex.js dependency tree
+				Chat.uncacheDir('./sim');
 				Chat.uncacheDir('./data');
+				Chat.uncacheDir('./mods');
 				Chat.uncache('./config/formats');
-				// reload .sim-dist/dex.js
-				global.Dex = require('../.sim-dist/dex');
+				// reload sim/dex.js
+				global.Dex = require('./sim/dex');
 				// rebuild the formats list
 				delete Rooms.global.formatList;
 				// respawn validator processes
@@ -3029,7 +3043,7 @@ const commands = {
 				this.sendReply("Formats have been hot-patched.");
 			} else if (target === 'loginserver') {
 				FS('config/custom.css').unwatch();
-				Chat.uncache('./server/loginserver');
+				Chat.uncache('./loginserver');
 				global.LoginServer = require('./loginserver');
 				this.sendReply("The login server has been hot-patched. New login server requests will use the new code.");
 			} else if (target === 'learnsets' || target === 'validator') {
@@ -3041,7 +3055,7 @@ const commands = {
 			} else if (target === 'punishments') {
 				if (lock['punishments']) return this.errorReply(`Hot-patching punishments has been disabled by ${lock['punishments'].by} (${lock['punishments'].reason})`);
 
-				Chat.uncache('./server/punishments');
+				Chat.uncache('./punishments');
 				global.Punishments = require('./punishments');
 				this.sendReply("Punishments have been hot-patched.");
 			} else if (target === 'dnsbl' || target === 'datacenters') {
@@ -3064,8 +3078,9 @@ const commands = {
 		`Hot-patching has greater memory requirements than restarting`,
 		`You can disable various hot-patches with /nohotpatch. For more information on this, see /help nohotpatch`,
 		`/hotpatch chat - reload chat-commands.js and the chat-plugins`,
+		`/hotpatch battles - spawn new simulator processes`,
 		`/hotpatch validator - spawn new team validator processes`,
-		`/hotpatch formats - reload the .sim-dist/dex.js tree, rebuild and rebroad the formats list, and spawn new simulator and team validator processes`,
+		`/hotpatch formats - reload the sim/dex.js tree, rebuild and rebroad the formats list, and spawn new simulator and team validator processes`,
 		`/hotpatch dnsbl - reloads Dnsbl datacenters`,
 		`/hotpatch punishments - reloads new punishments code`,
 		`/hotpatch tournaments - reloads new tournaments code`,
@@ -3073,7 +3088,7 @@ const commands = {
 	],
 
 	hotpatchlock: 'nohotpatch',
-	nohotpatch(target, room, user) {
+	nohotpatch: function (target, room, user) {
 		if (!this.can('declare')) return;
 		if (!target) return this.parse('/help nohotpatch');
 
@@ -3100,7 +3115,7 @@ const commands = {
 	},
 	nohotpatchhelp: [`/nohotpatch [chat|formats|battles|validator|tournaments|punishments|all] [reason] - Disables hotpatching the specified part of the simulator. Requires: & ~`],
 
-	savelearnsets(target, room, user) {
+	savelearnsets: function (target, room, user) {
 		if (!this.can('hotpatch')) return false;
 		this.sendReply("saving...");
 		FS('data/learnsets.js').write(`'use strict';\n\nexports.BattleLearnsets = {\n` +
@@ -3119,7 +3134,7 @@ const commands = {
 	},
 
 	widendatacenters: 'adddatacenters',
-	adddatacenters(target, room, user, connection, cmd) {
+	adddatacenters: function (target, room, user, connection, cmd) {
 		if (!this.can('hotpatch')) return false;
 		// should be in the format: IP, IP, name, URL
 		let widen = (cmd === 'widendatacenters');
@@ -3212,7 +3227,7 @@ const commands = {
 		});
 	},
 
-	disableladder(target, room, user) {
+	disableladder: function (target, room, user) {
 		if (!this.can('disableladder')) return false;
 		if (Ladders.disabled) {
 			return this.errorReply(`/disableladder - Ladder is already disabled.`);
@@ -3228,16 +3243,16 @@ const commands = {
 			`Rated games will no longer update the ladder. It will be back momentarily.`
 		);
 
-		for (const curRoom of Rooms.rooms.values()) {
+		Rooms.rooms.forEach((curRoom, id) => {
 			if (curRoom.type === 'battle') curRoom.rated = false;
-			if (curRoom.id !== 'global') curRoom.addRaw(`<div class="broadcast-red">${innerHTML}</div>`).update();
-		}
-		for (const u of Users.users.values()) {
+			if (id !== 'global') curRoom.addRaw(`<div class="broadcast-red">${innerHTML}</div>`).update();
+		});
+		Users.users.forEach(u => {
 			if (u.connected) u.send(`|pm|~|${u.group}${u.name}|/raw <div class="broadcast-red">${innerHTML}</div>`);
-		}
+		});
 	},
 
-	enableladder(target, room, user) {
+	enableladder: function (target, room, user) {
 		if (!this.can('disableladder')) return false;
 		if (!Ladders.disabled) {
 			return this.errorReply(`/enable - Ladder is already enabled.`);
@@ -3252,15 +3267,15 @@ const commands = {
 			`Rated games will update the ladder now..`
 		);
 
-		for (const curRoom of Rooms.rooms.values()) {
-			if (curRoom.id !== 'global') curRoom.addRaw(`<div class="broadcast-green">${innerHTML}</div>`).update();
-		}
-		for (const u of Users.users.values()) {
+		Rooms.rooms.forEach((curRoom, id) => {
+			if (id !== 'global') curRoom.addRaw(`<div class="broadcast-green">${innerHTML}</div>`).update();
+		});
+		Users.users.forEach(u => {
 			if (u.connected) u.send(`|pm|~|${u.group}${u.name}|/raw <div class="broadcast-green">${innerHTML}</div>`);
-		}
+		});
 	},
 
-	lockdown(target, room, user) {
+	lockdown: function (target, room, user) {
 		if (!this.can('lockdown')) return false;
 
 		Rooms.global.startLockdown();
@@ -3271,7 +3286,7 @@ const commands = {
 	lockdownhelp: [`/lockdown - locks down the server, which prevents new battles from starting so that the server can eventually be restarted. Requires: ~`],
 
 	autolockdown: 'autolockdownkill',
-	autolockdownkill(target, room, user) {
+	autolockdownkill: function (target, room, user) {
 		if (!this.can('lockdown')) return false;
 		if (Config.autolockdown === undefined) Config.autolockdown = true;
 
@@ -3296,7 +3311,7 @@ const commands = {
 		`/autolockdownkill off - Turns off the setting to enable the server to automatically kill itself upon the final battle finishing. Requires ~`,
 	],
 
-	prelockdown(target, room, user) {
+	prelockdown: function (target, room, user) {
 		if (!this.can('lockdown')) return false;
 		Rooms.global.lockdown = 'pre';
 		this.sendReply("Tournaments have been disabled in preparation for the server restart.");
@@ -3304,7 +3319,7 @@ const commands = {
 		logRoom.roomlog(`${user.name} used /prelockdown`);
 	},
 
-	slowlockdown(target, room, user) {
+	slowlockdown: function (target, room, user) {
 		if (!this.can('lockdown')) return false;
 
 		Rooms.global.startLockdown(undefined, true);
@@ -3313,16 +3328,16 @@ const commands = {
 		logRoom.roomlog(`${user.name} used /slowlockdown`);
 	},
 
-	endlockdown(target, room, user) {
+	endlockdown: function (target, room, user) {
 		if (!this.can('lockdown')) return false;
 
 		if (!Rooms.global.lockdown) {
 			return this.errorReply("We're not under lockdown right now.");
 		}
 		if (Rooms.global.lockdown === true) {
-			for (const curRoom of Rooms.rooms.values()) {
-				if (curRoom.id !== 'global') curRoom.addRaw(`<div class="broadcast-green"><b>The server restart was canceled.</b></div>`).update();
-			}
+			Rooms.rooms.forEach((curRoom, id) => {
+				if (id !== 'global') curRoom.addRaw(`<div class="broadcast-green"><b>The server restart was canceled.</b></div>`).update();
+			});
 		} else {
 			this.sendReply("Preparation for the server shutdown was canceled.");
 		}
@@ -3332,37 +3347,37 @@ const commands = {
 		logRoom.roomlog(`${user.name} used /endlockdown`);
 	},
 
-	emergency(target, room, user) {
+	emergency: function (target, room, user) {
 		if (!this.can('lockdown')) return false;
 
 		if (Config.emergency) {
 			return this.errorReply("We're already in emergency mode.");
 		}
 		Config.emergency = true;
-		for (const curRoom of Rooms.rooms.values()) {
-			if (curRoom.id !== 'global') curRoom.addRaw(`<div class="broadcast-red">The server has entered emergency mode. Some features might be disabled or limited.</div>`).update();
-		}
+		Rooms.rooms.forEach((curRoom, id) => {
+			if (id !== 'global') curRoom.addRaw(`<div class="broadcast-red">The server has entered emergency mode. Some features might be disabled or limited.</div>`).update();
+		});
 
 		const logRoom = Rooms('staff') || room;
 		logRoom.roomlog(`${user.name} used /emergency.`);
 	},
 
-	endemergency(target, room, user) {
+	endemergency: function (target, room, user) {
 		if (!this.can('lockdown')) return false;
 
 		if (!Config.emergency) {
 			return this.errorReply("We're not in emergency mode.");
 		}
 		Config.emergency = false;
-		for (const curRoom of Rooms.rooms.values()) {
-			if (curRoom.id !== 'global') curRoom.addRaw(`<div class="broadcast-green"><b>The server is no longer in emergency mode.</b></div>`).update();
-		}
+		Rooms.rooms.forEach((curRoom, id) => {
+			if (id !== 'global') curRoom.addRaw(`<div class="broadcast-green"><b>The server is no longer in emergency mode.</b></div>`).update();
+		});
 
 		const logRoom = Rooms('staff') || room;
 		logRoom.roomlog(`${user.name} used /endemergency.`);
 	},
 
-	kill(target, room, user) {
+	kill: function (target, room, user) {
 		if (!this.can('lockdown')) return false;
 
 		if (Rooms.global.lockdown !== true) {
@@ -3373,9 +3388,7 @@ const commands = {
 			return this.errorReply("Wait for /updateserver to finish before using /kill.");
 		}
 
-		for (const worker of Sockets.workers.values()) {
-			worker.kill();
-		}
+		Sockets.workers.forEach(worker => worker.kill());
 
 		if (!room.destroyLog) {
 			process.exit();
@@ -3395,7 +3408,7 @@ const commands = {
 	},
 	killhelp: [`/kill - kills the server. Can't be done unless the server is in lockdown state. Requires: ~`],
 
-	loadbanlist(target, room, user, connection) {
+	loadbanlist: function (target, room, user, connection) {
 		if (!this.can('hotpatch')) return false;
 
 		connection.sendTo(room, "Loading ipbans.txt...");
@@ -3406,14 +3419,14 @@ const commands = {
 	},
 	loadbanlisthelp: [`/loadbanlist - Loads the bans located at ipbans.txt. The command is executed automatically at startup. Requires: ~`],
 
-	refreshpage(target, room, user) {
+	refreshpage: function (target, room, user) {
 		if (!this.can('hotpatch')) return false;
 		Rooms.global.send('|refresh|');
 		const logRoom = Rooms('staff') || room;
 		logRoom.roomlog(`${user.name} used /refreshpage`);
 	},
 
-	async updateserver(target, room, user, connection) {
+	updateserver: async function (target, room, user, connection) {
 		if (!user.can('hotpatch')) {
 			return this.errorReply(`/updateserver - Access denied.`);
 		}
@@ -3430,9 +3443,7 @@ const commands = {
 		function exec(/** @type {string} */ command) {
 			logRoom.roomlog(`$ ${command}`);
 			return new Promise((resolve, reject) => {
-				require('child_process').exec(command, {
-					cwd: __dirname,
-				}, (error, stdout, stderr) => {
+				require('child_process').exec(command, (error, stdout, stderr) => {
 					let log = `[o] ${stdout}[e] ${stderr}`;
 					if (error) log = `[c] ${error.code}\n${log}`;
 					logRoom.roomlog(log);
@@ -3448,13 +3459,7 @@ const commands = {
 		if (code) throw new Error(`updateserver: Crash while fetching - make sure this is a Git repository`);
 		if (!stdout && !stderr) {
 			Chat.updateServerLock = false;
-			this.sendReply(`There were no updates.`);
-			[code, stdout, stderr] = await exec('../build');
-			if (stderr) {
-				return this.errorReply(`Crash while rebuilding: ${stderr}`);
-			}
-			this.sendReply(`Rebuilt.`);
-			return;
+			return this.sendReply(`There were no updates.`);
 		}
 
 		[code, stdout, stderr] = await exec(`git rev-parse HEAD`);
@@ -3500,15 +3505,10 @@ const commands = {
 			await exec(`git stash pop`);
 			this.sendReply(`FAILED, old changes restored.`);
 		}
-		[code, stdout, stderr] = await exec('../build');
-		if (stderr) {
-			return this.errorReply(`Crash while rebuilding: ${stderr}`);
-		}
-		this.sendReply(`Rebuilt.`);
 		Chat.updateServerLock = false;
 	},
 
-	crashfixed(target, room, user) {
+	crashfixed: function (target, room, user) {
 		if (Rooms.global.lockdown !== true) {
 			return this.errorReply('/crashfixed - There is no active crash.');
 		}
@@ -3525,7 +3525,7 @@ const commands = {
 	crashfixedhelp: [`/crashfixed - Ends the active lockdown caused by a crash without the need of a restart. Requires: ~`],
 
 	memusage: 'memoryusage',
-	memoryusage(target) {
+	memoryusage: function (target) {
 		if (!this.can('hotpatch')) return false;
 		let memUsage = process.memoryUsage();
 		let results = [memUsage.rss, memUsage.heapUsed, memUsage.heapTotal];
@@ -3537,7 +3537,7 @@ const commands = {
 		this.sendReply(`||[Main process] RSS: ${results[0]}, Heap: ${results[1]} / ${results[2]}`);
 	},
 
-	bash(target, room, user, connection) {
+	bash: function (target, room, user, connection) {
 		if (!user.hasConsoleAccess(connection)) {
 			return this.errorReply("/bash - Access denied.");
 		}
@@ -3550,7 +3550,7 @@ const commands = {
 	},
 	bashhelp: [`/bash [command] - Executes a bash command on the server. Requires: ~ console access`],
 
-	async eval(target, room, user, connection) {
+	eval: async function (target, room, user, connection) {
 		if (!user.hasConsoleAccess(connection)) {
 			return this.errorReply("/eval - Access denied.");
 		}
@@ -3576,7 +3576,7 @@ const commands = {
 		}
 	},
 
-	evalbattle(target, room, user, connection) {
+	evalbattle: function (target, room, user, connection) {
 		if (!user.hasConsoleAccess(connection)) {
 			return this.errorReply("/evalbattle - Access denied.");
 		}
@@ -3589,7 +3589,7 @@ const commands = {
 	},
 
 	ebat: 'editbattle',
-	editbattle(target, room, user) {
+	editbattle: function (target, room, user) {
 		if (!this.can('forcewin')) return false;
 		if (!target) return this.parse('/help editbattle');
 		if (!room.battle) {
@@ -3759,9 +3759,9 @@ const commands = {
 			battleRoom.add(`|html|<div class="broadcast broadcast-blue"><strong>This is an imported replay</strong><br />Players will need to be manually added with <code>/addplayer</code> or <code>/restoreplayers</code></div>`);
 		}, 500);
 	},
-	importinputloghelp: [`/importinputlog [inputlog] - Starts a battle with a given inputlog. Requires: + % @ & ~`],
+	importinputloghelp: [`/importinputlog [inputlog] - Starts a battle with a given inputlog. Requires: + % @ * & ~`],
 
-	inputlog() {
+	inputlog: function () {
 		this.parse(`/help exportinputlog`);
 		this.parse(`/help importinputlog`);
 	},
@@ -3770,7 +3770,7 @@ const commands = {
 	 * Battle commands
 	 *********************************************************/
 
-	forfeit(target, room, user) {
+	forfeit: function (target, room, user) {
 		if (!room.game) return this.errorReply("This room doesn't have an active game.");
 		if (!room.game.forfeit) {
 			return this.errorReply("This kind of game can't be forfeited.");
@@ -3780,7 +3780,7 @@ const commands = {
 		}
 	},
 
-	choose(target, room, user) {
+	choose: function (target, room, user) {
 		if (!room.game) return this.errorReply("This room doesn't have an active game.");
 		if (!room.game.choose) return this.errorReply("This game doesn't support /choose");
 
@@ -3789,20 +3789,20 @@ const commands = {
 
 	mv: 'move',
 	attack: 'move',
-	move(target, room, user) {
+	move: function (target, room, user) {
 		this.parse(`/choose move ${target}`);
 	},
 
 	sw: 'switch',
-	switch(target, room, user) {
+	switch: function (target, room, user) {
 		this.parse(`/choose switch ${target}`);
 	},
 
-	team(target, room, user) {
+	team: function (target, room, user) {
 		this.parse(`/choose team ${target}`);
 	},
 
-	undo(target, room, user) {
+	undo: function (target, room, user) {
 		if (!room.game) return this.errorReply("This room doesn't have an active game.");
 		if (!room.game.undo) return this.errorReply("This game doesn't support /undo");
 
@@ -3810,7 +3810,7 @@ const commands = {
 	},
 
 	uploadreplay: 'savereplay',
-	async savereplay(target, room, user, connection) {
+	savereplay: async function (target, room, user, connection) {
 		if (!room || !room.battle) return;
 		// retrieve spectator log (0) if there are privacy concerns
 		const format = Dex.getFormat(room.format, true);
@@ -3828,7 +3828,7 @@ const commands = {
 			p2: players[1],
 			format: format.id,
 			rating: rating,
-			hidden: room.isPrivate || room.hideReplay ? '1' : '',
+			hidden: room.isPrivate ? '1' : '',
 			inputlog: room.battle.inputLog ? room.battle.inputLog.join('\n') : null,
 		});
 		if (success && success.errorip) {
@@ -3841,7 +3841,7 @@ const commands = {
 		}));
 	},
 
-	addplayer(target, room, user) {
+	addplayer: function (target, room, user) {
 		if (!target) return this.parse('/help addplayer');
 		if (!room.battle) return this.errorReply("You can only do this in battle rooms.");
 		if (room.rated) return this.errorReply("You can only add a Player to unrated battles.");
@@ -3873,7 +3873,7 @@ const commands = {
 		`/addplayer [username], p2 - Allow the specified user to join the battle as Player 2.`,
 	],
 
-	restoreplayers(target, room, user) {
+	restoreplayers: function (target, room, user) {
 		if (!room.battle) return this.errorReply("You can only do this in battle rooms.");
 		if (room.rated) return this.errorReply("You can only add a Player to unrated battles.");
 
@@ -3894,7 +3894,7 @@ const commands = {
 	],
 
 	joinbattle: 'joingame',
-	joingame(target, room, user) {
+	joingame: function (target, room, user) {
 		if (!room.game) return this.errorReply("This room doesn't have an active game.");
 		if (!room.game.joinGame) return this.errorReply("This game doesn't support /joingame");
 
@@ -3903,7 +3903,7 @@ const commands = {
 
 	leavebattle: 'leavegame',
 	partbattle: 'leavegame',
-	leavegame(target, room, user) {
+	leavegame: function (target, room, user) {
 		if (!room.game) return this.errorReply("This room doesn't have an active game.");
 		if (!room.game.leaveGame) return this.errorReply("This game doesn't support /leavegame");
 
@@ -3911,7 +3911,7 @@ const commands = {
 	},
 
 	kickbattle: 'kickgame',
-	kickgame(target, room, user) {
+	kickgame: function (target, room, user) {
 		if (!room.battle) return this.errorReply("You can only do this in battle rooms.");
 		if (room.battle.tour || room.battle.rated) return this.errorReply("You can only do this in unrated non-tour battles.");
 
@@ -3929,13 +3929,13 @@ const commands = {
 			this.errorReply("/kickbattle - User isn't in battle.");
 		}
 	},
-	kickbattlehelp: [`/kickbattle [username], [reason] - Kicks a user from a battle with reason. Requires: % @ & ~`],
+	kickbattlehelp: [`/kickbattle [username], [reason] - Kicks a user from a battle with reason. Requires: % @ * & ~`],
 
-	kickinactive(target, room, user) {
+	kickinactive: function (target, room, user) {
 		this.parse(`/timer on`);
 	},
 
-	timer(target, room, user) {
+	timer: function (target, room, user) {
 		target = toId(target);
 		if (!room.game || !room.game.timer) {
 			return this.errorReply(`You can only set the timer from inside a battle room.`);
@@ -3969,7 +3969,7 @@ const commands = {
 	},
 
 	autotimer: 'forcetimer',
-	forcetimer(target, room, user) {
+	forcetimer: function (target, room, user) {
 		target = toId(target);
 		if (!this.can('autotimer')) return;
 		if (this.meansNo(target) || target === 'stop') {
@@ -3984,7 +3984,7 @@ const commands = {
 	},
 
 	forcetie: 'forcewin',
-	forcewin(target, room, user) {
+	forcewin: function (target, room, user) {
 		if (!this.can('forcewin')) return false;
 		if (!room.battle) {
 			this.errorReply("/forcewin - This is not a battle room.");
@@ -4013,7 +4013,7 @@ const commands = {
 	 *********************************************************/
 
 	'!search': true,
-	search(target, room, user, connection) {
+	search: function (target, room, user, connection) {
 		if (target) {
 			if (Config.laddermodchat) {
 				let userGroup = user.group;
@@ -4030,7 +4030,7 @@ const commands = {
 	},
 
 	'!cancelsearch': true,
-	cancelsearch(target, room, user) {
+	cancelsearch: function (target, room, user) {
 		if (target) {
 			Ladders(toId(target)).cancelSearch(user);
 		} else {
@@ -4040,7 +4040,7 @@ const commands = {
 
 	'!challenge': true,
 	chall: 'challenge',
-	challenge(target, room, user, connection) {
+	challenge: function (target, room, user, connection) {
 		target = this.splitTarget(target);
 		let targetUser = this.targetUser;
 		if (!targetUser || !targetUser.connected) {
@@ -4067,10 +4067,9 @@ const commands = {
 	bch: 'blockchallenges',
 	blockchall: 'blockchallenges',
 	blockchalls: 'blockchallenges',
-	blockchallenges(target, room, user) {
+	blockchallenges: function (target, room, user) {
 		if (user.blockChallenges) return this.errorReply("You are already blocking challenges!");
 		user.blockChallenges = true;
-		user.update('blockChallenges');
 		this.sendReply("You are now blocking all incoming challenge requests.");
 	},
 	blockchallengeshelp: [`/blockchallenges - Blocks challenges so no one can challenge you. Unblock them with /unblockchallenges.`],
@@ -4080,22 +4079,21 @@ const commands = {
 	unblockchall: 'allowchallenges',
 	unblockchalls: 'allowchallenges',
 	unblockchallenges: 'allowchallenges',
-	allowchallenges(target, room, user) {
+	allowchallenges: function (target, room, user) {
 		if (!user.blockChallenges) return this.errorReply("You are already available for challenges!");
 		user.blockChallenges = false;
-		user.update('blockChallenges');
 		this.sendReply("You are available for challenges from now on.");
 	},
 	allowchallengeshelp: [`/unblockchallenges - Unblocks challenges so you can be challenged again. Block them with /blockchallenges.`],
 
 	'!cancelchallenge': true,
 	cchall: 'cancelChallenge',
-	cancelchallenge(target, room, user) {
+	cancelchallenge: function (target, room, user) {
 		Ladders.cancelChallenging(user);
 	},
 
 	'!accept': true,
-	accept(target, room, user, connection) {
+	accept: function (target, room, user, connection) {
 		target = this.splitTarget(target);
 		if (target) return this.popupReply(`This command does not support specifying multiple users`);
 		const targetUser = this.targetUser || this.pmTarget;
@@ -4104,7 +4102,7 @@ const commands = {
 	},
 
 	'!reject': true,
-	reject(target, room, user) {
+	reject: function (target, room, user) {
 		target = toId(target);
 		if (!target && this.pmTarget) target = this.pmTarget.userid;
 		Ladders.rejectChallenge(user, target);
@@ -4113,12 +4111,12 @@ const commands = {
 	'!useteam': true,
 	saveteam: 'useteam',
 	utm: 'useteam',
-	useteam(target, room, user) {
+	useteam: function (target, room, user) {
 		user.team = target;
 	},
 
 	'!vtm': true,
-	vtm(target, room, user, connection) {
+	vtm: function (target, room, user, connection) {
 		if (Monitor.countPrepBattle(connection.ip, connection)) {
 			return;
 		}
@@ -4145,7 +4143,7 @@ const commands = {
 	'!crq': true,
 	cmd: 'crq',
 	query: 'crq',
-	crq(target, room, user, connection) {
+	crq: function (target, room, user, connection) {
 		// In emergency mode, clamp down on data returned from crq's
 		let trustable = (!Config.emergency || (user.named && user.registered));
 		let spaceIndex = target.indexOf(' ');
@@ -4190,7 +4188,6 @@ const commands = {
 				userid: targetUser.userid,
 				avatar: targetUser.avatar,
 				group: targetUser.group,
-				autoconfirmed: !!targetUser.autoconfirmed,
 				rooms: roomList,
 			};
 			connection.send('|queryresponse|userdetails|' + JSON.stringify(userdetails));
@@ -4209,48 +4206,6 @@ const commands = {
 			Ladders(toId(target)).getTop().then(result => {
 				connection.send('|queryresponse|laddertop|' + JSON.stringify(result));
 			});
-		} else if (cmd === 'roominfo') {
-			if (!trustable) return false;
-
-			let targetRoom = Rooms.get(target);
-			if (!targetRoom || targetRoom === Rooms.global) return false;
-			if (targetRoom.isPrivate && !user.inRooms.has(targetRoom.id) && !user.games.has(targetRoom.id)) {
-				return false;
-			}
-
-			let visibility;
-			if (targetRoom.isPrivate) {
-				visibility = (targetRoom.isPrivate === 'hidden') ? 'hidden' : 'secret';
-			} else {
-				visibility = 'public';
-			}
-
-			let roominfo = {
-				id: targetRoom.id,
-				title: targetRoom.title,
-				type: targetRoom.type,
-				visibility: visibility,
-				modchat: targetRoom.modchat,
-				modjoin: targetRoom.modjoin,
-				auth: {},
-				users: [],
-			};
-
-			if (targetRoom.auth) {
-				for (let userid in targetRoom.auth) {
-					let rank = targetRoom.auth[userid];
-					if (!roominfo.auth[rank]) roominfo.auth[rank] = [];
-					roominfo.auth[rank].push(userid);
-				}
-			}
-
-			for (let userid in targetRoom.users) {
-				let user = targetRoom.users[userid];
-				let userinfo = user.getIdentity(room.id);
-				roominfo.users.push(userinfo);
-			}
-
-			connection.send(`|queryresponse|roominfo|${JSON.stringify(roominfo)}`);
 		} else {
 			// default to sending null
 			connection.send(`|queryresponse|${cmd}|null`);
@@ -4258,7 +4213,7 @@ const commands = {
 	},
 
 	'!trn': true,
-	trn(target, room, user, connection) {
+	trn: function (target, room, user, connection) {
 		if (target === user.name) return false;
 
 		let commaIndex = target.indexOf(',');
@@ -4278,7 +4233,7 @@ const commands = {
 		user.rename(targetName, targetToken, targetRegistered, connection);
 	},
 
-	a(target, room, user) {
+	a: function (target, room, user) {
 		if (!this.can('rawpacket')) return false;
 		// secret sysop command
 		room.add(target);
@@ -4293,7 +4248,7 @@ const commands = {
 	h: 'help',
 	'?': 'help',
 	man: 'help',
-	help(target, room, user) {
+	help: function (target, room, user) {
 		if (!this.runBroadcast()) return;
 		target = target.toLowerCase();
 
@@ -4304,10 +4259,10 @@ const commands = {
 			this.sendReply("COMMANDS: /msg, /reply, /logout, /challenge, /search, /rating, /whois, /user, /report, /join, /leave, /makegroupchat, /userauth, /roomauth");
 			this.sendReply("BATTLE ROOM COMMANDS: /savereplay, /hideroom, /inviteonly, /invite, /timer, /forfeit");
 			this.sendReply("OPTION COMMANDS: /nick, /avatar, /ignore, /away, /back, /timestamps, /highlight, /showjoins, /hidejoins, /blockchallenges, /blockpms");
-			this.sendReply("INFORMATIONAL/RESOURCE COMMANDS: /groups, /faq, /rules, /intro, /formatshelp, /othermetas, /analysis, /punishments, /calc, /git, /cap, /roomhelp, /roomfaq (replace / with ! to broadcast. Broadcasting requires: + % @ # & ~)");
-			this.sendReply("DATA COMMANDS: /data, /dexsearch, /movesearch, /itemsearch, /learn, /statcalc, /effectiveness, /weakness, /coverage, /randommove, /randompokemon (replace / with ! to broadcast. Broadcasting requires: + % @ # & ~)");
+			this.sendReply("INFORMATIONAL/RESOURCE COMMANDS: /groups, /faq, /rules, /intro, /formatshelp, /othermetas, /analysis, /punishments, /calc, /git, /cap, /roomhelp, /roomfaq (replace / with ! to broadcast. Broadcasting requires: + % @ * # & ~)");
+			this.sendReply("DATA COMMANDS: /data, /dexsearch, /movesearch, /itemsearch, /learn, /statcalc, /effectiveness, /weakness, /coverage, /randommove, /randompokemon (replace / with ! to broadcast. Broadcasting requires: + % @ * # & ~)");
 			if (user.group !== Config.groupsranking[0]) {
-				this.sendReply("DRIVER COMMANDS: /warn, /mute, /hourmute, /unmute, /alts, /forcerename, /modlog, /modnote, /lock, /weeklock, /unlock, /announce");
+				this.sendReply("DRIVER COMMANDS: /warn, /mute, /hourmute, /unmute, /alts, /forcerename, /modlog, /modnote, /lock, /weeklock, /unlock, /battleban, /unbattleban, /announce, /redirect");
 				this.sendReply("MODERATOR COMMANDS: /globalban, /unglobalban, /ip, /modchat, /markshared, /unlockip");
 				this.sendReply("LEADER COMMANDS: /declare, /forcetie, /forcewin, /promote, /demote, /banip, /host, /unbanall, /ipsearch");
 			}

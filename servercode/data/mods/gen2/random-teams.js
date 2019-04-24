@@ -8,12 +8,12 @@ class RandomGen2Teams extends RandomGen3Teams {
 		let pokemonLeft = 6;
 		let pokemon = [];
 
+		let n = 1;
 		let pokemonPool = [];
 		for (let id in this.data.FormatsData) {
-			let template = this.getTemplate(id);
-			if (!template.isNonstandard && template.gen <= this.gen && this.data.FormatsData[id].randomSet1) {
-				pokemonPool.push(id);
-			}
+			// FIXME: Not ES-compliant
+			if (n++ > 251 || !this.data.FormatsData[id].randomSet1) continue;
+			pokemonPool.push(id);
 		}
 
 		// Setup storage.
@@ -142,7 +142,7 @@ class RandomGen2Teams extends RandomGen3Teams {
 	 * @param {string | Template} template
 	 * @param {number} [slot]
 	 * @param {{[k: string]: number}} restrictMoves
-	 * @return {RandomTeamsTypes.RandomSet}
+	 * @return {RandomTeamsTypes["RandomSet"]}
 	 */
 	randomSet(template, slot, restrictMoves) {
 		if (slot === undefined) slot = 1;
@@ -150,7 +150,7 @@ class RandomGen2Teams extends RandomGen3Teams {
 		if (!template.exists) template = this.getTemplate('unown');
 
 		let randomSetNumber = 0;
-		/**@type {RandomTeamsTypes.RandomSet} */
+		/**@type {RandomTeamsTypes["RandomSet"]} */
 		// @ts-ignore
 		let set = template.randomSet1;
 		/**@type {string[]} */

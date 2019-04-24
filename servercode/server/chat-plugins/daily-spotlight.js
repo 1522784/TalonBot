@@ -1,7 +1,6 @@
 'use strict';
 
-/** @type {typeof import('../../lib/fs').FS} */
-const FS = require(/** @type {any} */('../../.lib-dist/fs')).FS;
+const FS = require('../../lib/fs');
 
 const DAY = 24 * 60 * 60 * 1000;
 const SPOTLIGHT_FILE = 'config/chat-plugins/spotlights.json';
@@ -9,7 +8,7 @@ const SPOTLIGHT_FILE = 'config/chat-plugins/spotlights.json';
 /** @type {{[k: string]: {[k: string]: {image: string?, description: string}[]}}} */
 let spotlights = {};
 try {
-	spotlights = require(`../../${SPOTLIGHT_FILE}`);
+	spotlights = require(`../${SPOTLIGHT_FILE}`);
 } catch (e) {
 	if (e.code !== 'MODULE_NOT_FOUND' && e.code !== 'ENOENT') throw e;
 }
@@ -57,33 +56,40 @@ exports.destroy = function () {
 
 /** @type {PageTable} */
 const pages = {
-	async spotlights(query, user, connection) {
-		this.title = 'Daily Spotlights';
-		this.extractRoom();
-		let buf = `<div class="pad ladder"><h2>Daily Spotlights</h2>`;
-		if (!spotlights[this.room.id]) {
-			buf += `<p>This room has no daily spotlights.</p></div>`;
-		} else {
-			for (let key in spotlights[this.room.id]) {
-				buf += `<table style="margin-bottom:30px;"><th colspan="2"><h3>${key}:</h3></th>`;
-				for (const [i, spotlight] of spotlights[this.room.id][key].entries()) {
-					const html = await renderSpotlight(spotlight.image, spotlight.description);
-					buf += `<tr><td>${i ? i : 'Current'}</td><td>${html}</td></tr>`;
-					// @ts-ignore room is definitely a proper room here.
-					if (!user.can('announce', null, this.room)) break;
+	spotlights(query, user, connection) {
+		if (!user.named) return Rooms.RETRY_AFTER_LOGIN;
+		(async () => {
+			const roomid = query[0];
+			const room = Rooms(roomid);
+			let buf = `|title|[${roomid}] Daily Spotlights\n|pagehtml|<div class="pad ladder"><h2>Daily Spotlights</h2>`;
+			if (!room) {
+				buf += `<p>Invalid room.</p></div>`;
+			} else if (!spotlights[room.id]) {
+				buf += `<p>This room has no daily spotlights.</p></div>`;
+			} else {
+				for (let key in spotlights[room.id]) {
+					buf += `<table style="margin-bottom:30px;"><th colspan="2"><h3>${key}:</h3></th>`;
+					for (let i = 0; i < spotlights[room.id][key].length; i++) {
+						const html = await renderSpotlight(spotlights[room.id][key][i].image, spotlights[room.id][key][i].description);
+						buf += `<tr><td>${i ? i : 'Current'}</td><td>${html}</td></tr>`;
+						// @ts-ignore room is definitely a proper room here.
+						if (!user.can('announce', null, room)) break;
+					}
+					buf += '</table>';
 				}
-				buf += '</table>';
 			}
-		}
-		return buf;
+
+			// Really big hack to make async work
+			connection.send(`>view-spotlights-${roomid}\n|init|html\n${buf}`);
+		})();
+		return;
 	},
 };
 exports.pages = pages;
 
 /** @type {ChatCommands} */
 const commands = {
-	async removedaily(target, room, user) {
-		if (!room.chatRoomData) return this.errorReply("This command is unavailable in temporary rooms.");
+	removedaily: async function (target, room, user) {
 		let [key, rest] = target.split(',');
 		key = toId(key);
 		if (!key) return this.parse('/help daily');
@@ -112,8 +118,7 @@ const commands = {
 		}
 	},
 	queuedaily: 'setdaily',
-	async setdaily(target, room, user, connection, cmd) {
-		if (!room.chatRoomData) return this.errorReply("This command is unavailable in temporary rooms.");
+	setdaily: async function (target, room, user, connection, cmd) {
 		let [key, ...rest] = target.split(',');
 		key = toId(key);
 		if (!key) return this.parse('/help daily');
@@ -148,8 +153,7 @@ const commands = {
 
 		saveSpotlights();
 	},
-	async daily(target, room, user) {
-		if (!room.chatRoomData) return this.errorReply("This command is unavailable in temporary rooms.");
+	daily: async function (target, room, user) {
 		let key = toId(target);
 		if (!key) return this.parse('/help daily');
 
@@ -165,18 +169,17 @@ const commands = {
 		this.sendReplyBox(html);
 		room.update();
 	},
-	viewspotlights(target, room, user) {
-		if (!room.chatRoomData) return this.errorReply("This command is unavailable in temporary rooms.");
+	viewspotlights: function (target, room, user) {
 		return this.parse(`/join view-spotlights-${room.id}`);
 	},
 
 	dailyhelp: [
 		`Daily spotlights plugin:`,
 		`- /daily [name] - Shows the daily spotlight.`,
-		`- !daily [name] - Shows the daily spotlight to everyone. Requires: + % @ # & ~`,
-		`- /setdaily [name], [image], [description] - Sets the daily spotlight. Image can be left out. Requires: % @ # & ~`,
-		`- /queuedaily [name], [image], [description] - Queues a daily spotlight. At midnight, the spotlight with this name will automatically switch to the next queued spotlight. Image can be left out. Requires: % @ # & ~`,
-		`- /removedaily [name][, queue number] - If no queue number is provided, deletes all queued and current spotlights with the given name. If a number is provided, removes a specific future spotlight from the queue. Requires: % @ # & ~`,
+		`- !daily [name] - Shows the daily spotlight to everyone. Requires: + % @ * # & ~`,
+		`- /setdaily [name], [image], [description] - Sets the daily spotlight. Image can be left out. Requires: % @ * # & ~`,
+		`- /queuedaily [name], [image], [description] - Queues a daily spotlight. At midnight, the spotlight with this name will automatically switch to the next queued spotlight. Image can be left out. Requires: % @ * # & ~`,
+		`- /removedaily [name][, queue number] - If no queue number is provided, deletes all queued and current spotlights with the given name. If a number is provided, removes a specific future spotlight from the queue. Requires: % @ * # & ~`,
 		`- /viewspotlights - Shows all current spotlights in the room. For staff, also shows queued spotlights.`,
 	],
 };

@@ -67,16 +67,16 @@ class Elimination {
 	}
 	getUsers(remaining) {
 		let users = [];
-		for (const [key, value] of this.users) {
-			if (remaining && (value.isEliminated || value.isDisqualified)) continue;
+		this.users.forEach((value, key) => {
+			if (remaining && (value.isEliminated || value.isDisqualified)) return;
 			users.push(key);
-		}
+		});
 		return users;
 	}
 
 
 	generateBracket() {
-		for (const user of Dex.shuffle(this.getUsers())) {
+		Dex.shuffle(this.getUsers()).forEach(user => {
 			if (!this.tree) {
 				this.tree = {
 					tree: new TreeNode(null, {user: user}),
@@ -84,7 +84,7 @@ class Elimination {
 					nextLayerLeafNodes: [],
 				};
 				this.tree.currentLayerLeafNodes.push(this.tree.tree);
-				continue;
+				return;
 			}
 			let targetNode = this.tree.currentLayerLeafNodes.shift();
 
@@ -102,7 +102,7 @@ class Elimination {
 				this.tree.currentLayerLeafNodes = this.tree.nextLayerLeafNodes;
 				this.tree.nextLayerLeafNodes = [];
 			}
-		}
+		});
 	}
 	getBracketData() {
 		let rootNode = {children: []};
@@ -139,11 +139,11 @@ class Elimination {
 	}
 	freezeBracket() {
 		this.isBracketFrozen = true;
-		for (const user of this.users.values()) {
+		this.users.forEach(user => {
 			user.isBusy = false;
 			user.isDisqualified = false;
 			user.loseCount = 0;
-		}
+		});
 
 		this.maxSubtrees = Math.min(this.maxSubtrees, this.users.size - 1);
 		for (let t = 1; t < this.maxSubtrees; ++t) {

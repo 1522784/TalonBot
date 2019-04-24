@@ -1,6 +1,6 @@
 PossibleTeam = require("./possibleteam")
 var log = require('log4js').getLogger("teamSimulator");
-var TeamValidator = require("./../../ServerCode/sim/team-validator").Validator
+var TeamValidator = require("./../../servercode/sim/team-validator").Validator
 var cloneBattleState = require("./../../cloneBattleState");
 
 var decisionPropCalcer = require("./simpledecisionpropcalcer")

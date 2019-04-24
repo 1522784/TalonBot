@@ -1,7 +1,7 @@
 {
 	"root": true,
 	"parserOptions": {
-		"ecmaVersion": 9,
+		"ecmaVersion": 8,
 		"sourceType": "script",
 		"ecmaFeatures": {
 			"globalReturn": true
@@ -136,7 +136,6 @@
 		"no-underscore-dangle": "off",
 		"no-unneeded-ternary": "error",
 		"object-curly-spacing": ["error", "never"],
-		"object-shorthand": ["error", "methods"],
 		"one-var": "off",
 		"operator-assignment": "off",
 		"operator-linebreak": ["error", "after"],

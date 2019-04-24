@@ -1,8 +1,8 @@
 'use strict';
 
 const assert = require('assert');
-const Dex = require('./../.sim-dist/dex');
-const Sim = require('./../.sim-dist');
+const Dex = require('./../sim/dex');
+const Sim = require('./../sim');
 
 const cache = new Map();
 
@@ -12,7 +12,6 @@ const RULE_FLAGS = {
 	preview: 4,
 	sleepClause: 8,
 	cancel: 16,
-	endlessBattleClause: 32,
 };
 
 function capitalize(word) {
@@ -85,7 +84,6 @@ class TestTools {
 		if (options.preview) format.ruleset.push('Team Preview');
 		if (options.sleepClause) format.ruleset.push('Sleep Clause Mod');
 		if (options.cancel) format.ruleset.push('Cancel Mod');
-		if (options.endlessBattleClause) format.ruleset.push('Endless Battle Clause');
 
 		this.dex.installFormat(formatId, format);
 		return format;
@@ -105,25 +103,22 @@ class TestTools {
 		}
 		if (!options) options = {};
 		const format = this.getFormat(options);
-
-		const battleOptions = {
+		const battle = new Sim.Battle({
 			formatid: format.id,
 			// If a seed for the pseudo-random number generator is not provided,
 			// a default seed (guaranteed to be the same across test executions)
 			// will be used.
 			seed: options.seed || DEFAULT_SEED,
-			strictChoices: options.strictChoices !== false,
-		};
-
-		if (!teams) return new Sim.Battle(battleOptions);
-
-		for (let i = 0; i < teams.length; i++) {
-			assert(Array.isArray(teams[i]), `Team provided is not an array`);
-			const playerSlot = `p${i + 1}`;
-			battleOptions[playerSlot] = {team: teams[i]};
+		});
+		battle.LEGACY_API_DO_NOT_USE = true;
+		if (teams) {
+			for (let i = 0; i < teams.length; i++) {
+				assert(Array.isArray(teams[i]), "Team provided is not an array");
+				const slotNum = i + 1;
+				battle.join('p' + slotNum, 'Guest ' + slotNum, 1, teams[i]);
+			}
 		}
-
-		return new Sim.Battle(battleOptions);
+		return battle;
 	}
 }
 

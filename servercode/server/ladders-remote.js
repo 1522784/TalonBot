@@ -49,7 +49,7 @@ class LadderStore {
 		});
 		let mmr = NaN;
 		if (data && !data.errorip) {
-			mmr = Number(data);
+			mmr = parseInt(data);
 		}
 		if (isNaN(mmr)) return 1000;
 
@@ -95,14 +95,9 @@ class LadderStore {
 			Monitor.warn(`room expired before ladder update was received`);
 			return [p1score, null, null];
 		}
-		if (!data) {
-			room.add(`|error|Unexpected response ${data} from ladder server.`);
-			room.update();
-			return [p1score, null, null];
-		}
 		if (data.errorip) {
-			room.add(`|error|This server's request IP ${data.errorip} is not a registered server.`);
-			room.add(`|error|You should be using ladders.js and not ladders-remote.js for ladder tracking.`);
+			room.add(`||This server's request IP ${data.errorip} is not a registered server.`);
+			room.add(`||You should be using ladders.js and not ladders-remote.js for ladder tracking.`);
 			room.update();
 			return [p1score, null, null];
 		}

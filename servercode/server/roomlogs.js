@@ -9,8 +9,7 @@
 
 'use strict';
 
-/** @type {typeof import('../lib/fs').FS} */
-const FS = require(/** @type {any} */('../.lib-dist/fs')).FS;
+const FS = require('../lib/fs');
 
 /**
  * Most rooms have three logs:
@@ -90,17 +89,19 @@ class Roomlog {
 		log = [];
 		for (let i = 0; i < this.log.length; ++i) {
 			const line = this.log[i];
-			const split = /\|split\|p(\d)/g.exec(line);
-			if (split) {
-				const canSeePrivileged = (channel === Number(split[0]) || channel === -1);
-				const ownLine = this.log[i + (canSeePrivileged ? 1 : 2)];
+			if (line === '|split') {
+				const ownLine = this.log[i + channel + 1];
 				if (ownLine) log.push(ownLine);
-				i += 2;
+				i += 4;
 			} else {
 				log.push(line);
 			}
 		}
-		return log.join('\n') + '\n';
+		let textLog = log.join('\n') + '\n';
+		if (channel === 0) {
+			return textLog.replace(/\n\|choice\|\|\n/g, '\n').replace(/\n\|seed\|\n/g, '\n');
+		}
+		return textLog;
 	}
 	setupModlogStream() {
 		if (this.modlogStream !== undefined) return;

@@ -20,7 +20,7 @@
  *   rooms.js. There's also a global room which every user is in, and
  *   handles miscellaneous things like welcoming the user.
  *
- * Dex - from .sim-dist/dex.js
+ * Dex - from sim/dex.js
  *
  *   Handles getting data about Pokemon, items, etc.
  *
@@ -50,22 +50,30 @@
 try {
 	// I've gotten enough reports by people who don't use the launch
 	// script that this is worth repeating here
-	RegExp("\\p{Emoji}", "u");
+	eval('{ let a = async () => {}; }');
 } catch (e) {
-	throw new Error("We require Node.js version 10 or later; you're using " + process.version);
+	throw new Error("We require Node.js version 8 or later; you're using " + process.version);
 }
 try {
-	require.resolve('../.sim-dist/index');
+	require.resolve('sockjs');
 } catch (e) {
-	throw new Error("Dependencies are unmet; run `node build` before launching Pokemon Showdown again.");
+	throw new Error("Dependencies are unmet; run node pokemon-showdown before launching Pokemon Showdown again.");
 }
 
-const FS = require('../.lib-dist/fs').FS;
+const FS = require('../lib/fs');
 
 /*********************************************************
  * Load configuration
  *********************************************************/
 
+try {
+	// @ts-ignore This file doesn't exist on the repository, so Travis checks fail if this isn't ignored
+	require.resolve('../config/config');
+} catch (err) {
+	if (err.code !== 'MODULE_NOT_FOUND') throw err; // should never happen
+	throw new Error('config.js does not exist; run node pokemon-showdown to set up the default config file before launching Pokemon Showdown again.');
+}
+// @ts-ignore This file doesn't exist on the repository, so Travis checks fail if this isn't ignored
 global.Config = require('../config/config');
 
 global.Monitor = require('./monitor');
@@ -88,18 +96,18 @@ if (Config.watchconfig) {
  * Set up most of our globals
  *********************************************************/
 
-global.Dex = require('../.sim-dist/dex');
+global.Dex = require('../sim/dex');
 global.toId = Dex.getId;
 
 global.LoginServer = require('./loginserver');
 
 global.Ladders = require('./ladders');
 
-global.Chat = require('./chat');
-
 global.Users = require('./users');
 
 global.Punishments = require('./punishments');
+
+global.Chat = require('./chat');
 
 global.Rooms = require('./rooms');
 
@@ -151,4 +159,4 @@ TeamValidatorAsync.PM.spawn();
  * Start up the REPL server
  *********************************************************/
 
-require('../.lib-dist/repl').Repl.start('app', cmd => eval(cmd));
+require('../lib/repl').start('app', cmd => eval(cmd));

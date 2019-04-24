@@ -1,7 +1,7 @@
 sudo: false
 language: node_js
 node_js:
-  - '10'
+  - '8'
 cache:
   directories:
     - node_modules
@@ -9,6 +9,5 @@ cache:
 notifications:
   webhooks: https://www.travisbuddy.com/
   on_success: change
-script: npm run fulltest
 travisBuddy:
   insertMode: update

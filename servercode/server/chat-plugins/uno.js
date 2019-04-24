@@ -42,7 +42,7 @@ function cardHTML(card, fullsize) {
 	let background = rgbGradients[card.color];
 	if (surface === 'R') surface = '<i class="fa fa-refresh" aria-hidden="true"></i>';
 
-	return `<button class="button" style="font-size: 14px; font-weight: bold; color: white; ${textShadow} padding-bottom: 117px; text-align: left; height: 135px; width: ${fullsize ? '72' : '37'}px; border-radius: 10px 2px 2px 3px; color: white; background: ${card.color}; background: -webkit-linear-gradient(${background}); background: -o-linear-gradient(${background}); background: -moz-linear-gradient(${background}); background: linear-gradient(${background})" name=send value="/uno play ${card.name}" aria-label="${card.name}">${surface}</button>`;
+	return `<button class="button" style="font-size: 14px; font-weight: bold; color: white; ${textShadow} padding-bottom: 117px; text-align: left; height: 135px; width: ${fullsize ? '72' : '37'}px; border-radius: 10px 2px 2px 3px; color: white; background: ${card.color}; background: -webkit-linear-gradient(${background}); background: -o-linear-gradient(${background}); background: -moz-linear-gradient(${background}); background: linear-gradient(${background})" name=send value="/uno play ${card.name}">${surface}</button>`;
 }
 
 /**
@@ -692,7 +692,7 @@ const commands = {
 	uno: {
 		// roomowner commands
 		off: 'disable',
-		disable(target, room, user) {
+		disable: function (target, room, user) {
 			if (!this.can('gamemanagement', null, room)) return;
 			if (room.unoDisabled) {
 				return this.errorReply("UNO is already disabled in this room.");
@@ -706,7 +706,7 @@ const commands = {
 		},
 
 		on: 'enable',
-		enable(target, room, user) {
+		enable: function (target, room, user) {
 			if (!this.can('gamemanagement', null, room)) return;
 			if (!room.unoDisabled) {
 				return this.errorReply("UNO is already enabled in this room.");
@@ -726,7 +726,7 @@ const commands = {
 		makepublic: 'create',
 		createprivate: 'create',
 		makeprivate: 'create',
-		create(target, room, user, connection, cmd) {
+		create: function (target, room, user, connection, cmd) {
 			if (!this.can('minigame', null, room)) return;
 			if (room.unoDisabled) return this.errorReply("UNO is currently disabled for this room.");
 			if (room.game) return this.errorReply("There is already a game in progress in this room.");
@@ -741,7 +741,7 @@ const commands = {
 			this.modlog('UNO CREATE');
 		},
 
-		start(target, room, user) {
+		start: function (target, room, user) {
 			if (!this.can('minigame', null, room)) return;
 			const game = /** @type {UnoGame} */ (room.game);
 			if (!game || game.gameid !== 'uno' || game.state !== 'signups') return this.errorReply("There is no UNO game in signups phase in this room.");
@@ -752,7 +752,7 @@ const commands = {
 		},
 
 		stop: 'end',
-		end(target, room, user) {
+		end: function (target, room, user) {
 			if (!this.can('minigame', null, room)) return;
 			if (!room.game || room.game.gameid !== 'uno') return this.errorReply("There is no UNO game going on in this room.");
 			room.game.destroy();
@@ -761,7 +761,7 @@ const commands = {
 			this.modlog('UNO END');
 		},
 
-		timer(target, room, user) {
+		timer: function (target, room, user) {
 			if (!this.can('minigame', null, room)) return;
 			const game = /** @type {UnoGame} */ (room.game);
 			if (!game || game.gameid !== 'uno') return this.errorReply("There is no UNO game going on in this room.");
@@ -777,7 +777,7 @@ const commands = {
 			this.modlog('UNO TIMER', null, `${amount} seconds`);
 		},
 
-		autostart(target, room, user) {
+		autostart: function (target, room, user) {
 			if (!this.can('minigame', null, room)) return;
 			const game = /** @type {UnoGame} */ (room.game);
 			if (!game || game.gameid !== 'uno') return this.errorReply("There is no UNO game going on in this room right now.");
@@ -798,7 +798,7 @@ const commands = {
 		},
 
 		dq: 'disqualify',
-		disqualify(target, room, user) {
+		disqualify: function (target, room, user) {
 			if (!this.can('minigame', null, room)) return;
 			const game = /** @type {UnoGame} */ (room.game);
 			if (!game || game.gameid !== 'uno') return this.errorReply("There is no UNO game going on in this room right now.");
@@ -814,7 +814,7 @@ const commands = {
 		j: 'unojoin',
 		// TypeScript doesn't like 'join' being defined as a function
 		join: 'unojoin',
-		unojoin(target, room, user) {
+		unojoin: function (target, room, user) {
 			const game = /** @type {UnoGame} */ (room.game);
 			if (!game || game.gameid !== 'uno') return this.errorReply("There is no UNO game going on in this room right now.");
 			if (!this.canTalk()) return false;
@@ -824,14 +824,14 @@ const commands = {
 		},
 
 		l: 'leave',
-		leave(target, room, user) {
+		leave: function (target, room, user) {
 			const game = /** @type {UnoGame} */ (room.game);
 			if (!game || game.gameid !== 'uno') return this.errorReply("There is no UNO game going on in this room right now.");
 			if (!game.leaveGame(user)) return this.errorReply("Unable to leave the game.");
 			return this.sendReply("You have left the game of UNO.");
 		},
 
-		play(target, room, user) {
+		play: function (target, room, user) {
 			const game = /** @type {UnoGame} */ (room.game);
 			if (!game || game.gameid !== 'uno') return this.errorReply("There is no UNO game going on in this room right now.");
 			/** @type {UnoGamePlayer | undefined} */
@@ -841,7 +841,7 @@ const commands = {
 			if (error) this.errorReply(error);
 		},
 
-		draw(target, room, user) {
+		draw: function (target, room, user) {
 			const game = /** @type {UnoGame} */ (room.game);
 			if (!game || game.gameid !== 'uno') return this.errorReply("There is no UNO game going on in this room right now.");
 			/** @type {UnoGamePlayer | undefined} */
@@ -851,7 +851,7 @@ const commands = {
 			if (error) return this.errorReply("You have already drawn a card this turn.");
 		},
 
-		pass(target, room, user) {
+		pass: function (target, room, user) {
 			const game = /** @type {UnoGame} */ (room.game);
 			if (!game || game.gameid !== 'uno') return this.errorReply("There is no UNO game going on in this room right now.");
 			if (game.currentPlayerid !== user.userid) return this.errorReply("It is currently not your turn.");
@@ -865,7 +865,7 @@ const commands = {
 			game.nextTurn();
 		},
 
-		color(target, room, user) {
+		color: function (target, room, user) {
 			const game = /** @type {UnoGame} */ (room.game);
 			if (!game || game.gameid !== 'uno') return false;
 			/** @type {UnoGamePlayer | undefined} */
@@ -881,7 +881,7 @@ const commands = {
 			game.onSelectColor(player, color);
 		},
 
-		uno(target, room, user) {
+		uno: function (target, room, user) {
 			const game = /** @type {UnoGame} */ (room.game);
 			if (!game || game.gameid !== 'uno') return false;
 			/** @type {UnoGamePlayer | undefined} */
@@ -892,7 +892,7 @@ const commands = {
 
 		// information commands
 		'': 'hand',
-		hand(target, room, user) {
+		hand: function (target, room, user) {
 			const game = /** @type {UnoGame} */ (room.game);
 			if (!game || game.gameid !== 'uno') return this.parse("/help uno");
 			game.onSendHand(user);
@@ -901,19 +901,19 @@ const commands = {
 		players: 'getusers',
 		users: 'getusers',
 		getplayers: 'getusers',
-		getusers(target, room, user) {
+		getusers: function (target, room, user) {
 			const game = /** @type {UnoGame} */ (room.game);
 			if (!game || game.gameid !== 'uno') return this.errorReply("There is no UNO game going on in this room right now.");
 			if (!this.runBroadcast()) return false;
 			this.sendReplyBox(`<strong>Players (${game.playerCount})</strong>:<br />${game.getPlayers().join(', ')}`);
 		},
 
-		help(target, room, user) {
+		help: function (target, room, user) {
 			this.parse('/help uno');
 		},
 
 		// suppression commands
-		suppress(target, room, user) {
+		suppress: function (target, room, user) {
 			const game = /** @type {UnoGame} */ (room.game);
 			if (!game || game.gameid !== 'uno') return this.errorReply("There is no UNO game going on in this room right now.");
 			if (!this.can('minigame', null, room)) return;
@@ -930,7 +930,7 @@ const commands = {
 			this.modlog('UNO SUPRESS', null, (state ? 'ON' : 'OFF'));
 		},
 
-		spectate(target, room, user) {
+		spectate: function (target, room, user) {
 			const game = /** @type {UnoGame} */ (room.game);
 			if (!game || game.gameid !== 'uno') return this.errorReply("There is no UNO game going on in this room right now.");
 
@@ -941,7 +941,7 @@ const commands = {
 			this.sendReply("You are now spectating this private UNO game.");
 		},
 
-		unspectate(target, room, user) {
+		unspectate: function (target, room, user) {
 			const game = /** @type {UnoGame} */ (room.game);
 			if (!game || game.gameid !== 'uno') return this.errorReply("There is no UNO game going on in this room right now.");
 
@@ -954,12 +954,12 @@ const commands = {
 	},
 
 	unohelp: [
-		`/uno create [player cap] - creates a new UNO game with an optional player cap (default player cap at 6). Use the command [createpublic] to force a public game or [createprivate] to force a private game. Requires: % @ # & ~`,
-		`/uno timer [amount] - sets an auto disqualification timer for [amount] seconds. Requires: % @ # & ~`,
-		`/uno autostart [amount] - sets an auto starting timer for [amount] seconds. Requires: % @ # & ~`,
-		`/uno end - ends the current game of UNO. Requires: % @ # & ~`,
-		`/uno start - starts the current game of UNO. Requires: % @ # & ~`,
-		`/uno disqualify [player] - disqualifies the player from the game. Requires: % @ # & ~`,
+		`/uno create [player cap] - creates a new UNO game with an optional player cap (default player cap at 6). Use the command [createpublic] to force a public game or [createprivate] to force a private game. Requires: % @ * # & ~`,
+		`/uno timer [amount] - sets an auto disqualification timer for [amount] seconds. Requires: % @ * # & ~`,
+		`/uno autostart [amount] - sets an auto starting timer for [amount] seconds. Requires: % @ * # & ~`,
+		`/uno end - ends the current game of UNO. Requires: % @ * # & ~`,
+		`/uno start - starts the current game of UNO. Requires: % @ * # & ~`,
+		`/uno disqualify [player] - disqualifies the player from the game. Requires: % @ * # & ~`,
 		`/uno hand - displays your own hand.`,
 		`/uno getusers - displays the players still in the game.`,
 		`/uno [spectate|unspectate] - spectate / unspectate the current private UNO game.`,

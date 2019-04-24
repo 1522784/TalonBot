@@ -19,12 +19,12 @@ let logger = require('log4js').getLogger("battleroom");
 let decisionslogger = require('log4js').getLogger("decisions");
 
 // battle-engine
-let Battle = require('./ServerCode/sim/battle');
-let BattlePokemon = require('./ServerCode/sim/pokemon');
+let Battle = require('./servercode/sim/battle');
+let BattlePokemon = require('./servercode/sim/pokemon');
 
 // Get pokemon showdown data files
-let Abilities = require("./ServerCode/data/abilities").BattleAbilities;
-let Items = require("./ServerCode/data/items").BattleItems;
+let Abilities = require("./servercode/data/abilities").BattleAbilities;
+let Items = require("./servercode/data/items").BattleItems;
  
 // Include underscore.js
 let _ = require("underscore");

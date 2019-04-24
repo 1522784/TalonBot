@@ -5,8 +5,7 @@
 
 'use strict';
 
-/** @type {typeof import('../../lib/fs').FS} */
-const FS = require(/** @type {any} */('../../.lib-dist/fs')).FS;
+const FS = require('../../lib/fs');
 
 const MAIN_CATEGORIES = {
 	ae: 'Arts and Entertainment',
@@ -87,15 +86,13 @@ const NUM_FINALS_QUESTIONS = 5;
  * @typedef {{questions?: TriviaQuestions, submissions?: TriviaQuestions, leaderboard?: TriviaLeaderboard, ladder?: TriviaLadder, wlquestions?: TriviaQuestions, wlsubmissions?: TriviaQuestions}} TriviaData
  */
 
-const PATH = 'config/chat-plugins/triviadata.json';
-
 /**
  * TODO: move trivia database code to a separate file once relevant.
  * @type {TriviaData}
  */
 let triviaData = {};
 try {
-	triviaData = require(`../../${PATH}`);
+	triviaData = require('../config/chat-plugins/triviadata.json');
 } catch (e) {} // file doesn't exist or contains invalid JSON
 
 if (!triviaData || typeof triviaData !== 'object') triviaData = {};
@@ -110,7 +107,7 @@ if (triviaData.wlquestions) delete triviaData.wlquestions;
 if (triviaData.wlsubmissions) delete triviaData.wlsubmissions;
 
 function writeTriviaData() {
-	FS(PATH).writeUpdate(() => (
+	FS('config/chat-plugins/triviadata.json').writeUpdate(() => (
 		JSON.stringify(triviaData, null, 2)
 	));
 }
@@ -923,8 +920,8 @@ class TimerModeTrivia extends Trivia {
 		}
 
 		let rowAdded = false;
-		for (let [pointValue, players] of innerBuffer) {
-			if (!players.length) continue;
+		innerBuffer.forEach((players, pointValue) => {
+			if (!players.length) return false;
 
 			rowAdded = true;
 			players = players
@@ -936,7 +933,7 @@ class TimerModeTrivia extends Trivia {
 				`<td>${players.join(', ')}</td>` +
 				'</tr>'
 			);
-		}
+		});
 
 		if (!rowAdded) {
 			buffer += (
@@ -1290,7 +1287,7 @@ class WeakestLink extends Trivia {
 }
 
 const commands = {
-	new(target, room, user) {
+	new: function (target, room, user) {
 		if (room.id !== 'trivia') return this.errorReply("This command can only be used in the Trivia room.");
 		if (!this.can('broadcast', null, room) || !target) return false;
 		if (!this.canTalk()) return;
@@ -1355,7 +1352,7 @@ const commands = {
 	},
 	newhelp: [`/trivia new [mode], [category], [length] - Begin a new trivia game. Requires: + % @ # & ~`],
 
-	join(target, room, user) {
+	join: function (target, room, user) {
 		if (room.id !== 'trivia') return this.errorReply("This command can only be used in Trivia.");
 		if (!room.game) return this.errorReply("There is no game of trivia in progress.");
 		if (room.game.gameid !== 'trivia') {
@@ -1367,7 +1364,7 @@ const commands = {
 	},
 	joinhelp: [`/trivia join - Join the current trivia game.`],
 
-	kick(target, room, user) {
+	kick: function (target, room, user) {
 		if (room.id !== 'trivia') return this.errorReply("This command can only be used in Trivia.");
 		if (!this.can('mute', null, room)) return false;
 		if (!this.canTalk()) return;
@@ -1386,7 +1383,7 @@ const commands = {
 	},
 	kickhelp: [`/trivia kick [username] - Kick players from a trivia game by username. Requires: % @ # & ~`],
 
-	leave(target, room, user) {
+	leave: function (target, room, user) {
 		if (room.id !== 'trivia') return this.errorReply("This command can only be used in Trivia.");
 		if (!room.game) return this.errorReply("There is no game of trivia in progress.");
 		if (room.game.gameid !== 'trivia') {
@@ -1399,7 +1396,7 @@ const commands = {
 	},
 	leavehelp: [`/trivia leave - Makes the player leave the game.`],
 
-	start(target, room) {
+	start: function (target, room) {
 		if (room.id !== 'trivia') return this.errorReply("This command can only be used in Trivia.");
 		if (!this.can('broadcast', null, room)) return false;
 		if (!this.canTalk()) return;
@@ -1414,7 +1411,7 @@ const commands = {
 	},
 	starthelp: [`/trivia start - Ends the signup phase of a trivia game and begins the game. Requires: + % @ # & ~`],
 
-	answer(target, room, user) {
+	answer: function (target, room, user) {
 		if (room.id !== 'trivia') return this.errorReply("This command can only be used in Trivia.");
 		if (!room.game) return this.errorReply("There is no game of trivia in progress.");
 		if (room.game.gameid !== 'trivia') {
@@ -1430,7 +1427,7 @@ const commands = {
 	},
 	answerhelp: [`/trivia answer OR /ta [answer] - Answer a pending question.`],
 
-	end(target, room, user) {
+	end: function (target, room, user) {
 		if (room.id !== 'trivia') return this.errorReply("This command can only be used in Trivia.");
 		if (!this.can('broadcast', null, room)) return false;
 		if (!this.canTalk()) return;
@@ -1445,7 +1442,7 @@ const commands = {
 
 	'': 'status',
 	players: 'status',
-	status(target, room, user) {
+	status: function (target, room, user) {
 		if (room.id !== 'trivia') return this.errorReply("This command can only be used in Trivia.");
 		if (!this.runBroadcast()) return false;
 		if (!room.game) return this.errorReply("There is no game of trivia in progress.");
@@ -1482,89 +1479,63 @@ const commands = {
 	statushelp: [`/trivia status [player] - lists the player's standings (your own if no player is specified) and the list of players in the current trivia game.`],
 
 	submit: 'add',
-	add(target, room, user, connection, cmd) {
+	add: function (target, room, user, connection, cmd) {
 		if (room.id !== 'questionworkshop') return this.errorReply('This command can only be used in Question Workshop.');
-		if (cmd === 'add' && !this.can('mute', null, room)) return false;
-		if (cmd === 'submit' && !this.can('broadcast', null, room)) return false;
-		if (!target) return false;
+		if ((cmd === 'add' && !this.can('mute', null, room)) ||
+			(cmd === 'submit' && !this.can('broadcast', null, room)) ||
+			!target) return false;
 		if (!this.canTalk()) return false;
+		target = target.split('|');
+		if (target.length !== 3) return this.errorReply("Invalid arguments specified. View /trivia help for more information.");
 
-		const params = target.split('\n');
-		for (let param of params) {
-			param = param.split('|');
-			if (param.length !== 3) {
-				this.errorReply(`Invalid arguments specified in "${param}". View /trivia help for more information.`);
-				continue;
-			}
-
-			let category = toId(param[0]);
-			if (!ALL_CATEGORIES[category]) {
-				this.errorReply(`'${param[0].trim()}' is not a valid category. View /trivia help for more information.`);
-				continue;
-			}
-			if (cmd === 'submit' && !MAIN_CATEGORIES[category]) {
-				this.errorReply(`You cannot submit questions in the '${ALL_CATEGORIES[category]}' category`);
-				continue;
-			}
-			if (this.message.startsWith("/wlink") && category === 'pokemon') {
-				this.errorReply("Pokemon questions are not allowed for the Weakest Link.");
-				continue;
-			}
-
-			let question = Chat.escapeHTML(param[1].trim());
-			if (!question) {
-				this.errorReply(`'${param[1].trim()}' is not a valid question.`);
-				continue;
-			}
-			if (question.length > MAX_QUESTION_LENGTH) {
-				this.errorReply(`Question "${param[1].trim()}" is too long! It must remain under ${MAX_QUESTION_LENGTH} characters.`);
-				continue;
-			}
-			if (triviaData.submissions.some(s => s.question === question) || triviaData.questions.some(q => q.question === question)) {
-				this.errorReply(`Question "${question}" is already in the trivia database.`);
-				continue;
-			}
-
-			let cache = new Set();
-			let answers = param[2].split(',')
-				.map(toId)
-				.filter(answer => !cache.has(answer) && !!cache.add(answer));
-			if (!answers.length) {
-				this.errorReply(`No valid answers were specified for question '${param[1].trim()}'.`);
-				continue;
-			}
-			if (answers.some(answer => answer.length > MAX_ANSWER_LENGTH)) {
-				this.errorReply(`Some of the answers entered for question '${param[1].trim()}' were too long! They must remain under ${MAX_ANSWER_LENGTH} characters.`);
-				continue;
-			}
-
-			let isWL = this.message.startsWith('/wlink');
-			let entry = {
-				category: category,
-				question: question,
-				answers: answers,
-				user: user.userid,
-				type: isWL ? 'weakestlink' : 'trivia',
-			};
-
-			if (cmd === 'add') {
-				triviaData.questions.splice(findEndOfCategory(category, false), 0, entry);
-				writeTriviaData();
-				this.modlog('TRIVIAQUESTION', null, `added to ${isWL ? 'Weakest Link' : 'Trivia'} - '${param[1]}'`);
-				this.privateModAction(`(Question '${param[1]}' was added to the ${isWL ? "Weakest Link" : "Trivia"} question database by ${user.name}.)`);
-			} else {
-				triviaData.submissions.splice(findEndOfCategory(category, true), 0, entry);
-				writeTriviaData();
-				if (!user.can('mute', null, room)) this.sendReply(`Question '${param[1]}' was submitted for review.`);
-				this.modlog('TRIVIAQUESTION', null, `submitted to ${isWL ? 'Weakest Link' : 'Trivia'} '${param[1]}'`);
-				this.privateModAction(`(Question '${param[1]}' was submitted to the ${isWL ? 'Weakest Link' : 'Trivia'} submission database by ${user.name} for review.)`);
-			}
+		let category = toId(target[0]);
+		if (!ALL_CATEGORIES[category]) return this.errorReply(`'${target[0].trim()}' is not a valid category. View /trivia help for more information.`);
+		if (cmd === 'submit' && !MAIN_CATEGORIES[category]) return this.errorReply(`You cannot submit question in the '${ALL_CATEGORIES[category]}' category`);
+		if (this.message.startsWith("/wlink") && category === 'pokemon') return this.errorReply("Pokemon questions are not allowed for the Weakest Link");
+		let question = Chat.escapeHTML(target[1].trim());
+		if (!question) return this.errorReply(`'${target[1]}' is not a valid question.`);
+		if (question.length > MAX_QUESTION_LENGTH) {
+			return this.errorReply(`This question is too long! It must remain under ${MAX_QUESTION_LENGTH} characters.`);
 		}
-	},
-	submithelp: [`/trivia submit [category] | [question] | [answer1], [answer2] ... [answern] - Adds question(s) to the submission database for staff to review. Requires: + % @ # & ~`],
-	addhelp: [`/trivia add [category] | [question] | [answer1], [answer2], ... [answern] - Adds question(s) to the question database. Requires: % @ # & ~`],
+		if (triviaData.submissions.some(s => s.question === question) || triviaData.questions.some(q => q.question === question)) {
+			return this.errorReply(`Question "${question}" is already in the trivia database.`);
+		}
 
-	review(target, room) {
+		let cache = new Set();
+		let answers = target[2].split(',')
+			.map(toId)
+			.filter(answer => !cache.has(answer) && !!cache.add(answer));
+		if (!answers.length) return this.errorReply("No valid answers were specified.");
+		if (answers.some(answer => answer.length > MAX_ANSWER_LENGTH)) {
+			return this.errorReply(`Some of the answers entered were too long! They must remain under ${MAX_ANSWER_LENGTH} characters.`);
+		}
+		let isWL = this.message.startsWith("/wlink");
+		let submissions = triviaData.submissions;
+		let submission = {
+			category: category,
+			question: question,
+			answers: answers,
+			user: user.userid,
+			type: isWL ? "weakestlink" : "trivia",
+		};
+
+		if (cmd === 'add') {
+			triviaData.questions.splice(findEndOfCategory(category, false), 0, submission);
+			writeTriviaData();
+			this.modlog('TRIVIAQUESTION', null, `added to ${isWL ? "Weakest Link" : "Trivia"} - '${target[1]}'`);
+			return this.privateModAction(`(Question '${target[1]}' was added to the ${isWL ? "Weakest Link" : "Trivia"} question database by ${user.name}.)`);
+		}
+
+		submissions.splice(findEndOfCategory(category, true), 0, submission);
+		writeTriviaData();
+		if (!user.can('mute', null, room)) this.sendReply(`Question '${target[1]}' was submitted for review.`);
+		this.modlog('TRIVIAQUESTION', null, `submitted '${target[1]}'`);
+		this.privateModAction(`(${user.name} submitted question '${target[1]}' for review.)`);
+	},
+	submithelp: [`/trivia submit [category] | [question] | [answer1], [answer2] ... [answern] - Add a question to the submission database for staff to review. Requires: + % @ # & ~`],
+	addhelp: [`/trivia add [category] | [question] | [answer1], [answer2], ... [answern] - Add a question to the question database. Requires: % @ # & ~`],
+
+	review: function (target, room) {
 		if (room.id !== 'questionworkshop') return this.errorReply('This command can only be used in Question Workshop.');
 		if (!this.can('ban', null, room)) return false;
 
@@ -1588,7 +1559,7 @@ const commands = {
 	reviewhelp: [`/trivia review - View the list of submitted questions. Requires: @ # & ~`],
 
 	reject: 'accept',
-	accept(target, room, user, connection, cmd) {
+	accept: function (target, room, user, connection, cmd) {
 		if (room.id !== 'questionworkshop') return this.errorReply('This command can only be used in Question Workshop.');
 		if (!this.can('ban', null, room)) return false;
 		if (!this.canTalk()) return;
@@ -1672,7 +1643,7 @@ const commands = {
 	accepthelp: [`/trivia accept [index1], [index2], ... [indexn] OR all - Add questions from the submission database to the question database using their index numbers or ranges of them. Requires: @ # & ~`],
 	rejecthelp: [`/trivia reject [index1], [index2], ... [indexn] OR all - Remove questions from the submission database using their index numbers or ranges of them. Requires: @ # & ~`],
 
-	delete(target, room, user) {
+	delete: function (target, room, user) {
 		if (room.id !== 'questionworkshop') return this.errorReply('This command can only be used in Question Workshop.');
 		if (!this.can('mute', null, room)) return false;
 		if (!this.canTalk()) return;
@@ -1698,7 +1669,7 @@ const commands = {
 	},
 	deletehelp: [`/trivia delete [question] - Delete a question from the trivia database. Requires: % @ # & ~`],
 
-	qs(target, room, user) {
+	qs: function (target, room, user) {
 		if (room.id !== 'questionworkshop') return this.errorReply('This command can only be used in Question Workshop.');
 
 		let buffer = "|raw|<div class=\"ladder\" style=\"overflow-y: scroll; max-height: 300px;\"><table>";
@@ -1767,7 +1738,7 @@ const commands = {
 		"/trivia qs [category] - View the questions in the specified category. Requires: % @ # & ~",
 	],
 
-	search(target, room, user) {
+	search: function (target, room, user) {
 		if (room.id !== 'questionworkshop') return this.errorReply("This command can only be used in Question Workshop.");
 		if (!this.can('broadcast', null, room)) return false;
 		if (!target.includes(',')) return this.errorReply("No valid search arguments entered.");
@@ -1799,7 +1770,7 @@ const commands = {
 	},
 	searchhelp: [`/trivia search [type], [query] - Searches for questions based on their type and their query. Valid types: submissions, subs, questions, qs. Requires: + % @ * & ~`],
 
-	rank(target, room, user) {
+	rank: function (target, room, user) {
 		if (room.id !== 'trivia') return this.errorReply("This command can only be used in Trivia.");
 
 		let name;
@@ -1831,7 +1802,7 @@ const commands = {
 	rankhelp: [`/trivia rank [username] - View the rank of the specified user. If no name is given, view your own.`],
 
 	alltimeladder: 'ladder',
-	ladder(target, room, user, connection, cmd) {
+	ladder: function (target, room, user, connection, cmd) {
 		if (room.id !== 'trivia') return this.errorReply('This command can only be used in Trivia.');
 		if (!this.runBroadcast()) return false;
 		let cache = cmd === 'ladder' ? cachedAltLadder : cachedLadder;
@@ -1861,7 +1832,7 @@ const commands = {
 	alltimeladderhelp: [`/trivia ladder [num] - View information about 15 users on the all time trivia leaderboard.`],
 
 	clearquestions: 'clearqs',
-	clearqs(target, room, user) {
+	clearqs: function (target, room, user) {
 		if (room.id !== 'questionworkshop') return this.errorReply("This command can only be used in Question Workshop");
 		if (!this.can('declare', null, room)) return false;
 		const category = toId(target);
@@ -1879,28 +1850,28 @@ const commands = {
 	},
 	clearqshelp: [`/trivia clears [category] - Remove all questions of the given category. Requires: # & ~`],
 
-	bank(target, room, user) {
+	bank: function (target, room, user) {
 		if (!room.game || room.game.title !== 'Weakest Link') return this.errorReply("This command can only be used for games of the Weakest Link.");
 		let res = room.game.onBank(user);
 		if (res) return this.sendReply(res);
 	},
 	bankhelp: [`/trivia bank - Bank during a game of the Weakest Link.`],
 
-	decide(target, room, user) {
+	decide: function (target, room, user) {
 		if (!room.game || room.game.title !== 'Weakest Link') return this.errorReply("This command can only be used for games of the Weakest Link.");
 		let res = room.game.decide(target, user);
 		if (res) return this.sendReply(res);
 	},
 	decidehelp: [`/trivia decide [user] - If voting ends in a tie, this is used to break the tie by the strongest player.`],
 
-	vote(target, room, user) {
+	vote: function (target, room, user) {
 		if (!room.game || room.game.title !== 'Weakest Link') return this.errorReply("This command can only be used for games of the Weakest Link.");
 		let res = room.game.vote(target, user);
 		if (res) return this.sendReply(res);
 	},
 	votehelp: [`/trivia vote [user] - Choose your vote of who to eliminate in the Weakest link`],
 
-	checkvotes(target, room, user) {
+	checkvotes: function (target, room, user) {
 		if (!room.game || room.game.title !== 'Weakest Link') return this.errorReply("This command can only be used for games of the Weakest Link.");
 		if (!this.can('broadcast', null, room)) return;
 		if (!this.runBroadcast()) return;
@@ -1909,7 +1880,7 @@ const commands = {
 	},
 	checkvoteshelp: [`/trivia checkvotes - Check which players have not yet voted.`],
 
-	help(target, room, user) {
+	help: function (target, room, user) {
 		return this.parse("/help trivia");
 	},
 };
@@ -1953,11 +1924,11 @@ module.exports = {
 			`- /trivia leave - Makes the player leave the game.`,
 			`- /trivia end - End a trivia game. Requires: + % @ # ~`,
 			`Question modifying commands:`,
-			`- /trivia submit [category] | [question] | [answer1], [answer2] ... [answern] - Adds question(s) to the submission database for staff to review. Requires: + % @ # & ~`,
+			`- /trivia submit [category] | [question] | [answer1], [answer2] ... [answern] - Add a question to the submission database for staff to review.`,
 			`- /trivia review - View the list of submitted questions. Requires: @ # & ~`,
 			`- /trivia accept [index1], [index2], ... [indexn] OR all - Add questions from the submission database to the question database using their index numbers or ranges of them. Requires: @ # & ~`,
 			`- /trivia reject [index1], [index2], ... [indexn] OR all - Remove questions from the submission database using their index numbers or ranges of them. Requires: @ # & ~`,
-			`- /trivia add [category] | [question] | [answer1], [answer2], ... [answern] - Adds question(s) to the question database. Requires: % @ # & ~`,
+			`- /trivia add [category] | [question] | [answer1], [answer2], ... [answern] - Add a question to the question database. Requires: % @ # & ~`,
 			`- /trivia delete [question] - Delete a question from the trivia database. Requires: % @ # & ~`,
 			`- /trivia qs - View the distribution of questions in the question database.`,
 			`- /trivia qs [category] - View the questions in the specified category. Requires: % @ # & ~`,
@@ -1976,7 +1947,3 @@ module.exports = {
 		],
 	},
 };
-
-process.nextTick(() => {
-	Chat.multiLinePattern.register('/trivia add ', '/trivia submit ');
-});

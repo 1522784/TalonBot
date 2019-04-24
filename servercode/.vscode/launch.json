@@ -7,6 +7,12 @@
         {
             "type": "node",
             "request": "launch",
+            "name": "Start Server",
+            "program": "${workspaceFolder}\\app.js"
+        },
+        {
+            "type": "node",
+            "request": "launch",
             "name": "Run Mocha Tests",
             "program": "${workspaceRoot}/node_modules/mocha/bin/_mocha",
             "args": [
@@ -20,14 +26,6 @@
                 ""
             ],
             "internalConsoleOptions": "openOnSessionStart"
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Parse input log (paste in terminal)",
-            "program": "${workspaceRoot}/pokemon-showdown",
-            "args": ["simulate-battle"],
-            "console": "integratedTerminal"
         },
     ]
 }

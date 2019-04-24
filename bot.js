@@ -96,8 +96,8 @@ var BattleRoom = require('./battleroom');
 var GAME_TYPE = (program.ranked) ? "ou" : "ou";
 
 // Load in Game Data
-var Pokedex = require("./ServerCode/data/pokedex");
-var Typechart = require("./ServerCode/data/typechart");
+var Pokedex = require("./servercode/data/pokedex");
+var Typechart = require("./servercode/data/typechart");
 
 function reconnect(room){
 	if(client.isClosing || client.isClosed) {
