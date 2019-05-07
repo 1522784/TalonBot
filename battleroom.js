@@ -204,7 +204,7 @@ let BattleRoom = new JS.Class({
         let battleside = undefined;
         let targetSide = undefined;
         let tokens4 = tokens[4].split(": ");
-        let targetName = tokens4[2];
+        let targetName = tokens4[1];
         let tokens5following = tokens.slice(5);
 
         if(this.isPlayer(player)) {
@@ -313,6 +313,19 @@ let BattleRoom = new JS.Class({
                 return pokemon.volatiles['partialtrappinglock'].damage;
             }
 
+            // We get the base power and apply basePowerCallback if necessary.
+		    /** @type {number | false | null} */
+		    let basePower = move.basePower;
+		    if (move.basePowerCallback) {
+			    basePower = move.basePowerCallback.call(this, pokemon, target, move);
+		    }
+		    if (!basePower) {
+			    return basePower === 0 ? undefined : basePower;
+            }
+            basePower = this.clampIntRange(basePower, 1);
+            if (!basePower) return 0;
+
+
             //This was all non-random stuff. If the damage is calculated normally (with random variables), we look a few lines ahead
             //to read the damage and return it.
             if(damage !== null) return damage;
@@ -361,7 +374,7 @@ let BattleRoom = new JS.Class({
         let accuracyBackup = moveObj.accuracy;
         moveObj.accuracy = miss ? 0 : true;
 
-        if(move === "Transform") debugger;
+        //if(move === "Transform") debugger;
 
         this.state.runMove(moveObj, pokemon, target, source);
 
@@ -369,6 +382,7 @@ let BattleRoom = new JS.Class({
         moveObj.secondary = secondaryBackup;
         moveObj.secondaries = secondariesBackup;
         moveObj.accuracy = accuracyBackup;
+        logger.info("Remaining pp of move " + move + ": " + moveObj.pp)
 
     },
     updatePokemonOnCant: function(tokens) {
@@ -453,9 +467,10 @@ let BattleRoom = new JS.Class({
         }
 
         pokemon.faint();
-        this.state.faintMessages(true);
+        this.state.faintMessages();
         this.state.checkFainted();
         logger.info("Is fainted Pokemon forced to switch? " + pokemon.switchFlag)
+        pokemon.faintMarkerFromBattleRoom = true;
 
         this.updatePokemon(battleside, pokemon);
     },
@@ -472,6 +487,7 @@ let BattleRoom = new JS.Class({
         let tokens3 = tokens[3].split(/\/| /);       
         let health = tokens3[0];
         let maxHealth = tokens3[1];
+        if(maxHealth === "fnt") maxHealth = 100;
         let battleside = undefined;
 
         if(this.isPlayer(player)) {
@@ -490,6 +506,7 @@ let BattleRoom = new JS.Class({
 
         //update hp
         pokemon.hp = newHP;
+        if(isNaN(newHP)) debugger;
         this.updatePokemon(battleside, pokemon);
 
         if(tokens3[2]) this.updatePokemonStatus([tokens[0], tokens[1], tokens[2], tokens3[2]], true);
@@ -765,7 +782,7 @@ let BattleRoom = new JS.Class({
         //the data-string will be sliced therefore we backup
         let completeData = data;
 
-        let activePokemonFainted = false;
+        this.previousState = cloneBattleState(this.state);
 
         //logger.trace("<< " + data);
 
@@ -826,12 +843,11 @@ let BattleRoom = new JS.Class({
                     this.updatePokemonOnMove(tokens, log.slice(i+1));
                 } else if(tokens[1] === 'faint') { //we could outright remove a pokemon...
                     this.updatePokemonOnFaint(tokens);
-                    activePokemonFainted = true;
                     //record that pokemon has fainted
                 } else if(tokens[1] === 'detailschange' || tokens[1] === 'formechange') {
                     this.updatePokemonOnFormeChange(tokens);
                 } else if(tokens[1] === '-transform') {
-                    
+                    this.updatePokemonOnFormeChange(tokens.map((token, index) => index === 3 ? token.slice(5) : token));
                 } else if(tokens[1] === '-damage') { //Error: not getting to here...
                     this.updatePokemonOnDamage(tokens);
                 } else if(tokens[1] === '-heal') {
@@ -890,8 +906,18 @@ let BattleRoom = new JS.Class({
             }
         }
 
-        let requestType = activePokemonFainted ? "switch" : "move";
+        if(this.state.p1.pokemon.some(poke => poke.hp === 0 && !poke.faintMarkerFromBattleRoom) || 
+            this.state.p2.pokemon.some(poke => poke.hp === 0 && !poke.faintMarkerFromBattleRoom)){
+                debugger;
+                this.state = this.previousState;
+                this.recieve(data);
+            }
+
+        let p1MustSwitch = this.state.p1.active.some(poke => poke.switchFlag);
+        let p2MustSwitch = this.state.p2.active.some(poke => poke.switchFlag);
+        let requestType = (p1MustSwitch || p2MustSwitch) ? "switch" : "move";
         this.state.makeRequest(requestType);
+        logger.info("Made request of type " + requestType)
 
         if(program.algorithm === "talon") talonbot.addStateToHistory(this.state, this.log, this.side);
         
@@ -1055,6 +1081,7 @@ let BattleRoom = new JS.Class({
             let orderIndex = order.findIndex(pokeName => poke.name === pokeName);
             if(orderIndex < 0)throw new Error("Index of Pokemon name " + poke.name + " can't be found in pokemon list of request: " + order);
             if(orderedList[orderIndex]) throw new Error("Two pokemon with same name: " + poke.name + ". Both belong to index " + orderIndex);
+            poke.position = orderIndex;
             orderedList[orderIndex] = poke;
         }
 

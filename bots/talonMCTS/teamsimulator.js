@@ -29,13 +29,13 @@ class TeamSimulator{
         //We save the first pokemon the opponent used because it has a special position. TODO: Adapt to team preview for Gen5 and following
         this.lead = battle.p2.pokemon[0].speciesid;
 
+        bot.leave(battle.id);
         for(let i = 0; i<teamNum; i++){
             if(i%(teamNum/10) === 0) log.info("Team creation " + (i*100/teamNum) + "% complete");
 
             /*Stupid workaround. If we calculate too long the client disconnects beacause it can't respond. 
             But if we disconnect actively and reconnect when we send something, it disconnects right before,
             we send it and not before giving us time to calculate.*/
-            //bot.leave(battle.id);
 
             this.teamStore.push(new PossibleTeam(battle, decisionPropCalcer, this.teamValidator, this.dex, this.lead));
         }
@@ -63,6 +63,7 @@ class TeamSimulator{
     }
 
     updateTeams(battle, logs){
+        bot.leave(battle.id);
         for(let i = 0; i<this.teamStore.length; i++){
             if(i%(this.teamStore.length/10) === 0) log.info("Updating teams " + (i*100/this.teamStore.length) + "% complete");
 

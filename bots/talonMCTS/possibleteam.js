@@ -169,8 +169,8 @@ class PossibleTeam {
             battle.p2.pokemon[p].happiness = pokemon.happiness;
             battle.p2.pokemon[p].level = pokemon.level;
             battle.p2.pokemon[p].stats = pokemon.stats;
-            battle.p2.pokemon[p].getHealth = pokemon.getHealth;
-            battle.p2.pokemon[p].getDetails = pokemon.getDetails;
+            //battle.p2.pokemon[p].getHealth = pokemon.getHealth;
+            //battle.p2.pokemon[p].getDetails = pokemon.getDetails;
         }
 
         let activePokemonP2 = battle.p2.active[0];
@@ -279,9 +279,7 @@ class PossibleTeam {
             options = options.filter(option => option.decision.id.toString() === chosenMove.toString());
             return options;
         }
-
-        if(!options.length) throw new Error("Chosen option can't be identified. \nWe acted first? " + weActedFirst + "\n Turnlog: " + turnLog + "\nOwn speed: " + ownSpeed + "\n Opp speed: " + oppSpeed);
- 
+        
         return options;
     }
 
@@ -290,15 +288,18 @@ class PossibleTeam {
         
         //Find out whether we got new team information and if there is, multiply the rank by its decision probability
         for(let oppTeamIndex in opponentTeam){
-            let confirmedTeamIndex = this.confirmedTeam.findIndex(pokemon => pokemon.species && pokemon.species.toLowerCase() === opponentTeam[oppTeamIndex].species.toLowerCase());
+            let confirmedTeamIndex = this.confirmedTeam.findIndex(pokemon => pokemon.name && pokemon.name === opponentTeam[oppTeamIndex].name);
             let confirmedPokemon = this.confirmedTeam[confirmedTeamIndex];
 
             //If newly discovered opposing Pokemon
             if(confirmedTeamIndex === -1){
                 
                 //Mark as confirmed
-                confirmedTeamIndex = this.confirmedTeam.findIndex(pokemon => !pokemon.species);
-                if(confirmedTeamIndex === -1) throw new Error("Found new confirmed pokemon " + opponentTeam[oppTeamIndex].speciesid + " despite maximal team size already reached: " + this.confirmedTeam.length);
+                confirmedTeamIndex = this.confirmedTeam.findIndex(pokemon => !pokemon.name);
+                if(confirmedTeamIndex === -1) {
+                    debugger;
+                    throw new Error("Found new confirmed pokemon " + opponentTeam[oppTeamIndex].speciesid + " despite maximal team size already reached: " + this.confirmedTeam.length);
+                }
                 confirmedPokemon = this.confirmedTeam[confirmedTeamIndex];
                 confirmedPokemon.species = opponentTeam[oppTeamIndex].speciesid;
 
