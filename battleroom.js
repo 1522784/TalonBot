@@ -223,8 +223,22 @@ let BattleRoom = new JS.Class({
             return;
         }
 
-        //update last move (doesn't actually affect the bot...)
-        pokemon.lastMove = toId(move);
+        this.updatePokemon(battleside, pokemon);
+        
+        let moveObj = this.state.getMove(move);
+        if(!moveObj) {
+            debugger; 
+            throw new Error("Can't find move " + move + " in Pokemon's moveset " + pokemon.moveSlots.map(move => move.name + " "))
+        }
+        let target = targetSide.pokemon.find(poke => poke.name === targetName);
+        let miss = tokens5following.some(token => token === "[miss]");
+
+        let sourceString = tokens5following.find(token => token.indexOf("[from]") === 0);
+        let source = null;
+        if(sourceString) sourceString = sourceString.slice(6);
+        source = this.state.getEffect(sourceString);
+
+        if(["Mirror Move", "Metronome"].includes(sourceString)) return;
 
         //we are no longer newly switched (so we don't fakeout after the first turn)
         pokemon.activeTurns += 1;
@@ -241,21 +255,6 @@ let BattleRoom = new JS.Class({
                 logger.info("add " + toId(move) + " to moveslots")
             }
         }
-
-        this.updatePokemon(battleside, pokemon);
-        
-        let moveObj = this.state.getMove(move);
-        if(!moveObj) {
-            debugger; 
-            throw new Error("Can't find move " + move + " in Pokemon's moveset " + pokemon.moveSlots.map(move => move.name + " "))
-        }
-        let target = targetSide.pokemon.find(poke => poke.name === targetName);
-        let miss = tokens5following.some(token => token === "[miss]");
-
-        let sourceString = tokens5following.find(token => token.indexOf("[from]") === 0);
-        let source = null;
-        if(sourceString) sourceString = sourceString.slice(6);
-        source = this.state.getEffect(sourceString);
         
         let damage = null;
 
@@ -919,6 +918,7 @@ let BattleRoom = new JS.Class({
         this.state.makeRequest(requestType);
         logger.info("Made request of type " + requestType)
 
+        this.state.logs = this.log;
         if(program.algorithm === "talon") talonbot.addStateToHistory(this.state, this.log, this.side);
         
     },

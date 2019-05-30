@@ -42,6 +42,11 @@ class TeamSimulator{
     }
 
     addStateToHistory(battleState){
+        if(this.isBattleAlreadySaved(battleState.logs)) {
+            log.info("Battle already saved. Battlelog: " + battleState.logs + "\nprevious Battlelog: " + this.history[this.history.length - 1].state.logs)
+            return;
+        }
+
         this.history.push({
             state: cloneBattleState(battleState)
         });
@@ -67,11 +72,6 @@ class TeamSimulator{
         for(let i = 0; i<this.teamStore.length; i++){
             if(i%(this.teamStore.length/10) === 0) log.info("Updating teams " + (i*100/this.teamStore.length) + "% complete");
 
-            /*Stupid workaround. If we calculate too long the client disconnects beacause it can't respond. 
-            But if we disconnect actively and reconnect when we send something, it disconnects right before,
-            we send it and not before giving us time to calculate.*/
-            //bot.leave(battle.id);
-
             if(!this.teamStore[i].isStillPossible(battle, logs))
                 this.teamStore[i] = new PossibleTeam(battle, decisionPropCalcer, this.teamValidator, this.dex, this.lead);
             this.teamStore[i].updateRank(battle, logs, this.getHistory(), this.ownSide);
@@ -93,6 +93,11 @@ class TeamSimulator{
     getPossibleTeams(){
         return this.teamStore;
     }
+
+    isBattleAlreadySaved(logs){
+        if(this.history.length === 0) return false;
+        return logs.split("\n\n").length <= this.history[this.history.length - 1].state.logs.split("\n\n").length;
+    }
 }
 
-module.exports = TeamSimulator;
+module.exports = TeamSimulator; 

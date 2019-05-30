@@ -35,15 +35,22 @@ var decisionPropCalcer = require("./simpledecisionpropcalcer");
 var decide = module.exports.decide = function (battle, choices) {
 
     log.info("Starting move selection");
+    let teamSimulator = teamSimulatorPool.get(battle.id)
 
-    var mcts = new MCTS(new PokemonBattle(battle), 500, 0, choices, teamSimulatorPool.get(battle.id));
+    if(teamSimulator.history.length && teamSimulator.history[teamSimulator.history.length - 1].ownDecision){
+        log.info("Choose last decision: ")
+        log.info(teamSimulator.history[teamSimulator.history.length - 1].ownDecision);
+        return teamSimulator.history[teamSimulator.history.length - 1].ownDecision;
+    }
+
+    var mcts = new MCTS(new PokemonBattle(battle), 100, 0, choices, teamSimulator);
     try{
         var action = mcts.selectMove();
         mcts.destroy();
         if(!action) throw new Error("Action undefined");
     }catch(e){
         debugger;
-        mcts = new MCTS(new PokemonBattle(battle), 100, 0, choices, teamSimulatorPool.get(battle.id));
+        mcts = new MCTS(new PokemonBattle(battle), 100, 0, choices, teamSimulator);
         mcts.selectMove(); 
     }
     
@@ -51,7 +58,7 @@ var decide = module.exports.decide = function (battle, choices) {
     log.info("My action: " + action.type + " " + action.id);
     lastMove = action.id;  
 
-    teamSimulatorPool.get(battle.id).addOwnDecisionToHistory(action);
+    teamSimulator.addOwnDecisionToHistory(action);
 
     var endTime = new Date(); 
     log.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
@@ -117,7 +124,7 @@ class Node {
         if(move !== null)
         {
             this.game.performMove(this.move);
-            if(this.game.isReadyForPlay()) this.game.playTurn();
+            if(this.game.isReadyForPlay()) this.game.playTurn(true);
         }
 
         // Moves for the current player
@@ -339,7 +346,12 @@ class MCTS {
                 reward = (this.player === node.get_winner()) ? Math.pow(10,7) : -Math.pow(10,7)
             }
             else {
-                reward = node.game.heuristic()
+                try{
+                    reward = node.game.heuristic()
+                } catch(e){
+                    round--;
+                    continue;
+                }
             }
             log.info(node.getDecisionLog(true) + " heuristic: " + reward);
 
@@ -405,12 +417,12 @@ PokemonBattle.prototype.getPossibleMoves = function () {
 
     var current_player = self.player === 0 ? self.battle.p1 : self.battle.p2;
 
-    try{
+    /*try{
         self.battle.makeRequest();
     }catch(e){
         debugger;
         self.battle.makeRequest();
-    }
+    }*/
 
     if (current_player.request.wait)
     {
@@ -432,7 +444,7 @@ PokemonBattle.prototype.performMove = function (action) {
     var player_string = this.player === 0 ? 'p1' : 'p2'
     var player_side = this.player === 0 ? this.battle.p1 : this.battle.p2
 
-    this.choices.push({player: player_string, choiceString: BattleRoom.toChoiceString(action, player_side)})
+    if(action) this.choices.push({player: player_string, choiceString: BattleRoom.toChoiceString(action, player_side)});
     //let choiceSuccess = this.battle.choose(player_string, BattleRoom.toChoiceString(action, player_side), this.battle.rqid);
 
     this.player = 1 - this.player;
@@ -445,15 +457,17 @@ PokemonBattle.prototype.isReadyForPlay = function(){
     return this.choices.length >= numberOfActionsRequired 
 }
 
-PokemonBattle.prototype.playTurn = function(){
-    this.battle = cloneBattleState(this.battle)
+PokemonBattle.prototype.playTurn = function(copyNeeded){
+    if(copyNeeded) this.battle = cloneBattleState(this.battle)
 
     while(this.choices.length){
         let choice = this.choices.pop()
-        let choiceSuccess = this.battle.choose(choice.player, choice.choiceString, this.battle.rqid);
+        if(!choice.choiceString) choice.choiceString = "";
+        let choiceSuccess = this.battle.choose(choice.player, choice.choiceString);
 
         if(!choiceSuccess){
             debugger;
+            this.battle[choice.player].clearChoice();
             this.battle.makeRequest();
             decisionPropCalcer.getRequestOptions(this.battle[choice.player].request);
             this.battle.choose(choice.player, choice.choiceString, this.battle.rqid);
@@ -477,6 +491,28 @@ PokemonBattle.prototype.getWinner = function () {
 
 
 PokemonBattle.prototype.heuristic = function () {
+
+    let numTries = 0;
+    let err = undefined;
+    while(numTries < 5){
+        try{
+            this.battle = cloneBattleState(this.battle)
+            while(this.getWinner() === undefined){
+                if(this.battle.p1.pokemon.length > 6 || this.battle.p2.pokemon.length > 6) debugger;
+                while(!this.isReadyForPlay()){
+                    this.performMove(decisionPropCalcer.randomChoice(this.getPossibleMoves()).decision)
+                }
+                this.playTurn(false)
+            }
+            return this.getWinner() === 0 ? 1000 : -1000;
+        } catch(e){
+            err = e;
+            numTries++;
+            continue;
+        }
+    }
+    throw err;
+
     // Aidan's Heuristic
     var p1_health = _.sum(_.map(this.battle.p1.pokemon, function (pokemon) {
         return !!pokemon.hp ? pokemon.hp / pokemon.maxhp * 100.0 : 0.0;

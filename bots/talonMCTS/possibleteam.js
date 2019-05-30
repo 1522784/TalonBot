@@ -185,14 +185,19 @@ class PossibleTeam {
                     activePokemonP2.moveSlots.push(baseMoveSlot);
                 });
         }
+        if(battle.p2.pokemon.length > 6) {
+            debugger;
+            let stillPossible = this.isStillPossible(battle);
+            isStillPossible;
+        }
         try{
             battle.makeRequest();
         } catch(e){
             debugger;
             battle.makeRequest();
             throw e;
-        }
-
+        } 
+ 
     }
 
     getChosenOption(historyToken, turnLog, options, ownSide, doLog = false){
