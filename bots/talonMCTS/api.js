@@ -494,21 +494,23 @@ PokemonBattle.prototype.heuristic = function () {
 
     let numTries = 0;
     let err = undefined;
+    let maxTurns = 150;
     while(numTries < 5){
         try{
-            this.battle = cloneBattleState(this.battle)
+            this.battle = cloneBattleState(this.battle);
             while(this.getWinner() === undefined){
                 if(this.battle.p1.pokemon.length > 6 || this.battle.p2.pokemon.length > 6) debugger;
                 while(!this.isReadyForPlay()){
                     this.performMove(decisionPropCalcer.randomChoice(this.getPossibleMoves()).decision)
                 }
                 this.playTurn(false)
+                if(this.battle.turn >= maxTurns) throw new Error("Max turns reached")
             }
             return this.getWinner() === 0 ? 1000 : -1000;
         } catch(e){
+            debugger;
             err = e;
             numTries++;
-            continue;
         }
     }
     throw err;

@@ -7,17 +7,20 @@ var TeamValidator = require("./../../servercode/sim/team-validator");
 var logState = require("./../../logState");
 
 class PossibleTeam {
-	constructor(battle, decisionPropCalcer, teamValidator, dex, lead) {
+	constructor(battle, decisionPropCalcer, teamValidator, dexData, dex, moveDex, lead) {
         let self = this;
         this.rank = 1;
         this.decisionPropCalcer = decisionPropCalcer;
 		/** @type {TeamValidator} */
         this.teamValidator = teamValidator;
+        this.dexData = dexData;
         this.dex = dex;
+        this.moveDex = moveDex
         this.requestsConsideredForRank = 0;
 
         this.team = [];
         this.confirmedTeam = [];
+        this.battleFormat = battle.format
 
         let leadIndex = battle.p2.pokemon.findIndex(poke => poke.speciesid === lead);
 
@@ -40,8 +43,8 @@ class PossibleTeam {
                 this.team[i].name = registeredPokemon.name;
                 this.team[i].level = registeredPokemon.level;
             } else {
-                this.team[i].name = this.team[i].species = this.decisionPropCalcer.getSpeciesChoice(this.team, dex)
-                this.team[i].level = this.decisionPropCalcer.getLevelChoice(this.team, i)
+                this.team[i].name = this.team[i].species = this.decisionPropCalcer.getSpeciesChoice(this.team, this.battleFormat, this.dexData, dex, this.moveDex)
+                this.team[i].level = this.decisionPropCalcer.getLevelChoice(this.team, this.battleFormat, this.dexData, this.dex, this.moveDex)
             }
 
             this.team[i].moves = [];
@@ -59,7 +62,7 @@ class PossibleTeam {
                 if(registeredPokemon && registeredPokemon.baseMoveSlots[j]){
                     this.team[i].moves[j] = registeredPokemon.baseMoveSlots[j].id;
                 } else {
-                    this.team[i].moves.push(this.decisionPropCalcer.getMoveChoice(this.team, j, legalMoveOptions).move);
+                    this.team[i].moves.push(this.decisionPropCalcer.getMoveChoice(this.team, legalMoveOptions, this.battleFormat, this.dexData, this.dex, this.moveDex).move);
                 }
 
             }
@@ -67,7 +70,7 @@ class PossibleTeam {
     
         this.updateTeamBuildingRank(battle.p2.pokemon);
             
-        //log.info("new Team: " + JSON.stringify(this.team));
+        log.info("new Team: " + JSON.stringify(this.team));
         //log.info(this.rank);
 
     }
@@ -319,12 +322,12 @@ class PossibleTeam {
                 this.team[teamIndex].name = confirmedPokemon.name = opponentTeam[oppTeamIndex].name;
 
                 //Update species choice rank
-                let options = this.decisionPropCalcer.getSpeciesChoiceOptions(unfinishedTeam, this.dex);
+                let options = this.decisionPropCalcer.getSpeciesChoiceOptions(unfinishedTeam, this.battleFormat, this.dexData, this.dex, this.moveDex);
                 let decision = options.find(option => option.species === self.team[teamIndex].species);
                 this.rank = math.multiply(this.rank, decision.probability);
 
                 //Update level choice rank
-                options = this.decisionPropCalcer.getLevelChoiceOptions(unfinishedTeam);
+                options = this.decisionPropCalcer.getLevelChoiceOptions(unfinishedTeam, this.battleFormat, this.dexData, this.dex, this.moveDex);
                 decision = options.find(option => option.level === self.team[teamIndex].level);
                 this.rank = math.multiply(this.rank, decision.probability);
             }
@@ -360,7 +363,7 @@ class PossibleTeam {
                         let problems = self.teamValidator.validateSet({species: self.team[teamIndex].species, moves: unfinishedTeam[unfinishedTeamPokemonIndex].moves.concat(move)}, {});
                         return (!problems);
                     }).filter(move => !unfinishedTeam[unfinishedTeamPokemonIndex].moves.includes(move));
-                    let options = this.decisionPropCalcer.getMoveChoiceOptions(unfinishedTeam, unfinishedTeamPokemonIndex, legalMoveOptions);
+                    let options = this.decisionPropCalcer.getMoveChoiceOptions(unfinishedTeam, legalMoveOptions, this.battleFormat, this.dexData, this.dex, this.moveDex);
                     let decision = options.find(option => option.move.toLowerCase() === confirmedMove.toLowerCase());
                     if(!decision) debugger;
                     this.rank = math.multiply(this.rank, decision.probability); 

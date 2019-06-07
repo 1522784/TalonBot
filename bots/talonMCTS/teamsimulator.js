@@ -6,6 +6,7 @@ var cloneBattleState = require("./../../cloneBattleState");
 var decisionPropCalcer = require("./simpledecisionpropcalcer")
 
 var bot = require("./../../bot");
+var math = require("mathjs");
 
 class TeamSimulator{
     
@@ -19,12 +20,20 @@ class TeamSimulator{
         this.history = [];
         this.ownSide = ownSide;
 
-        this.dex = Object.keys(this.teamValidator.dex.loadData().Pokedex); //Includes all species from all Gens
+        this.dexData = this.teamValidator.dex.loadData()
+        this.dex = Object.keys(this.dexData.Pokedex); //Includes all species from all Gens
+        //log.info(dexData.Movedex)
+        this.moveDex = []
         //for(let entry in dex) log.info(this.teamValidator.validateSet({species: dex[entry]}))
         this.dex = this.dex.filter(entry => { 
             let problems = self.teamValidator.validateSet({species: entry}, {});
             return (problems.length === 1); //If it is legal, only one problem must exist: "Pokemon has no moves"
         })
+        this.dex.forEach(poke => {
+            Object.keys(battle.getTemplate(poke).learnset).forEach(move => {
+                if(!self.moveDex.includes(move)) self.moveDex.push(move);
+            })
+        });
 
         //We save the first pokemon the opponent used because it has a special position. TODO: Adapt to team preview for Gen5 and following
         this.lead = battle.p2.pokemon[0].speciesid;
@@ -37,7 +46,7 @@ class TeamSimulator{
             But if we disconnect actively and reconnect when we send something, it disconnects right before,
             we send it and not before giving us time to calculate.*/
 
-            this.teamStore.push(new PossibleTeam(battle, decisionPropCalcer, this.teamValidator, this.dex, this.lead));
+            this.teamStore.push(new PossibleTeam(battle, decisionPropCalcer, this.teamValidator, this.dexData, this.dex, this.moveDex, this.lead));
         }
     }
 
@@ -73,7 +82,7 @@ class TeamSimulator{
             if(i%(this.teamStore.length/10) === 0) log.info("Updating teams " + (i*100/this.teamStore.length) + "% complete");
 
             if(!this.teamStore[i].isStillPossible(battle, logs))
-                this.teamStore[i] = new PossibleTeam(battle, decisionPropCalcer, this.teamValidator, this.dex, this.lead);
+                this.teamStore[i] = new PossibleTeam(battle, decisionPropCalcer, this.teamValidator, this.dexData, this.dex, this.moveDex, this.lead);
             this.teamStore[i].updateRank(battle, logs, this.getHistory(), this.ownSide);
         }
     }

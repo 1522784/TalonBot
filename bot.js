@@ -91,10 +91,6 @@ var BattleRoom = require('./battleroom');
 // The game type that we want to search for on startup
 var GAME_TYPE = (program.ranked) ? "ou" : "ou";
 
-// Load in Game Data
-var Pokedex = require("./ServerCode/data/pokedex");
-var Typechart = require("./ServerCode/data/typechart");
-
 function reconnect(room){
 	if(client.isClosing || client.isClosed) {
 		client = sockjs.create(program.host);
