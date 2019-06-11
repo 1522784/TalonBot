@@ -373,14 +373,17 @@ let BattleRoom = new JS.Class({
         let accuracyBackup = moveObj.accuracy;
         moveObj.accuracy = miss ? 0 : true;
 
-        //if(move === "Transform") debugger;
-
+        let pokemonHasPar = pokemon.status === "par";
+        pokemon.status = "";
+        if(pokemonHasPar) debugger;
         this.state.runMove(moveObj, pokemon, target, source);
 
         this.state.getDamage = getDamageBackup;
         moveObj.secondary = secondaryBackup;
         moveObj.secondaries = secondariesBackup;
         moveObj.accuracy = accuracyBackup;
+        if(pokemonHasPar) pokemon.status = "par"
+
         logger.info("Remaining pp of move " + move + ": " + moveObj.pp)
 
     },
@@ -920,8 +923,8 @@ let BattleRoom = new JS.Class({
 
         this.state.logs = this.log;
         if(program.algorithm === "talon") talonbot.addStateToHistory(this.state, this.log, this.side);
-        
     },
+
     saveResult: function() {
         // Save game data to data base
         game = {
