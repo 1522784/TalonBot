@@ -117,7 +117,7 @@ function clone(parent, circular, depth, prototype, excludeKeys = []) {
 
     for (var i in parent) {
       if(parent.hasOwnProperty(i)) {
-        child[i] = excludeKeys.includes(i) ? parent[i] : _clone(parent[i], depth - 1, []);
+        child[i] = excludeKeys.includes(i) ? parent[i] : _clone(parent[i], depth - 1, [], excludeKeys);
       }
     }
 

@@ -22,7 +22,7 @@ var clone = require("./../../clone");
 
 var TeamSimulator = require("./teamsimulator")
 
-var teamSimulatorPool = new Map()
+var teamSimulatorPool = new Map();
 var startTime
 
 // Function that decides which move to perform
@@ -35,21 +35,30 @@ var decisionPropCalcer = require("./simpledecisionpropcalcer");
 var decide = module.exports.decide = function (battle, choices) {
 
     log.info("Starting move selection");
+    let teamSimulator = teamSimulatorPool.get(battle.id)
 
-    var mcts = new MCTS(new PokemonBattle(battle), 100, 0, choices, teamSimulatorPool.get(battle.id));
+    if(teamSimulator.history.length && teamSimulator.history[teamSimulator.history.length - 1].ownDecision){
+        log.info("Choose last decision: ")
+        log.info(teamSimulator.history[teamSimulator.history.length - 1].ownDecision);
+        return teamSimulator.history[teamSimulator.history.length - 1].ownDecision;
+    }
+
+    var mcts = new MCTS(new PokemonBattle(battle), 100, 0, choices, teamSimulator);
     try{
         var action = mcts.selectMove();
         mcts.destroy();
+        if(!action) throw new Error("Action undefined");
     }catch(e){
         debugger;
+        mcts = new MCTS(new PokemonBattle(battle), 100, 0, choices, teamSimulator);
         mcts.selectMove(); 
     }
     
     log.info("Given choices: " + JSON.stringify(choices));
     log.info("My action: " + action.type + " " + action.id);
-    lastMove = action.id;
+    lastMove = action.id;  
 
-    teamSimulatorPool.get(battle.id).addOwnDecisionToHistory(action);
+    teamSimulator.addOwnDecisionToHistory(action);
 
     var endTime = new Date(); 
     log.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
@@ -63,22 +72,11 @@ var decide = module.exports.decide = function (battle, choices) {
 var getTeam = module.exports.getTeam = function(format, opponent){
     return [
         {
-            name: "Caterpie",
-            species: "Caterpie",
-            moves: ["tackle"],
+            name: "Tauros", 
+            species: "Starmie",
+            moves: ["thunderwave"],
             ability: "None",
-            evs: { hp: 0, atk: 255, def: 0, spa: 255, spd: 255, spe: 255 },
-            ivs: { hp: 30, atk: 30, def: 30, spa: 30, spd: 30, spe: 30 },
-            item: '',
-            level: 100,
-            shiny: false
-        },
-        {
-            name: "Magikarp",
-            species: "Magikarp",
-            moves: ["tackle"],
-            ability: "None",
-            evs: { hp: 0, atk: 255, def: 0, spa: 255, spd: 255, spe: 255 },
+            evs: { hp: 255, atk: 255, def: 255, spa: 255, spd: 255, spe: 255 },
             ivs: { hp: 30, atk: 30, def: 30, spa: 30, spd: 30, spe: 30 },
             item: '',
             level: 100,
@@ -125,11 +123,12 @@ class Node {
         // Perform the move
         if(move !== null)
         {
-            this.game.performMove(this.move)
+            this.game.performMove(this.move);
+            if(this.game.isReadyForPlay()) this.game.playTurn(true);
         }
 
         // Moves for the current player
-        this.untried_actions = this.game.getPossibleMoves(this.game.current_player);
+        this.untried_actions = this.game.getPossibleMoves(this.game.player);
     }
 
     /** Get UCB1 upper bound on the utility of this node. */
@@ -138,8 +137,9 @@ class Node {
     }
 
     get_child(move) {
-        var gameclone = new PokemonBattle(cloneBattleState(this.game.battle));
+        var gameclone = new PokemonBattle(this.game.battle);
         gameclone.player = this.game.player;
+        gameclone.choices = clone(this.game.choices);
         //_.assign(new this.game.constructor(), _.cloneDeep(this.game))
         try{
             var child = new Node(gameclone, this, move, this.depth + 1, this.mcts)
@@ -165,7 +165,7 @@ class Node {
 
     /** Checks if all this node's actions have been tried */
     expanded() {
-        return this.children.size < this.maxChildren;
+        return this.game.getWinner() !== undefined || this.children.size < this.maxChildren;
     }
 
     get_winner() {
@@ -176,6 +176,20 @@ class Node {
         this.game.destroy();
         for(let child of this.children)
             child.destroy();
+    }
+
+    getDecisionLog(){
+        let decisionLog = "";
+        if(this.parent) decisionLog = this.parent.getDecisionLog();
+
+        if(!this.move) return decisionLog;
+
+        if(decisionLog.length) decisionLog += " --> ";
+        
+        let player_side = this.game.player === 0 ? this.game.battle.p1 : this.game.battle.p2;
+        decisionLog += BattleRoom.toChoiceString(this.move, player_side);
+
+        return decisionLog
     }
 }
 
@@ -191,6 +205,8 @@ class BeforeTeamSelectedNode extends Node {
     get_child(simulatedTeam) {
         var gameclone = new PokemonBattle(cloneBattleState(this.game.battle));
         simulatedTeam.completeBattle(gameclone.battle);
+        gameclone.player = this.game.player;
+        gameclone.choices = clone(this.game.choices);
 
         var child = new Node(gameclone, this, null, this.depth + 1, this.mcts, this.maxChildren)
 
@@ -216,12 +232,13 @@ class CurrentChoiceNode extends Node {
     }
 
     get_child(move) {
-        var gameclone = new PokemonBattle(cloneBattleState(this.game.battle));
+        var gameclone = new PokemonBattle(this.game.battle);
         gameclone.player = this.game.player;
+        gameclone.choices = clone(this.game.choices);
 
         //_.assign(new this.game.constructor(), _.cloneDeep(this.game))
         try{
-        var child = new BeforeTeamSelectedNode(gameclone, this, move, this.depth + 1, this.mcts, this.teamSimulator, this.maxChildren);
+            var child = new BeforeTeamSelectedNode(gameclone, this, move, this.depth + 1, this.mcts, this.teamSimulator, this.maxChildren);
         }
         catch(e){
             var player_side = this.game.player === 0 ? this.game.battle.p1 : this.game.battle.p2
@@ -244,7 +261,7 @@ class CurrentChoiceNode extends Node {
 
     /** Checks if all this node's actions have been tried */
     expanded() {
-        return this.untried_actions.size() === 0;
+        return this.game.getWinner() !== undefined || this.untried_actions.size() === 0;
     }
 
 }
@@ -281,7 +298,7 @@ class MCTS {
         this.player = player
 
         // Create a new root node
-        this.rootNode = new CurrentChoiceNode(game, null, null, 0, this, teamSimulator, 20)
+        this.rootNode = new CurrentChoiceNode(game, null, null, 0, this, teamSimulator, 60)
         if (choices)
         {
             this.rootNode.untried_actions = _(choices).castArray();
@@ -308,8 +325,10 @@ class MCTS {
             }
             
             // Rollout to maximum depth k, or terminus
-            var k = 6
-            while (node !== undefined && node.depth < k && node.get_winner() === undefined) {
+            var maxDepth = 3;
+            if(this.game.battle.currentRequest === "switch" && !this.game.battle.p1.request.wait) maxDepth++;
+            if(this.game.battle.currentRequest === "switch" && !this.game.battle.p2.request.wait) maxDepth++;
+            while (node !== undefined && node.depth < maxDepth && !node.expanded()) {
                 node = node.expand()
             }
 
@@ -327,14 +346,20 @@ class MCTS {
                 reward = (this.player === node.get_winner()) ? Math.pow(10,7) : -Math.pow(10,7)
             }
             else {
-                reward = node.game.heuristic()
+                try{
+                    reward = node.game.heuristic()
+                } catch(e){
+                    round--;
+                    continue;
+                }
             }
+            log.info(node.getDecisionLog(true) + " heuristic: " + reward);
 
             // Roll back up incrementing the visit counts and propagating score
             while (node) {
-                node.visits += 1
-                node.q = ((node.visits - 1)/node.visits) * node.q + 1/node.visits * reward
-                node = node.parent
+                node.visits++;
+                node.q = ((node.visits - 1)/node.visits) * node.q + 1/node.visits * reward;
+                node = node.parent;
             }
         }
 
@@ -349,7 +374,7 @@ class MCTS {
         }
         
         // Get the move with the highest visit count
-        return _(this.rootNode.children).maxBy('visits').move
+        return _(this.rootNode.children).maxBy('q').move
     }
 
     /** Gets the next node to be expanded.
@@ -364,10 +389,11 @@ class MCTS {
             }
         }
         return node;
-    }
+    } 
 
     /** Select a move according to the tree policy. */
     best_child(node) {
+        if(node === this.rootNode) return _(node.children).sample();
         return _(node.children).maxBy(this.tree_policy)
     }
 }
@@ -379,12 +405,24 @@ function PokemonBattle(battle) {
     this.battle = battle;
 
     this.player = 0;
+    this.choices = [];
 }
 
 PokemonBattle.prototype.getPossibleMoves = function () {
-    var current_player = this.player === 0 ? this.battle.p1 : this.battle.p2;
+    //Weird bug: Sometimes the method binds to the node object that calls this method binded to its property game
+    //No idea why that happens, but here's a workaround:
+    let self = this.game ? this.game : this;
 
-    this.battle.makeRequest();
+    if(self.getWinner() !== undefined) return undefined;
+
+    var current_player = self.player === 0 ? self.battle.p1 : self.battle.p2;
+
+    /*try{
+        self.battle.makeRequest();
+    }catch(e){
+        debugger;
+        self.battle.makeRequest();
+    }*/
 
     if (current_player.request.wait)
     {
@@ -406,35 +444,45 @@ PokemonBattle.prototype.performMove = function (action) {
     var player_string = this.player === 0 ? 'p1' : 'p2'
     var player_side = this.player === 0 ? this.battle.p1 : this.battle.p2
 
-    //Stupid workaround. For some reason this method returns 1 when switching in to a fainted Pokemon. Therefore we overwrite it
-    //let getChoiceIndexBackup = player_side.getChoiceIndex;
-    //player_side.getChoiceIndex = () => 0;
-
-    let choiceSuccess = this.battle.choose(player_string, BattleRoom.toChoiceString(action, player_side), this.battle.rqid);
-    
-    //player_side.getChoiceIndex = getChoiceIndexBackup;
-
-    if(!choiceSuccess){
-        debugger;
-        this.battle.makeRequest();
-        this.battle.choose(player_string, BattleRoom.toChoiceString(action, player_side), this.battle.rqid);
-        log.error(player_string);
-        log.error(player_side.choice);
-        log.error(action)
-        let err = player_side.choice.error;
-        player_side.emitChoiceError = (message) => log.error(message);
-        this.battle.choose(player_string, BattleRoom.toChoiceString(action, player_side), this.battle.rqid);
-
-        throw new Error(err);
-    }
+    if(action) this.choices.push({player: player_string, choiceString: BattleRoom.toChoiceString(action, player_side)});
+    //let choiceSuccess = this.battle.choose(player_string, BattleRoom.toChoiceString(action, player_side), this.battle.rqid);
 
     this.player = 1 - this.player;
 };
 
+PokemonBattle.prototype.isReadyForPlay = function(){
+    let numberOfActionsRequired = 0;
+    if (!this.battle.p1.request.wait) numberOfActionsRequired++;
+    if (!this.battle.p2.request.wait) numberOfActionsRequired++;
+    return this.choices.length >= numberOfActionsRequired 
+}
+
+PokemonBattle.prototype.playTurn = function(copyNeeded){
+    if(copyNeeded) this.battle = cloneBattleState(this.battle)
+
+    while(this.choices.length){
+        let choice = this.choices.pop()
+        if(!choice.choiceString) choice.choiceString = "";
+        let choiceSuccess = this.battle.choose(choice.player, choice.choiceString);
+
+        if(!choiceSuccess){
+            debugger;
+            this.battle[choice.player].clearChoice();
+            this.battle.makeRequest();
+            decisionPropCalcer.getRequestOptions(this.battle[choice.player].request);
+            this.battle.choose(choice.player, choice.choiceString, this.battle.rqid);
+    
+            throw new Error(this.battle[choice.player].choice.error);
+        }
+    }
+
+    this.player = 0;
+}
+
 // Check for a winner
 PokemonBattle.prototype.getWinner = function () {
     var playerAlive = _.some(this.battle.p1.pokemon, function (pokemon) { return pokemon.hp > 0; });
-    var opponentAlive = _.some(this.battle.p2.pokemon, function (pokemon) { return pokemon.hp > 0; });
+    var opponentAlive = _.some(this.battle.p2.pokemon, function (pokemon) { return pokemon.hp > 0; }) || this.battle.p2.pokemon.length < 6;
     if (!playerAlive || !opponentAlive) {
         return playerAlive ? 0 : 1;
     }
@@ -443,6 +491,30 @@ PokemonBattle.prototype.getWinner = function () {
 
 
 PokemonBattle.prototype.heuristic = function () {
+
+    let numTries = 0;
+    let err = undefined;
+    let maxTurns = 150;
+    while(numTries < 5){
+        try{
+            this.battle = cloneBattleState(this.battle);
+            while(this.getWinner() === undefined){
+                if(this.battle.p1.pokemon.length > 6 || this.battle.p2.pokemon.length > 6) debugger;
+                while(!this.isReadyForPlay()){
+                    this.performMove(decisionPropCalcer.randomChoice(this.getPossibleMoves()).decision)
+                }
+                this.playTurn(false)
+                if(this.battle.turn >= maxTurns) throw new Error("Max turns reached")
+            }
+            return this.getWinner() === 0 ? 1000 : -1000;
+        } catch(e){
+            debugger;
+            err = e;
+            numTries++;
+        }
+    }
+    throw err;
+
     // Aidan's Heuristic
     var p1_health = _.sum(_.map(this.battle.p1.pokemon, function (pokemon) {
         return !!pokemon.hp ? pokemon.hp / pokemon.maxhp * 100.0 : 0.0;

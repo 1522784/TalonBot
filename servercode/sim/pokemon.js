@@ -972,7 +972,7 @@ class Pokemon {
 			let stats = this.battle.spreadModify(this.template.baseStats, this.set);
 			if (!this.baseStats) this.baseStats = stats;
 			for (let statName in this.stats) {
-				// @ts-ignore
+				// @ts-ignore 
 				this.stats[statName] = stats[statName];
 				// @ts-ignore
 				this.baseStats[statName] = stats[statName];

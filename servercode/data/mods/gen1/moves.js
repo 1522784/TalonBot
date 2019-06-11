@@ -312,7 +312,6 @@ let BattleMovedex = {
 					this.effectData.duration++;
 				}
 				let moves = pokemon.moves;
-				console.log("Disable Pokemon " + pokemon.id + ". Moveset: " + pokemon.moves)
 				let move = this.getMove(this.sample(moves));
 				this.add('-start', pokemon, 'Disable', move.name);
 				this.effectData.move = move.id;

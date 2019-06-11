@@ -7,17 +7,20 @@ var TeamValidator = require("./../../servercode/sim/team-validator");
 var logState = require("./../../logState");
 
 class PossibleTeam {
-	constructor(battle, decisionPropCalcer, teamValidator, dex, lead) {
+	constructor(battle, decisionPropCalcer, teamValidator, dexData, dex, moveDex, lead) {
         let self = this;
         this.rank = 1;
         this.decisionPropCalcer = decisionPropCalcer;
 		/** @type {TeamValidator} */
         this.teamValidator = teamValidator;
+        this.dexData = dexData;
         this.dex = dex;
+        this.moveDex = moveDex
         this.requestsConsideredForRank = 0;
 
         this.team = [];
         this.confirmedTeam = [];
+        this.battleFormat = battle.format
 
         let leadIndex = battle.p2.pokemon.findIndex(poke => poke.speciesid === lead);
 
@@ -40,8 +43,8 @@ class PossibleTeam {
                 this.team[i].name = registeredPokemon.name;
                 this.team[i].level = registeredPokemon.level;
             } else {
-                this.team[i].name = this.team[i].species = this.decisionPropCalcer.getSpeciesChoice(this.team, dex)
-                this.team[i].level = this.decisionPropCalcer.getLevelChoice(this.team, i)
+                this.team[i].name = this.team[i].species = this.decisionPropCalcer.getSpeciesChoice(this.team, this.battleFormat, this.dexData, dex, this.moveDex)
+                this.team[i].level = this.decisionPropCalcer.getLevelChoice(this.team, this.battleFormat, this.dexData, this.dex, this.moveDex)
             }
 
             this.team[i].moves = [];
@@ -59,7 +62,7 @@ class PossibleTeam {
                 if(registeredPokemon && registeredPokemon.baseMoveSlots[j]){
                     this.team[i].moves[j] = registeredPokemon.baseMoveSlots[j].id;
                 } else {
-                    this.team[i].moves.push(this.decisionPropCalcer.getMoveChoice(this.team, j, legalMoveOptions).move);
+                    this.team[i].moves.push(this.decisionPropCalcer.getMoveChoice(this.team, legalMoveOptions, this.battleFormat, this.dexData, this.dex, this.moveDex).move);
                 }
 
             }
@@ -67,7 +70,7 @@ class PossibleTeam {
     
         this.updateTeamBuildingRank(battle.p2.pokemon);
             
-        //log.info("new Team: " + JSON.stringify(this.team));
+        log.info("new Team: " + JSON.stringify(this.team));
         //log.info(this.rank);
 
     }
@@ -105,7 +108,6 @@ class PossibleTeam {
         
         if(chosenOption.length === 0){
             debugger;
-            historyToken.state.p2.active[0].getRequestData();
             this.getOppReqest(historyToken.state);
             this.getChosenOption(historyToken, turnLog, options, ownSide, true);
             throw new Error("Chosen option for a turn can't be specified. Turnlog: " + turnLog + "\nOptions: " + options.map(option => option.decision.type + " " + option.decision.id) + "\nOpponent's request: " + JSON.stringify(request));
@@ -170,8 +172,8 @@ class PossibleTeam {
             battle.p2.pokemon[p].happiness = pokemon.happiness;
             battle.p2.pokemon[p].level = pokemon.level;
             battle.p2.pokemon[p].stats = pokemon.stats;
-            battle.p2.pokemon[p].getHealth = pokemon.getHealth;
-            battle.p2.pokemon[p].getDetails = pokemon.getDetails;
+            //battle.p2.pokemon[p].getHealth = pokemon.getHealth;
+            //battle.p2.pokemon[p].getDetails = pokemon.getDetails;
         }
 
         let activePokemonP2 = battle.p2.active[0];
@@ -186,14 +188,19 @@ class PossibleTeam {
                     activePokemonP2.moveSlots.push(baseMoveSlot);
                 });
         }
+        if(battle.p2.pokemon.length > 6) {
+            debugger;
+            let stillPossible = this.isStillPossible(battle);
+            isStillPossible;
+        }
         try{
             battle.makeRequest();
         } catch(e){
             debugger;
             battle.makeRequest();
             throw e;
-        }
-
+        } 
+ 
     }
 
     getChosenOption(historyToken, turnLog, options, ownSide, doLog = false){
@@ -280,9 +287,7 @@ class PossibleTeam {
             options = options.filter(option => option.decision.id.toString() === chosenMove.toString());
             return options;
         }
-
-        if(!options.length) throw new Error("Chosen option can't be identified. \nWe acted first? " + weActedFirst + "\n Turnlog: " + turnLog + "\nOwn speed: " + ownSpeed + "\n Opp speed: " + oppSpeed);
- 
+        
         return options;
     }
 
@@ -291,15 +296,18 @@ class PossibleTeam {
         
         //Find out whether we got new team information and if there is, multiply the rank by its decision probability
         for(let oppTeamIndex in opponentTeam){
-            let confirmedTeamIndex = this.confirmedTeam.findIndex(pokemon => pokemon.species && pokemon.species.toLowerCase() === opponentTeam[oppTeamIndex].species.toLowerCase());
+            let confirmedTeamIndex = this.confirmedTeam.findIndex(pokemon => pokemon.name && pokemon.name === opponentTeam[oppTeamIndex].name);
             let confirmedPokemon = this.confirmedTeam[confirmedTeamIndex];
 
             //If newly discovered opposing Pokemon
             if(confirmedTeamIndex === -1){
                 
                 //Mark as confirmed
-                confirmedTeamIndex = this.confirmedTeam.findIndex(pokemon => !pokemon.species);
-                if(confirmedTeamIndex === -1) throw new Error("Found new confirmed pokemon " + opponentTeam[oppTeamIndex].speciesid + " despite maximal team size already reached: " + this.confirmedTeam.length);
+                confirmedTeamIndex = this.confirmedTeam.findIndex(pokemon => !pokemon.name);
+                if(confirmedTeamIndex === -1) {
+                    debugger;
+                    throw new Error("Found new confirmed pokemon " + opponentTeam[oppTeamIndex].speciesid + " despite maximal team size already reached: " + this.confirmedTeam.length);
+                }
                 confirmedPokemon = this.confirmedTeam[confirmedTeamIndex];
                 confirmedPokemon.species = opponentTeam[oppTeamIndex].speciesid;
 
@@ -314,12 +322,12 @@ class PossibleTeam {
                 this.team[teamIndex].name = confirmedPokemon.name = opponentTeam[oppTeamIndex].name;
 
                 //Update species choice rank
-                let options = this.decisionPropCalcer.getSpeciesChoiceOptions(unfinishedTeam, this.dex);
+                let options = this.decisionPropCalcer.getSpeciesChoiceOptions(unfinishedTeam, this.battleFormat, this.dexData, this.dex, this.moveDex);
                 let decision = options.find(option => option.species === self.team[teamIndex].species);
                 this.rank = math.multiply(this.rank, decision.probability);
 
                 //Update level choice rank
-                options = this.decisionPropCalcer.getLevelChoiceOptions(unfinishedTeam);
+                options = this.decisionPropCalcer.getLevelChoiceOptions(unfinishedTeam, this.battleFormat, this.dexData, this.dex, this.moveDex);
                 decision = options.find(option => option.level === self.team[teamIndex].level);
                 this.rank = math.multiply(this.rank, decision.probability);
             }
@@ -355,7 +363,7 @@ class PossibleTeam {
                         let problems = self.teamValidator.validateSet({species: self.team[teamIndex].species, moves: unfinishedTeam[unfinishedTeamPokemonIndex].moves.concat(move)}, {});
                         return (!problems);
                     }).filter(move => !unfinishedTeam[unfinishedTeamPokemonIndex].moves.includes(move));
-                    let options = this.decisionPropCalcer.getMoveChoiceOptions(unfinishedTeam, unfinishedTeamPokemonIndex, legalMoveOptions);
+                    let options = this.decisionPropCalcer.getMoveChoiceOptions(unfinishedTeam, legalMoveOptions, this.battleFormat, this.dexData, this.dex, this.moveDex);
                     let decision = options.find(option => option.move.toLowerCase() === confirmedMove.toLowerCase());
                     if(!decision) debugger;
                     this.rank = math.multiply(this.rank, decision.probability); 

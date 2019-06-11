@@ -281,9 +281,7 @@ class Side {
 	}
 
 	isChoiceDone() {
-		if (!this.currentRequest) {
-			return true;
-		}
+		if (!this.currentRequest) return true;
 		if (this.choice.forcedSwitchesLeft) return false;
 
 		if (this.currentRequest === 'teampreview') {
