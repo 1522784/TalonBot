@@ -132,6 +132,7 @@ class PossibleTeam {
     }
 
     completeBattle(battle){
+        let self = this;
         for(const simPoke of this.team){
             let p = battle.p2.pokemon.findIndex(poke => poke.speciesid === simPoke.species);
             if(p === -1) p = battle.p2.pokemon.push(null) - 1;
@@ -140,7 +141,7 @@ class PossibleTeam {
                 name: simPoke.name,
                 species: simPoke.species,
                 level: simPoke.level,
-                moves: simPoke.moves
+                moves: simPoke.moves.map(move => self.dexData.Movedex[move])
             };
 
             if(battle.gen < 3){
@@ -174,6 +175,10 @@ class PossibleTeam {
             battle.p2.pokemon[p].stats = pokemon.stats;
             //battle.p2.pokemon[p].getHealth = pokemon.getHealth;
             //battle.p2.pokemon[p].getDetails = pokemon.getDetails;
+            if(battle.p2.pokemon[p].baseMoveSlots.some(moveSlot => moveSlot.pp % 1 !== 0)) {
+                debugger;
+                let a = new BattlePokemon(template, battle.p2);
+            }
         }
 
         let activePokemonP2 = battle.p2.active[0];
