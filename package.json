@@ -2,6 +2,7 @@
   "name": "showdownbot",
   "description": "AI bot for playing Pokemon Showdown.",
   "dependencies": {
+    "argparse": "^1.0.10",
     "body-parser": "^1.17.1",
     "commander": "2.x",
     "convnetjs": "^0.3.0",
@@ -15,10 +16,13 @@
     "nunjucks": "^3.1.7",
     "probe-image-size": "^4.0.0",
     "request": "2.x",
+    "socket.io": "~2.2.0",
     "sockjs": "0.3.18",
     "sockjs-client-ws": "0.1.0",
     "sugar": "^1.4.1",
+    "@tensorflow/tfjs-node": "^1.1.2",
     "underscore": "1.x",
+    "windows-build-tools": "^5.1.0",
     "word2vec": "1.1.4"
   },
   "engines": {
@@ -26,7 +30,8 @@
   },
   "scripts": {
     "start": "node bot.js",
-    "dev": "nodemon --inspect bot.js"
+    "dev": "nodemon --inspect bot.js",
+    "train": "For ($i=0; $i -le 10000000000; $i++) { node --inspect trainSelf }"
   },
   "devDependencies": {
     "@types/cloud-env": "^0.2.0",

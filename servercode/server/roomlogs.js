@@ -10,6 +10,9 @@
 'use strict';
 
 const FS = require('../lib/fs');
+const Config = {
+	logchat: null
+};
 
 /**
  * Most rooms have three logs:

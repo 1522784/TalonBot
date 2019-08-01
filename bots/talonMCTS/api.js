@@ -20,22 +20,26 @@ var minimaxbot = require("./../minimaxbot");
 var cloneBattleState = require("./../../cloneBattleState");
 var clone = require("./../../clone");
 
-var TeamSimulator = require("./teamsimulator")
+var TeamSimulator = require("./teamsimulator");
+var decisionPropCalcer = require("./simpledecisionpropcalcer");
 
 var teamSimulatorPool = new Map();
-var startTime
+module.exports.teamSimulatorPool = teamSimulatorPool;
+
+var TeamValidator = require("./../../servercode/sim/team-validator").Validator
+
+var startTime;
 
 // Function that decides which move to perform
 var overallMinNode = {};
 var lastMove = ''; 
 
-var decisionPropCalcer = require("./simpledecisionpropcalcer");
 
 //Decide what option to choose in a battle turn
 var decide = module.exports.decide = function (battle, choices) {
 
     log.info("Starting move selection");
-    let teamSimulator = teamSimulatorPool.get(battle.id)
+    let teamSimulator = teamSimulatorPool.get(battle.id);
 
     if(teamSimulator.history.length && teamSimulator.history[teamSimulator.history.length - 1].ownDecision){
         log.info("Choose last decision: ")
@@ -43,6 +47,10 @@ var decide = module.exports.decide = function (battle, choices) {
         return teamSimulator.history[teamSimulator.history.length - 1].ownDecision;
     }
 
+    if(choices.length === 1) {
+        teamSimulator.addOwnDecisionToHistory(choices[0]);
+        return choices[0];
+    }
     var mcts = new MCTS(new PokemonBattle(battle), 100, 0, choices, teamSimulator);
     try{
         var action = mcts.selectMove();
@@ -85,6 +93,11 @@ var getTeam = module.exports.getTeam = function(format, opponent){
     ]
 }
 
+var endBattle = module.exports.endBattle = function(battleId){
+    teamSimulatorPool.get(battleId).destroy();
+    teamSimulatorPool.delete(battleId);
+}
+
 module.exports.addStateToHistory = function(battleState, logs, ownSide){
     startTime = new Date();
 
@@ -97,6 +110,28 @@ module.exports.addStateToHistory = function(battleState, logs, ownSide){
     teamSimulator.addStateToHistory(battleState);
     teamSimulator.updateTeams(battleState, logs);
     teamSimulatorPool.set(battleState.id, teamSimulator);
+}
+
+module.exports.loadNets = async function(battle){
+    let format = battle.id.slice(7, -10)
+    let teamValidator = new TeamValidator(format);
+
+    let dexData = teamValidator.dex.loadData()
+    let dex = Object.keys(dexData.Pokedex); //Includes all species from all Gens
+    //log.info(dexData.Movedex)
+    let moveDex = [];
+    //for(let entry in dex) log.info(this.teamValidator.validateSet({species: dex[entry]}))
+    dex = dex.filter(entry => { 
+        let problems = teamValidator.validateSet({species: entry}, {});
+        return (problems.length === 1); //If it is legal, only one problem must exist: "Pokemon has no moves"
+    })
+    dex.forEach(poke => {
+        Object.keys(battle.getTemplate(poke).learnset).forEach(move => {
+            if(!moveDex.includes(move)) moveDex.push(move);
+        })
+    });
+    
+    await decisionPropCalcer.loadNets(format, dexData, dex, moveDex);
 }
 
 // ---- MCTS ALGORITHM
@@ -146,7 +181,7 @@ class Node {
         }
         catch(e){
             var player_side = this.game.player === 0 ? this.game.battle.p1 : this.game.battle.p2
-            throw new Error("Creating a new Child caused an error.\nParent depth: " + this.depth + "\nOptions" + this.untried_actions.concat({decision: move}).map(option => JSON.stringify(option.decision)) + "\nRequest: " + JSON.stringify(player_side.request) + "\nCaused by Error: " + e.stack)
+            throw new Error("Creating a new Child caused an error.\nParent depth: " + this.depth + "\nDecisionlog: " + this.getDecisionLog() + "\nOptions" + this.untried_actions.concat({decision: move}).map(option => option.decision.action + " " + option.decision.id) + "\nRequest: " + JSON.stringify(player_side.request) + "\nCaused by Error: " + e.stack)
         }
         this.children.push(child);
         return child;
@@ -242,7 +277,7 @@ class CurrentChoiceNode extends Node {
         }
         catch(e){
             var player_side = this.game.player === 0 ? this.game.battle.p1 : this.game.battle.p2
-            throw new Error("Creating a new Child caused an error.\nParent depth: " + this.depth + "\nOptions" + this.untried_actions.concat({decision: move}).map(option => option.decision.action + " " + option.decision.id) + "\nRequest: " + JSON.stringify(player_side.request) + "\nCaused by Error: " + e.stack)
+            throw new Error("Creating a new Child caused an error.\nParent depth: " + this.depth + "\nDecisionlog: " + this.getDecisionLog() + "\nOptions" + this.untried_actions.concat({decision: move}).map(option => option.decision.action + " " + option.decision.id) + "\nRequest: " + JSON.stringify(player_side.request) + "\nCaused by Error: " + e.stack)
         }
         this.children.push(child);
         return child;
@@ -339,21 +374,8 @@ class MCTS {
             }
 
             // Get the score of the node
-            var winner = node.get_winner()
-            var reward
-            if (winner !== undefined)
-            {
-                reward = (this.player === node.get_winner()) ? Math.pow(10,7) : -Math.pow(10,7)
-            }
-            else {
-                try{
-                    reward = node.game.heuristic()
-                } catch(e){
-                    round--;
-                    continue;
-                }
-            }
-            log.info(node.getDecisionLog(true) + " heuristic: " + reward);
+            let reward = node.game.heuristic()
+            //log.info(node.getDecisionLog(true) + " heuristic: " + reward);
 
             // Roll back up incrementing the visit counts and propagating score
             while (node) {
@@ -373,6 +395,7 @@ class MCTS {
             log.info("No children");
         }
         
+        if(!_(this.rootNode.children).maxBy('q')) debugger;
         // Get the move with the highest visit count
         return _(this.rootNode.children).maxBy('q').move
     }
@@ -417,19 +440,12 @@ PokemonBattle.prototype.getPossibleMoves = function () {
 
     var current_player = self.player === 0 ? self.battle.p1 : self.battle.p2;
 
-    /*try{
-        self.battle.makeRequest();
-    }catch(e){
-        debugger;
-        self.battle.makeRequest();
-    }*/
-
     if (current_player.request.wait)
     {
         return [{decision: null, probability: 1},]
     }
 
-    return decisionPropCalcer.getRequestOptions(current_player.request);
+    return decisionPropCalcer.getRequestOptions(self.battle, current_player.id);
 };
 
 PokemonBattle.prototype.destroy = function () {
@@ -469,7 +485,7 @@ PokemonBattle.prototype.playTurn = function(copyNeeded){
             debugger;
             this.battle[choice.player].clearChoice();
             this.battle.makeRequest();
-            decisionPropCalcer.getRequestOptions(this.battle[choice.player].request);
+            decisionPropCalcer.getRequestOptions(this.battle, choice.player);
             this.battle.choose(choice.player, choice.choiceString, this.battle.rqid);
     
             throw new Error(this.battle[choice.player].choice.error);
@@ -491,8 +507,14 @@ PokemonBattle.prototype.getWinner = function () {
 
 
 PokemonBattle.prototype.heuristic = function () {
+    if (this.getWinner() !== undefined){
+        return this.getWinner() === 0 ? 1000 : -1000;
+    }
 
-    let numTries = 0;
+    //let teamSimulator = teamSimulatorPool.get(this.battle.id);
+    //return decisionPropCalcer.evaluate(this.battle, this.battle.format, teamSimulator.dexData, teamSimulator.dex, teamSimulator.moveDex)
+
+    /*let numTries = 0;
     let err = undefined;
     let maxTurns = 150;
     while(numTries < 5){
@@ -513,7 +535,7 @@ PokemonBattle.prototype.heuristic = function () {
             numTries++;
         }
     }
-    throw err;
+    throw err;*/
 
     // Aidan's Heuristic
     var p1_health = _.sum(_.map(this.battle.p1.pokemon, function (pokemon) {
@@ -523,7 +545,7 @@ PokemonBattle.prototype.heuristic = function () {
         return !!pokemon.hp ? pokemon.hp / pokemon.maxhp * 100.0 : 0.0;
     }));
     
-    return (p1_health - p2_health) + 600;
+    return p1_health - p2_health;
     
     // Use minimax heuristic
     //return minimaxbot.eval(this.battle);

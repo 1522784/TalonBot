@@ -6,6 +6,8 @@ var log = require('log4js').getLogger("teamSimulator");
 var SpeciesNetwork = require("./networks/SpeciesNetwork");
 var MoveNetwork = require("./networks/MoveNetwork");
 var LevelNetwork = require("./networks/LevelNetwork");
+var MatchDecisionNetwork = require("./networks/MatchDecisionNetwork");
+var EvaluateNetwork = require("./networks/EvaluateNetwork1");
 
 //TODO: Replace mocked DecisionPropCalcer with neural network
 class SimpleDecisionPropCalcer {
@@ -13,6 +15,8 @@ class SimpleDecisionPropCalcer {
       this.speciesNetworkPool = new Map();
       this.moveNetworkPool = new Map();
       this.levelNetworkPool = new Map();
+      this.matchDecisionNetworkPool = new Map();
+      this.evaluateNetworkPool = new Map();
     }
 
     getMoveNetwork(battleFormat, dexData, dex, moveDex){
@@ -42,6 +46,24 @@ class SimpleDecisionPropCalcer {
       return speciesNetwork;
     }
 
+    getMatchDecisionNetwork(battleFormat, dexData, dex, moveDex){
+      let matchDecisionNetwork = this.matchDecisionNetworkPool.get(battleFormat);
+      if (matchDecisionNetwork) return matchDecisionNetwork;
+
+      matchDecisionNetwork = new MatchDecisionNetwork(battleFormat, dexData, dex, moveDex);
+      this.matchDecisionNetworkPool.set(battleFormat, matchDecisionNetwork);
+      return matchDecisionNetwork;
+    }
+
+    getEvaluateNetwork(battleFormat, dexData, dex, moveDex){
+      let evaluateNetwork = this.evaluateNetworkPool.get(battleFormat);
+      if (evaluateNetwork) return evaluateNetwork;
+
+      evaluateNetwork = new EvaluateNetwork(battleFormat, dexData, dex, moveDex);
+      this.evaluateNetworkPool.set(battleFormat, evaluateNetwork);
+      return evaluateNetwork;
+    }
+
     randomChoice(options){
       let propSum = options.map(option => option.probability).reduce((prop1, prop2) => math.add(prop1, prop2));
       let rand = math.random(0, propSum);
@@ -63,18 +85,7 @@ class SimpleDecisionPropCalcer {
       let network = this.getSpeciesNetwork(battleFormat, dexData, dex, moveDex);
       let speciesOptions = network.execTeam(team);
 
-      speciesOptions = speciesOptions.filter(option => noDuplicateDex.includes(option.species));
-      
-      /*let propsum = 0;
-      for(let i = 0; i < speciesOptions.length; i++){
-        propsum = math.add(propsum, speciesOptions[i].probability);
-      }
-      for(let i = 0; i < speciesOptions.length; i++){
-        speciesOptions[i].probability = math.multiply(math.divide(speciesOptions[i].probability, propsum), 100);
-      }*/
-
-      //log.info(speciesOptions);
-      return speciesOptions;
+      return speciesOptions.filter(option => noDuplicateDex.includes(option.species));
     }
 
     getMoveChoice(team, legalOptions, battleFormat, dexData, dex, moveDex){
@@ -85,18 +96,7 @@ class SimpleDecisionPropCalcer {
       let network = this.getMoveNetwork(battleFormat, dexData, dex, moveDex);
       let moveOptions = network.execTeam(team);
 
-      moveOptions = moveOptions.filter(option => legalOptions.includes(option.move));
-      
-      let propsum = 0;
-      /*for(let i = 0; i < moveOptions.length; i++){
-        propsum = math.add(propsum, moveOptions[i].probability);
-      }
-      for(let i = 0; i < moveOptions.length; i++){
-        moveOptions[i].probability = math.multiply(math.divide(moveOptions[i].probability, propsum), 100);
-      }*/
-
-      //log.info(moveOptions);
-      return moveOptions;
+      return moveOptions.filter(option => legalOptions.includes(option.move));
     }
 
     rememberBattleDecision(battlestate, options, decisionMade){
@@ -108,8 +108,10 @@ class SimpleDecisionPropCalcer {
 		  }
     }
 
-    getRequestOptions(request){
-      return BattleRoom.parseRequest(request).choices.map((option, index, arr) => {
+    getRequestOptions(battle, decisionMaker, request){
+      if(!request) request = battle[decisionMaker].request;
+      return this.getMatchDecisionNetwork(battle.format, battle.dataCache).getDecisionOdds(battle, decisionMaker, BattleRoom.parseRequest(request).choices);
+      return BattleRoom.parseRequest(battle[decisionMaker].request).choices.map((option, index, arr) => {
         return {
           decision: option,
           probability: math.divide(1, arr.length)
@@ -123,18 +125,20 @@ class SimpleDecisionPropCalcer {
 
     getLevelChoiceOptions(team, battleFormat, dexData, dex, moveDex){
       let network = this.getLevelNetwork(battleFormat, dexData, dex, moveDex);
-      let levelOptions = network.execTeam(team);
-      
-      let propsum = 0;
-      for(let i = 0; i < levelOptions.length; i++){
-        propsum = math.add(propsum, levelOptions[i].probability);
-      }
-      for(let i = 0; i < levelOptions.length; i++){
-        levelOptions[i].probability = math.multiply(math.divide(levelOptions[i].probability, propsum), 100);
-      }
+      return network.execTeam(team);
+    }
 
-      //log.info(levelOptions);
-      return levelOptions;
+    evaluate(battle, battleFormat, dexData, dex, moveDex){
+      let network = this.getEvaluateNetwork(battleFormat, dexData, dex, moveDex);
+      return network.evaluate(battle);
+    }
+
+    async loadNets(battleFormat, dexData, dex, moveDex){
+      this.getMoveNetwork(battleFormat, dexData, dex, moveDex);
+      this.getLevelNetwork(battleFormat, dexData, dex, moveDex);
+      this.getSpeciesNetwork(battleFormat, dexData, dex, moveDex);
+      await this.getMatchDecisionNetwork(battleFormat, dexData, dex, moveDex).load();
+      this.getEvaluateNetwork(battleFormat, dexData, dex, moveDex);
     }
 }
 

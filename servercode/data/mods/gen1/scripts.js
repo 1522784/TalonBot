@@ -39,6 +39,15 @@ let BattleScripts = {
 		modifyStat(stat, modifier) {
 			if (!(stat in this.stats)) return;
 			// @ts-ignore
+			if(stat === "spe"){
+				if(!this.speedModifierHistory) this.speedModifierHistory = [];
+				let e;
+				try{throw new Error}catch(er){e = er}
+				this.speedModifierHistory.push({
+					modifier: modifier,
+					stack: e.stack
+				});
+			}
 			this.modifiedStats[stat] = this.battle.clampIntRange(Math.floor(this.modifiedStats[stat] * modifier), 1, 999);
 		},
 		// In generation 1, boosting function increases the stored modified stat and checks for opponent's status.

@@ -12,7 +12,7 @@ module.exports = cloneBattleState;
  * @return {Battle}
  */
 function cloneBattleState(battleState){
-    let excludeThese = ["currentMod", "parentMod", "dataCache", "formatsCache", "templateCache", "moveCache", "itemCache", "abilityCache", "typeCache", "modsLoaded", "ModdedDex", "Data", "zMoveTable", "log", "inputLog", "format", "cachedFormat", "formatData", "itemData", "prng", "prngSeed", "teamGenerator", "template"];
+    let excludeThese = ["currentMod", "parentMod", "dataCache", "formatsCache", "templateCache", "moveCache", "itemCache", "abilityCache", "typeCache", "modsLoaded", "ModdedDex", "Data", "zMoveTable", "inputLog", "format", "cachedFormat", "formatData", "itemData", "prng", "prngSeed", "teamGenerator", "template"];
     
     let cloned =  clone(battleState, true, undefined, undefined, excludeThese);
 
