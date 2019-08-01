@@ -51,6 +51,7 @@ class PossibleTeam {
             for(let j = 0; j < 4; j++){
                 let legalMoveOptions = [];
                 let template = this.teamValidator.dex.getTemplate(this.team[i].species);
+                //Add learnable moves of preevolutions
                 for(; template.learnset; template = this.teamValidator.dex.getTemplate(template.prevo))
                     legalMoveOptions.push(...Object.keys(template.learnset).filter(m => !legalMoveOptions.includes(m)));
                 legalMoveOptions = legalMoveOptions.filter(move => { 
@@ -70,7 +71,7 @@ class PossibleTeam {
     
         this.updateTeamBuildingRank(battle.p2.pokemon);
             
-        log.info("new Team: " + JSON.stringify(this.team));
+        //log.info("new Team: " + JSON.stringify(this.team));
         //log.info(this.rank);
 
     }
@@ -88,10 +89,13 @@ class PossibleTeam {
             let historyIndex = index + self.requestsConsideredForRank - 1;
             let historyToken;
             if(historyIndex === -1) return;
-            historyToken = history[historyIndex];
+            historyToken = {
+                ownDecision: history[historyIndex].ownDecision,
+                state: cloneBattleState(history[historyIndex].state)
+            };
 
             this.updateRankForTurn(turnLog, historyToken, ownSide);
-
+            historyToken.state.destroy();
         });
 
         this.requestsConsideredForRank += pastRequests.length;
@@ -103,7 +107,7 @@ class PossibleTeam {
         if(request.wait) return;
 
         //Rank times probability for opponent chosing the option the opponent chose
-        let options = this.decisionPropCalcer.getRequestOptions(request);
+        let options = this.decisionPropCalcer.getRequestOptions(historyToken.state, "p2", request);
         let chosenOption = this.getChosenOption(historyToken, turnLog, options, ownSide);
         
         if(chosenOption.length === 0){
@@ -181,18 +185,23 @@ class PossibleTeam {
             }
         }
 
-        let activePokemonP2 = battle.p2.active[0];
+        for(let poke of battle.p2.pokemon){
+            if(poke.transformed) continue;
 
-        if(!activePokemonP2.transformed){
-            activePokemonP2.moveSlots = [];
-            activePokemonP2.baseMoveSlots.forEach(baseMoveSlot => {
-                    //When mimic is used, its moveSlot is replaced with a virtual move.
-                    if(baseMoveSlot.id === "mimic" && activePokemonP2.moveSlots.some(moveSlot => moveSlot.virtual)) return;
-    
-                    //if(!activePokemonP2.moveSlots.some(moveSlot => moveSlot.id === baseMoveSlot.id))
-                    activePokemonP2.moveSlots.push(baseMoveSlot);
-                });
+            let moveSlotsBackup = poke.moveSlots
+            poke.moveSlots = [];
+            poke.baseMoveSlots.forEach(baseMoveSlot => {
+                //When mimic is used, its moveSlot is replaced with a virtual move.
+                if(baseMoveSlot.id === "mimic" && moveSlotsBackup.some(moveSlot => moveSlot.virtual)) {
+                    poke.moveSlots.push(moveSlotsBackup.find(moveSlot => moveSlot.virtual));
+                    return;
+                } 
+
+                //if(!activePokemonP2.moveSlots.some(moveSlot => moveSlot.id === baseMoveSlot.id))
+                poke.moveSlots.push(baseMoveSlot);
+            });
         }
+
         if(battle.p2.pokemon.length > 6) {
             debugger;
             let stillPossible = this.isStillPossible(battle);
@@ -364,13 +373,27 @@ class PossibleTeam {
                     let template = this.teamValidator.dex.getTemplate(this.team[teamIndex].species.toLowerCase());
                     for(; template.learnset; template = this.teamValidator.dex.getTemplate(template.prevo))
                         legalMoveOptions.push(...Object.keys(template.learnset).filter(m => !legalMoveOptions.includes(m)));
-                    legalMoveOptions = legalMoveOptions.filter(move => { 
-                        let problems = self.teamValidator.validateSet({species: self.team[teamIndex].species, moves: unfinishedTeam[unfinishedTeamPokemonIndex].moves.concat(move)}, {});
-                        return (!problems);
-                    }).filter(move => !unfinishedTeam[unfinishedTeamPokemonIndex].moves.includes(move));
+                    legalMoveOptions = legalMoveOptions.filter(move => !unfinishedTeam[unfinishedTeamPokemonIndex].moves.includes(move));
+
+                    //RandomBattles sometimes give Pokemon illegal moves
+                    if(!legalMoveOptions.includes(confirmedMove.toLowerCase()) && this.battleFormat.includes("randombattle")) legalMoveOptions.push(confirmedMove.toLowerCase());
+                    
                     let options = this.decisionPropCalcer.getMoveChoiceOptions(unfinishedTeam, legalMoveOptions, this.battleFormat, this.dexData, this.dex, this.moveDex);
                     let decision = options.find(option => option.move.toLowerCase() === confirmedMove.toLowerCase());
-                    if(!decision) debugger;
+                    
+                    if(!decision) {
+                        debugger;
+                        let legalMoveOptions = [];
+                        let template = this.teamValidator.dex.getTemplate(this.team[teamIndex].species.toLowerCase());
+                        for(; template.learnset; template = this.teamValidator.dex.getTemplate(template.prevo))
+                            legalMoveOptions.push(...Object.keys(template.learnset).filter(m => !legalMoveOptions.includes(m)));
+                        legalMoveOptions = legalMoveOptions/*.filter(move => { 
+                            let problems = self.teamValidator.validateSet({species: self.team[teamIndex].species, moves: unfinishedTeam[unfinishedTeamPokemonIndex].moves.concat(move)}, {});
+                            return (!problems);
+                        })*/.filter(move => !unfinishedTeam[unfinishedTeamPokemonIndex].moves.includes(move));
+                        this.decisionPropCalcer.getMoveChoiceOptions(unfinishedTeam, legalMoveOptions, this.battleFormat, this.dexData, this.dex, this.moveDex);
+                    }
+
                     this.rank = math.multiply(this.rank, decision.probability); 
 
                 }

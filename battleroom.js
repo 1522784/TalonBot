@@ -25,6 +25,7 @@ let BattlePokemon = require('./servercode/sim/pokemon');
 // Get pokemon showdown data files
 let Abilities = require("./servercode/data/abilities").BattleAbilities;
 let Items = require("./servercode/data/items").BattleItems;
+let Pokemon = require("./servercode/sim/Pokemon");
  
 // Include underscore.js
 let _ = require("underscore");
@@ -38,10 +39,11 @@ let program = require('commander'); // Get Command-line arguments
 let Inference = require("./moves");
 
 let BattleRoom = new JS.Class({
-    initialize: function(id, sendfunc) {
+    initialize: function(id, sendfunc, makeMoveImmediatly) {
         this.id = id;
         this.title = "Untitled";
         this.send = sendfunc;
+        this.makeMoveImmediatly = makeMoveImmediatly;
 
         // Construct a battle object that we will modify as our st
         let format = id.slice(7, -10);
@@ -243,7 +245,7 @@ let BattleRoom = new JS.Class({
         //we are no longer newly switched (so we don't fakeout after the first turn)
         pokemon.activeTurns += 1;
         if(!this.isPlayer(player)) { //anticipate more about the Pokemon's moves
-            if(!pokemon.trueMoves.includes(toId(move)) && pokemon.trueMoves.length < 4) {
+            if(!pokemon.trueMoves.includes(toId(move)) && pokemon.trueMoves.length < 4 && toId(move) != "struggle") {
                 pokemon.trueMoves.push(toId(move));
             }
             if(!pokemon.moveSlots.some(moveSlot => moveSlot.id === toId(move))){
@@ -255,9 +257,8 @@ let BattleRoom = new JS.Class({
                 logger.info("add " + toId(move) + " to moveslots")
             }
         }
-        
-        let damage = null;
 
+        let damageDealt = false;
         //Remove randomness
         let getDamageBackup =  this.state.getDamage;
         this.state.getDamage = function(pokemon, target, move, suppressMessages){
@@ -287,16 +288,6 @@ let BattleRoom = new JS.Class({
                 return target.maxhp;
             }
     
-            // We edit the damage through move's damage callback if necessary.
-            if (move.damageCallback) {
-                return move.damageCallback.call(this, pokemon, target);
-            }
-    
-            // We take damage from damage=level moves (seismic toss).
-            if (move.damage === 'level') {
-                return pokemon.level;
-            }
-    
             // If there's a fix move damage, we return that.
             if (move.damage) {
                 return move.damage;
@@ -312,26 +303,22 @@ let BattleRoom = new JS.Class({
                 return pokemon.volatiles['partialtrappinglock'].damage;
             }
 
-            // We get the base power and apply basePowerCallback if necessary.
-		    /** @type {number | false | null} */
-		    let basePower = move.basePower;
-		    if (move.basePowerCallback) {
-			    basePower = move.basePowerCallback.call(this, pokemon, target, move);
-		    }
-		    if (!basePower) {
-			    return basePower === 0 ? undefined : basePower;
+            let basePower = move.basePower;
+            if (move.basePowerCallback) {
+                basePower = move.basePowerCallback.call(this, pokemon, target, move);
             }
-            basePower = this.clampIntRange(basePower, 1);
-            if (!basePower) return 0;
-
+            if (!basePower) {
+                return basePower === 0 ? undefined : basePower;
+            }
 
             //This was all non-random stuff. If the damage is calculated normally (with random variables), we look a few lines ahead
             //to read the damage and return it.
-            if(damage !== null) return damage;
             while(followingLines.length){
                 let line = followingLines[0];
                 followingLines = followingLines.slice(1);
                 let tokens = line.split('|');
+                
+                if(tokens[1] === "move") return false;
                 if(tokens[1] !== "-damage")
                     continue;
                 
@@ -356,35 +343,75 @@ let BattleRoom = new JS.Class({
                     return;
                 }
 
-                if(health == 0){ 
-                    damage = pokemon.hp;
+                if(health == 0){
                     return pokemon.hp;
                 } 
                 let newHP = Math.ceil(health / maxHealth * pokemon.maxhp);
-                damage = pokemon.hp - newHP;
+                damageDealt = true
                 return pokemon.hp - newHP;
             }
+            return false;
         };
+
+        let followingLinesCopy = clone(followingLines);
+        let sampleBackup = this.state.sample;
+        this.state.sample = function(items){
+            if(items[0] && items[0].volatiles) return sampleBackup.bind(this)(items);
+
+            while(followingLinesCopy.length){
+                let line = followingLinesCopy[0];
+                followingLinesCopy = followingLinesCopy.slice(1);
+                if(line.startsWith("|-start|")){
+                    let tokens = line.split("|");
+                    let moveName = tokens[4];
+                    return this.getMove(moveName).id;
+                } else if( line.startsWith("|-hitcount|")){
+                    let tokens = line.split("|");
+                    return parseInt(tokens[3]);
+                }
+            }
+        }
 
         let secondaryBackup = moveObj.secondary;
         moveObj.secondary = undefined;
         let secondariesBackup = moveObj.secondaries;
-        moveObj.secondaries = undefined;
+        if(moveObj.secondaries) moveObj.secondaries = moveObj.secondaries.map(secondary => {
+            secondary.chance = 0;
+            return secondary;
+        });
         let accuracyBackup = moveObj.accuracy;
         moveObj.accuracy = miss ? 0 : true;
 
-        let pokemonHasPar = pokemon.status === "par";
+        let statusBackup = pokemon.status;
         pokemon.status = "";
-        if(pokemonHasPar) debugger;
-        this.state.runMove(moveObj, pokemon, target, source);
+        let confusionBackup = pokemon.volatiles.confusion;
+        if(confusionBackup) delete pokemon.volatiles.confusion;
+
+        //if(["mimic"].includes(moveObj.id)) debugger;
+        try{
+            this.state.runMove(moveObj, pokemon, target, source);
+        } catch(e){
+            debugger;
+            throw e;
+        }
 
         this.state.getDamage = getDamageBackup;
+        this.state.sample = sampleBackup;
         moveObj.secondary = secondaryBackup;
         moveObj.secondaries = secondariesBackup;
         moveObj.accuracy = accuracyBackup;
-        if(pokemonHasPar) pokemon.status = "par"
+
+        pokemon.status = statusBackup;
+        if(confusionBackup) pokemon.volatiles.confusion = confusionBackup;
+
+        if(damageDealt) pokemon.removeVolatile("twoturnmove")
 
         logger.info("Remaining pp of move " + move + ": " + moveObj.pp)
+
+        /*if(this.state.gen === 1 && move === "Hyper Beam" && !target.hp){
+            logger.info("Mustrecharge removed from Pokemon because target fainted from hyperhyper");
+            pokemon.removeVolatile("mustrecharge");
+        } else if(move === "Hyper Beam") debugger;*/
 
     },
     updatePokemonOnCant: function(tokens) {
@@ -534,16 +561,42 @@ let BattleRoom = new JS.Class({
             return;
         }
 
+        let overwriteBoosts = pokemon.overwriteBoosts;
+        if(!overwriteBoosts) overwriteBoosts = {
+            accuracy: 0,
+            atk: 0,
+            def: 0,
+            evasion: 0,
+            spa: 0,
+            spd: 0,
+            spe: 0
+        };
+
         if(isBoost) {
-            if(stat in pokemon.boosts)
-                pokemon.boosts[stat] += boostCount;
-            else
-                pokemon.boosts[stat] = boostCount;
+            overwriteBoosts[stat] += boostCount;
         } else {
-            if(stat in pokemon.boosts)
-                pokemon.boosts[stat] -= boostCount;
-            else
-                pokemon.boosts[stat] = -boostCount;
+            overwriteBoosts[stat] -= boostCount;
+        }
+        if (overwriteBoosts[stat] > 6) {
+            overwriteBoosts[stat] = 6;
+        }
+        if (overwriteBoosts[stat] < -6) {
+            overwriteBoosts[stat] = -6;
+        }
+
+        pokemon.boosts = overwriteBoosts;
+        pokemon.overwriteBoosts = overwriteBoosts;
+
+        if(this.state.gen === 1){
+            pokemon.modifiedStats[stat] = pokemon.stats[stat];
+            // @ts-ignore
+            if (pokemon.boosts[stat] >= 0) {
+                // @ts-ignore
+                pokemon.modifyStat(stat, [1, 1.5, 2, 2.5, 3, 3.5, 4][pokemon.boosts[stat]]);
+            } else {
+                // @ts-ignore
+                pokemon.modifyStat(stat, [100, 66, 50, 40, 33, 28, 25][-pokemon.boosts[stat]] / 100);
+            }
         }
         this.updatePokemon(battleside, pokemon);
     },
@@ -693,10 +746,16 @@ let BattleRoom = new JS.Class({
         if(newStatus) {
             let success = pokemon.setStatus(status);
 
-            if(this.state.gen === 1){
-                if (status === 'brn') pokemon.modifyStat('atk', 0.5);
+            if(this.state.gen === 1 && success){
+                if (status === 'brn') {
+                    pokemon.modifyStat('atk', 0.5);
+                    pokemon.addVolatile('brnattackdrop');
+                }
                 // @ts-ignore
-                if (status === 'par') pokemon.modifyStat('spe', 0.25);
+                if (status === 'par') {
+                    pokemon.modifyStat('spe', 0.25);
+                    pokemon.addVolatile('parspeeddrop');
+                }
             }
         } else {
             //heal a Pokemon's status
@@ -828,6 +887,7 @@ let BattleRoom = new JS.Class({
                     }
 
                     if(!program.nosave) this.saveResult();
+                    if(program.algorithm === "talon") talonbot.endBattle(this.id);
 
                     // Leave in two seconds
                     let battleroom = this;
@@ -911,8 +971,8 @@ let BattleRoom = new JS.Class({
         if(this.state.p1.pokemon.some(poke => poke.hp === 0 && !poke.faintMarkerFromBattleRoom) || 
             this.state.p2.pokemon.some(poke => poke.hp === 0 && !poke.faintMarkerFromBattleRoom)){
                 debugger;
-                this.state = this.previousState;
-                this.recieve(data);
+                //this.state = this.previousState;
+                //this.recieve(data);
             }
 
         let p1MustSwitch = this.state.p1.active.some(poke => poke.switchFlag);
@@ -951,10 +1011,15 @@ let BattleRoom = new JS.Class({
 
         if (request.side) this.updateSide(request);
 
-        if (request.active) logger.info(this.title + ": I need to make a move.");
+        if (request.active) {
+            for(let i in request.active)
+                this.state.p1.active[i].moveSlots = request.active[i].moves;
+            logger.info(this.title + ": I need to make a move.");
+        }
         if (request.forceSwitch){
             logger.info(this.title + ": I need to make a switch.");
         }
+        
 
         if (!!request.active || !!request.forceSwitch) this.makeMove(request);
     },
@@ -1044,10 +1109,11 @@ let BattleRoom = new JS.Class({
     },
 
     /** Function which is called when our client is asked to make a move */
-    makeMove: function(request) {
+    makeMove: async function(request) {
         let room = this;
 
-        setTimeout(function() {
+        if(program.algorithm === "talon" && !this.makeMoveImmediatly) await talonbot.loadNets(room.state);
+        let makeMoveFunction = function() {
             room.orderOwnPokemon(request);
 
             if(program.net === "update") {
@@ -1070,7 +1136,13 @@ let BattleRoom = new JS.Class({
 
             room.decisions.push(result);
             room.send("/choose " + BattleRoom.toChoiceString(result, room.state.p1) + "|" + decision.rqid, room.id);
-        }, 7500);
+        };
+
+        if(this.makeMoveImmediatly){
+            makeMoveFunction();
+        } else {
+            setTimeout(makeMoveFunction, 7500);
+        }
     },
 
     //Order Pokemon in array this.state.p1.pokemon to match the order in the parameter request

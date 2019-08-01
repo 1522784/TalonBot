@@ -6,7 +6,7 @@ program
 	.option('--port [port]', 'The port on which to serve the web console. [3000]', "3000")
 	.option('--ranked', 'Challenge on the ranked league.')
 	.option('--net [action]', "'create' - generate a new network. 'update' - use and modify existing network. 'use' - use, but don't modify network. 'none' - use hardcoded weights. ['none']", 'none')
-	.option('--algorithm [algorithm]', "Can be 'minimax', 'mcts', 'samcts', 'expectimax', 'greedy', or 'random'. ['samcts']", "talon")
+	.option('--algorithm [algorithm]', "Can be 'talon', 'minimax', 'mcts', 'samcts', 'expectimax', 'greedy', or 'random'. ['samcts']", "talon")
 	.option('--account [file]', "File from which to load credentials. ['account.json']", "account.json")
 	.option('--nosave', "Don't save games to the in-memory db.")
 	.option('--nolog', "Don't append to log files.")

@@ -121,7 +121,8 @@ app.get('/search', function(req, res){
 });
 
 var port = parseInt(program.port);
-app.listen(port);
+let err = undefined;
+//app.listen(port);
 log.info("Started web console on port " + port + "...");
 
 module.exports = app;

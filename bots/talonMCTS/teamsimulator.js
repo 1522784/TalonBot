@@ -23,7 +23,7 @@ class TeamSimulator{
         this.dexData = this.teamValidator.dex.loadData()
         this.dex = Object.keys(this.dexData.Pokedex); //Includes all species from all Gens
         //log.info(dexData.Movedex)
-        this.moveDex = []
+        this.moveDex = [];
         //for(let entry in dex) log.info(this.teamValidator.validateSet({species: dex[entry]}))
         this.dex = this.dex.filter(entry => { 
             let problems = self.teamValidator.validateSet({species: entry}, {});
@@ -42,10 +42,6 @@ class TeamSimulator{
         for(let i = 0; i<teamNum; i++){
             if(i%(teamNum/10) === 0) log.info("Team creation " + (i*100/teamNum) + "% complete");
 
-            /*Stupid workaround. If we calculate too long the client disconnects beacause it can't respond. 
-            But if we disconnect actively and reconnect when we send something, it disconnects right before,
-            we send it and not before giving us time to calculate.*/
-
             this.teamStore.push(new PossibleTeam(battle, decisionPropCalcer, this.teamValidator, this.dexData, this.dex, this.moveDex, this.lead));
         }
     }
@@ -62,28 +58,33 @@ class TeamSimulator{
     }
 
     addOwnDecisionToHistory(decision){
+        if(!decision) debugger;
         let historyToken = this.history[this.history.length-1]
         historyToken.ownDecision = decision;
     }
 
     getHistory(){
-        return this.history.map(historyToken => {
-            let clonedState = cloneBattleState(historyToken.state);
-            return {
-                state: clonedState,
-                ownDecision: historyToken.ownDecision
-            };
-        });
+        return this.history;
     }
 
     updateTeams(battle, logs){
-        bot.leave(battle.id);
+        //bot.leave(battle.id);
+        let exceptionCount = 0;
         for(let i = 0; i<this.teamStore.length; i++){
-            if(i%(this.teamStore.length/10) === 0) log.info("Updating teams " + (i*100/this.teamStore.length) + "% complete");
+            //if(i%(this.teamStore.length/10) === 0) log.info("Updating teams " + (i*100/this.teamStore.length) + "% complete");
 
             if(!this.teamStore[i].isStillPossible(battle, logs))
                 this.teamStore[i] = new PossibleTeam(battle, decisionPropCalcer, this.teamValidator, this.dexData, this.dex, this.moveDex, this.lead);
-            this.teamStore[i].updateRank(battle, logs, this.getHistory(), this.ownSide);
+            try{
+                this.teamStore[i].updateRank(battle, logs, this.getHistory(), this.ownSide);
+            } catch(e){
+                if(e.toString().startsWith("Chosen option for a turn can't be specified.")){
+                    this.teamStore[i] = new PossibleTeam(battle, decisionPropCalcer, this.teamValidator, this.dexData, this.dex, this.moveDex, this.lead);
+                    i--;
+                    exceptionCount ++;
+                    if(exceptionCount > 10) throw e;
+                }
+            }
         }
     }
 
@@ -106,6 +107,11 @@ class TeamSimulator{
     isBattleAlreadySaved(logs){
         if(this.history.length === 0) return false;
         return logs.split("\n\n").length <= this.history[this.history.length - 1].state.logs.split("\n\n").length;
+    }
+
+    destroy(){
+        for(let battle of this.history.map(historyToken => historyToken.state))
+            battle.destroy();
     }
 }
 
