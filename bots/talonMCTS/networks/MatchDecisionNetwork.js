@@ -89,6 +89,7 @@ class MatchDecisionNetwork {
         if (option.type === "switch"){
           let species = battle[decisionMaker].pokemon[option.id].template.id;
           outputLayerIndex = this.pokedex.indexOf(species);
+          option.species = species;
         } else {
           outputLayerIndex = this.pokedex.length + this.movedex.indexOf(option.id);
         }
@@ -251,9 +252,7 @@ class MatchDecisionNetwork {
         this.net = await tf.loadLayersModel('file:///' + savePath);
       } else {
         this.net = tf.sequential();
-        this.net.add(tf.layers.dense({units: 800, activation: 'sigmoid', inputShape: [19760]}));
-        this.net.add(tf.layers.dense({units: 600, activation: 'sigmoid'}));
-        this.net.add(tf.layers.dense({units: this.outputLayer.length, activation: 'sigmoid', outputShape: [this.outputLayer.length]}));
+        this.net.add(tf.layers.dense({units: this.outputLayer.length, activation: 'sigmoid', inputShape: [19760], outputShape: [this.outputLayer.length]}));
       }
       this.net.compile({
         optimizer: "sgd",

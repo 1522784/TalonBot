@@ -9,7 +9,7 @@ let decisionProbCalcer = require("./bots/talonMCTS/simpledecisionpropcalcer");
 var _ = require('lodash');
 
 const FORMAT = "gen1randombattle";
-const ITERATIONS = 3;
+const ITERATIONS = 1;
 
 let teamValidator = new TeamValidator(FORMAT);
 let teamGenerator = teamValidator.dex.getTeamGenerator(FORMAT);
@@ -27,7 +27,7 @@ dex.forEach(poke => {
         if(!moveDex.includes(move)) moveDex.push(move);
     })
 });
-//let evaluateNet = decisionProbCalcer.getEvaluateNetwork(FORMAT, dexData, dex, moveDex);
+let evaluateNet = decisionProbCalcer.getEvaluateNetwork(FORMAT, dexData, dex, moveDex);
 let decisionNet = decisionProbCalcer.getMatchDecisionNetwork(FORMAT, dexData, dex, moveDex);
 
 RoomLogs.sharedModlogs.set("", {})
@@ -42,7 +42,9 @@ let successfulRuns = 0;
 let errorRate = 0;
 let lastTestData;
 
-decisionNet.load().then(() => {
+let promise = Promise.all([evaluateNet.load(), decisionNet.load()]);
+
+promise.then(() => {
 
     OUTER:
     while(battlenum < (100000000 + ITERATIONS * 2)){
@@ -165,11 +167,23 @@ decisionNet.load().then(() => {
                 }
             }
     
-            console.log("Battle is finished. Train neural net.")
+            console.log("Battle is finished. Train neural net.");
     
+            //Get winner
+            let winner = battle.winner === "Player 1" ? "p1" : "p2";
     
-            let decisionNet = decisionProbCalcer.getMatchDecisionNetwork(FORMAT, dexData, dex, moveDex);
-            for(let historyToken of battleHistory){
+            //evaluateNet.load();
+            for(let trainDataNum = 0; trainDataNum < 10; trainDataNum ++){
+                let historyIndex = math.floor(math.sqrt(math.randomInt(0, battleHistory.length * battleHistory.length)));
+                let historyToken = battleHistory[historyIndex];
+                let ownSide = (trainDataNum % 2 === 0) ? "p1" : "p2";
+                evaluateNet.addToTrainData(battleHistory[historyIndex].state, ownSide, winner);
+                lastTestData = {
+                    state: cloneBattleState(battleHistory[historyIndex].state),
+                    ownSide: ownSide,
+                    winner: winner    
+                };
+
                 if(historyToken.p1Decision){
                     let parsed =  BattleRoom.parseRequest(historyToken.state.p1.request);
                     if(parsed.choices) parsed = parsed.choices;
@@ -181,21 +195,6 @@ decisionNet.load().then(() => {
                     decisionNet.addToTrainData(historyToken.state, "p2", parsed, historyToken.p2Decision);
                 }
             }
-    
-            //Get winner
-            /*let winner = battle.winner === "Player 1" ? "p1" : "p2";
-    
-            //evaluateNet.load();
-            for(let trainDataNum = 0; trainDataNum < 6; trainDataNum ++){
-                let historyIndex = math.floor(math.sqrt(math.randomInt(0, battleHistory.length * battleHistory.length)));
-                let ownSide = (trainDataNum % 2 === 0) ? "p1" : "p2";
-                evaluateNet.addToTrainData(battleHistory[historyIndex].state, ownSide, winner);
-                lastTestData = {
-                    state: cloneBattleState(battleHistory[historyIndex].state),
-                    ownSide: ownSide,
-                    winner: winner    
-                };
-            }*/
             //evaluateNet.save();
     
             successfulRuns++;
@@ -213,16 +212,14 @@ decisionNet.load().then(() => {
         battlenum += 2;
         errorRate = math.divide(errors.length, successfulRuns + errors.length);
     }
-    let promise = decisionNet.load().then(() => {
-        decisionNet.train();
-    })
+    let promise = Promise.all([decisionNet.train(), evaluateNet.train()]);
     
     promise
     .then(() => {
-        decisionNet.save().then(() => {
+        Promise.all([evaluateNet.save(), decisionNet.save()]).then(() => {
             debugger;
 
-            /*let winchance = evaluateNet.evaluate(lastTestData.state, lastTestData.ownSide);
+            let winchance = evaluateNet.evaluate(lastTestData.state, lastTestData.ownSide);
             let expected = lastTestData.ownSide === lastTestData.winner ? 1 : 0;
             let diff = winchance - expected;
             if(diff < 0) diff = -diff;
@@ -235,7 +232,7 @@ decisionNet.load().then(() => {
             }));
             let healthAdvantage = math.divide(p1_health, p2_health);
             if(lastTestData.winner === "p2") healthAdvantage = math.divide(1, healthAdvantage);
-            console.log("Health advantage for winner: " + healthAdvantage);*/
+            console.log("Health advantage for winner: " + healthAdvantage);
         })
         .catch((e) => {
             debugger;

@@ -17,6 +17,7 @@ class SimpleDecisionPropCalcer {
       this.levelNetworkPool = new Map();
       this.matchDecisionNetworkPool = new Map();
       this.evaluateNetworkPool = new Map();
+      this.timeSinceLastLog = Date.now();
     }
 
     getMoveNetwork(battleFormat, dexData, dex, moveDex){
@@ -110,7 +111,12 @@ class SimpleDecisionPropCalcer {
 
     getRequestOptions(battle, decisionMaker, request){
       if(!request) request = battle[decisionMaker].request;
-      return this.getMatchDecisionNetwork(battle.format, battle.dataCache).getDecisionOdds(battle, decisionMaker, BattleRoom.parseRequest(request).choices);
+      let options = this.getMatchDecisionNetwork(battle.format, battle.dataCache).getDecisionOdds(battle, decisionMaker, BattleRoom.parseRequest(request).choices);
+      /*if(Date.now() - this.timeSinceLastLog > 10000){
+        console.log(options);
+        this.timeSinceLastLog = Date.now();
+      }*/
+      return options;
       return BattleRoom.parseRequest(battle[decisionMaker].request).choices.map((option, index, arr) => {
         return {
           decision: option,
