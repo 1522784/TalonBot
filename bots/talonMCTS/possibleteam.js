@@ -248,7 +248,7 @@ class PossibleTeam {
         let ownSpeed = ownPokemon ? ownPokemon.getActionSpeed() : 10000;
         let oppPokemon = historyToken.state.p2.pokemon.find(pokemon => pokemon.isActive);
         let oppSpeed = oppPokemon ? oppPokemon.getActionSpeed() : 10000;
-        if(doLog) log.info("Turnlog: " + turnLog + "\nWe acted first? " + weActedFirst + "Own speed: " + ownSpeed + " opponent's speed: " + oppSpeed);
+        //if(doLog) log.info("Turnlog: " + turnLog + "\nWe acted first? " + weActedFirst + "Own speed: " + ownSpeed + " opponent's speed: " + oppSpeed);
         //log.info("We acted first? " + weActedFirst + "\n Turnlog: " + turnLog + "\nOwn speed: " + ownSpeed + "\n Opp speed: " + oppSpeed)
 
         //Step 3: Filter out all options with an priority that would result in a different action order 
@@ -273,7 +273,7 @@ class PossibleTeam {
             return false;
         }
         options = options.filter(canOptionBeChosenBasedOnPriority);
-        if(doLog) log.info("Remaining options after filtering wrong order: " + options.map(option => option.decision));
+        //if(doLog) log.info("Remaining options after filtering wrong order: " + options.map(option => option.decision));
 
         //if(!options.length) throw new Error("Move order wrong. \nWe acted first? " + weActedFirst + "\n Turnlog: " + turnLog + "\nOwn speed: " + ownSpeed + "\n Opp speed: " + oppSpeed);
 

@@ -38,12 +38,12 @@ var lastMove = '';
 //Decide what option to choose in a battle turn
 var decide = module.exports.decide = function (battle, choices) {
 
-    log.info("Starting move selection");
+    //log.info("Starting move selection");
     let teamSimulator = teamSimulatorPool.get(battle.id);
 
     if(teamSimulator.history.length && teamSimulator.history[teamSimulator.history.length - 1].ownDecision){
-        log.info("Choose last decision: ")
-        log.info(teamSimulator.history[teamSimulator.history.length - 1].ownDecision);
+        //log.info("Choose last decision: ")
+        //log.info(teamSimulator.history[teamSimulator.history.length - 1].ownDecision);
         return teamSimulator.history[teamSimulator.history.length - 1].ownDecision;
     }
 
@@ -62,14 +62,14 @@ var decide = module.exports.decide = function (battle, choices) {
         mcts.selectMove(); 
     }
     
-    log.info("Given choices: " + JSON.stringify(choices));
-    log.info("My action: " + action.type + " " + action.id);
+    //log.info("Given choices: " + JSON.stringify(choices));
+    //log.info("My action: " + action.type + " " + action.id);
     lastMove = action.id;  
 
     teamSimulator.addOwnDecisionToHistory(action);
 
     var endTime = new Date(); 
-    log.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
+    //log.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
 
     return {
         type: action.type,
@@ -388,11 +388,11 @@ class MCTS {
         if (this.rootNode.children.length > 0)
         {
             var action_string = JSON.stringify(_.map(this.rootNode.children, function(n){return [n.move, n.q, n.visits]}))
-            log.info("Action scores: " + action_string);
+            //log.info("Action scores: " + action_string);
         }
         else
         {
-            log.info("No children");
+            //log.info("No children");
         }
         
         if(!_(this.rootNode.children).maxBy('q')) debugger;

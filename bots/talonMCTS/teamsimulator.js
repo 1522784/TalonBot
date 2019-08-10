@@ -11,7 +11,7 @@ var math = require("mathjs");
 class TeamSimulator{
     
     constructor(teamNum, battle, ownSide) {
-        log.info("new Teamsimulator")
+        //log.info("new Teamsimulator")
         let self = this;
 
         this.teamStore = [];
@@ -40,7 +40,7 @@ class TeamSimulator{
 
         bot.leave(battle.id);
         for(let i = 0; i<teamNum; i++){
-            if(i%(teamNum/10) === 0) log.info("Team creation " + (i*100/teamNum) + "% complete");
+            //if(i%(teamNum/10) === 0) log.info("Team creation " + (i*100/teamNum) + "% complete");
 
             this.teamStore.push(new PossibleTeam(battle, decisionPropCalcer, this.teamValidator, this.dexData, this.dex, this.moveDex, this.lead));
         }
@@ -48,7 +48,7 @@ class TeamSimulator{
 
     addStateToHistory(battleState){
         if(this.isBattleAlreadySaved(battleState.logs)) {
-            log.info("Battle already saved. Battlelog: " + battleState.logs + "\nprevious Battlelog: " + this.history[this.history.length - 1].state.logs)
+            //log.info("Battle already saved. Battlelog: " + battleState.logs + "\nprevious Battlelog: " + this.history[this.history.length - 1].state.logs)
             return;
         }
 

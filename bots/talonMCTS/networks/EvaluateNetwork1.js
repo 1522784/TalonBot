@@ -80,7 +80,7 @@ class EvaluateNetwork {
      */
     setInput(battle, weAre){
       //BIAS neuron
-      this.inputLayer = [[], []];
+      this.inputLayer = [];
       
       //Set order. Decisionmaker is defined in the first input half.
       let sides = weAre === "p1" ? [battle.p1, battle.p2] : [battle.p2, battle.p1];
@@ -107,7 +107,6 @@ class EvaluateNetwork {
           });
           for(let i = 0; i < speciesInput.length; i++) speciesInput[i] = 0;
           speciesInput[speciesIndex] = 1;
-          this.inputLayer[sideIndex].push(...speciesInput);
           
           for(let i = 0; i < baseMoveSlotInput.length; i++) baseMoveSlotInput[i] = 0;
           //debugger;
@@ -116,22 +115,22 @@ class EvaluateNetwork {
             baseMoveSlotInput[inputIndex] = 1;
             //baseMoveSlotInput[inputIndex + 1] = baseMoveSlot.pp;
           }
-          this.inputLayer[sideIndex].push(...baseMoveSlotInput);
+          this.inputLayer.push(...baseMoveSlotInput);
 
           for(let i = 0; i < levelInput.length; i++) levelInput[i] = 0;
           //debugger;
           levelInput[pokemon.level - 1] = 1;
-          this.inputLayer[sideIndex].push(...levelInput);
+          this.inputLayer.push(...levelInput);
 
           for(let i = 0; i < hpInput.length; i++) hpInput[i] = 0;
           for(let i = 0; i < pokemon.hp; i++) hpInput[i] = 1;
-          this.inputLayer[sideIndex].push(...hpInput);
+          this.inputLayer.push(...hpInput);
 
           for(let i = 0; i < simpleStatProbInput.length; i++) simpleStatProbInput[i] = 0;
           //debugger;
           let statusIndex = this.simpleStatusProblems.indexOf(pokemon.status);
           if(statusIndex !== -1) simpleStatProbInput[statusIndex] = 1;
-          this.inputLayer[sideIndex].push(...simpleStatProbInput);
+          this.inputLayer.push(...simpleStatProbInput);
 
           for(let i = 0; i < durationBasedStatProbInput.length; i++) durationBasedStatProbInput[i] = 0;
           //debugger;
@@ -140,7 +139,7 @@ class EvaluateNetwork {
             durationBasedStatProbInput[statusIndex * 2] = 1;
             durationBasedStatProbInput[statusIndex * 2 + 1] = pokemon.statusData.time;
           }
-          this.inputLayer[sideIndex].push(...durationBasedStatProbInput);
+          this.inputLayer.push(...durationBasedStatProbInput);
 
           for(let i = 0; i < moveSlotInput.length; i++) moveSlotInput[i] = 0;
           //debugger;
@@ -148,14 +147,14 @@ class EvaluateNetwork {
           for(let trueMove of pokemon.trueMoves){
             moveSlotInput[this.movedex.indexOf(trueMove)] = 1;
           }
-          this.inputLayer[sideIndex].push(...moveSlotInput);
+          this.inputLayer.push(...moveSlotInput);
 
           for(let i = 0; i < typesInput.length; i++) typesInput[i] = 0;
           //debugger;
           for(let type of pokemon.types){
             typesInput[this.typeDex.indexOf(type)] = 1;
           }
-          this.inputLayer[sideIndex].push(...typesInput);
+          this.inputLayer.push(...typesInput);
 
           if(side.active.includes(pokemon)){
             for(let i = 0; i < simpleVolatileInput.length; i++) simpleVolatileInput[i] = 0;
@@ -164,7 +163,7 @@ class EvaluateNetwork {
               let index = this.simpleVolatiles.indexOf(volatile);
               if(index !== -1) simpleVolatileInput[index] = 1;
             }
-            this.inputLayer[sideIndex].push(...simpleVolatileInput);
+            this.inputLayer.push(...simpleVolatileInput);
 
             for(let i = 0; i < durationBasedVolatileInput.length; i++) durationBasedVolatileInput[i] = 0;
             //debugger;
@@ -178,27 +177,28 @@ class EvaluateNetwork {
                 durationBasedVolatileInput[index * 2 + 1] = time;
               }
             }
-            this.inputLayer[sideIndex].push(...durationBasedVolatileInput);
+            this.inputLayer.push(...durationBasedVolatileInput);
 
             if(pokemon.volatiles.substitute){
-              this.inputLayer[sideIndex].push(1, pokemon.volatiles.substitute.hp)
+              this.inputLayer.push(1, pokemon.volatiles.substitute.hp)
             } else {
-              this.inputLayer[sideIndex].push(0, 0)
+              this.inputLayer.push(0, 0)
             }
 
             for(let i = 0; i < boostsInput.length; i++) {
               boostsInput[i] = pokemon.boosts[["accuracy", "evasion", "atk", "def", "spa", "spd", "spe"][i]]
             }
-            this.inputLayer[sideIndex].push(...boostsInput);
+            this.inputLayer.push(...boostsInput);
 
             for(let i = 0; i < modifiedStatsInput.length; i++) {
               modifiedStatsInput[i] = pokemon.modifiedStats[["atk", "def", "spa", "spd", "spe"][i]]
             }
-            this.inputLayer[sideIndex].push(...modifiedStatsInput);
+            this.inputLayer.push(...modifiedStatsInput);
 
           }
         }
       }
+      while(this.inputLayer.length < 19760) this.inputLayer.push(0);
     }
 
     async activateForward(){
@@ -227,10 +227,7 @@ class EvaluateNetwork {
         this.net = await tf.loadLayersModel('file:///' + savePath);
       } else {
         this.net = tf.sequential();
-        this.net.add(tf.layers.dense({units: 500, activation: 'sigmoid', inputShape: [this.inputLayer.length, this.inputLayer[0].length]}));
-        this.net.add(tf.layers.dense({units: 250, activation: 'sigmoid'}));
-        this.net.add(tf.layers.dense({units: 150, activation: 'sigmoid'}));
-        this.net.add(tf.layers.dense({units: 1, activation: 'sigmoid', outputShape: [1]}));
+        this.net.add(tf.layers.dense({units: 1, activation: 'sigmoid', inputShape: [19760], outputShape: [1]}));
       }
       this.net.compile({
         optimizer: "sgd",
@@ -247,7 +244,7 @@ class EvaluateNetwork {
     async train(){
       await this.load(true);
       
-      let xs = tf.tensor3d(this.xTrainData);
+      let xs = tf.tensor2d(this.xTrainData);
       let xy = tf.tensor1d(this.yTrainData);
 
       this.net.summary();
