@@ -106,7 +106,7 @@ module.exports.addStateToHistory = function(battleState, logs, ownSide){
     if(!newestLogs.includes("|switch|") && !newestLogs.includes("|move|") && !newestLogs.includes("|cant|")) return;
 
     let teamSimulator = teamSimulatorPool.get(battleState.id);
-    if(!teamSimulator) teamSimulator = new TeamSimulator(10, battleState, ownSide);
+    if(!teamSimulator) teamSimulator = new TeamSimulator(20, battleState, ownSide);
     teamSimulator.addStateToHistory(battleState);
     teamSimulator.updateTeams(battleState, logs);
     teamSimulatorPool.set(battleState.id, teamSimulator);
@@ -385,15 +385,15 @@ class MCTS {
             }
         }
 
-        if (this.rootNode.children.length > 0)
+        /*if (this.rootNode.children.length > 0)
         {
             var action_string = JSON.stringify(_.map(this.rootNode.children, function(n){return [n.move, n.q, n.visits]}))
-            //log.info("Action scores: " + action_string);
+            log.info("Action scores: " + action_string);
         }
         else
         {
-            //log.info("No children");
-        }
+            log.info("No children");
+        }*/
         
         if(!_(this.rootNode.children).maxBy('q')) debugger;
         // Get the move with the highest visit count

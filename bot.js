@@ -11,6 +11,7 @@ program
 	.option('--nosave', "Don't save games to the in-memory db.")
 	.option('--nolog', "Don't append to log files.")
 	.option('--startchallenging', "Start out challenging, instead of requiring a manual activation first.")
+	.option('--max-old-space-size', "", "0")
 	.parse(process.argv);
 
 var request = require('request'); // Used for making post requests to login server

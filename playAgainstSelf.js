@@ -1,5 +1,6 @@
 var Battle = require("./servercode/sim/battle");
 var BattleRoom = require("./battleroom");
+var LanceBattleRoom = require("./lanceBattleRoom");
 var TeamValidator = require("./servercode/sim/team-validator");
 var RoomLogs = require("./servercode/server/roomlogs");
 var math = require("mathjs");
@@ -10,7 +11,9 @@ var _ = require('lodash');
 
 const FORMAT = "gen1randombattle";
 const ITERATIONS = 100;
-const OPPONENT = "random";
+const OPPONENT = "expectimax";
+
+var log = require('log4js').getLogger("learning");
 
 let teamValidator = new TeamValidator(FORMAT);
 let teamGenerator = teamValidator.dex.getTeamGenerator(FORMAT);
@@ -46,11 +49,14 @@ let aiWins = 0;
 
 let promise = Promise.all([evaluateNet.load(), decisionNet.load()]);
 
+let allBattleLogs = [];
+
 promise.then(() => {
 
     while(battlenum < (100000000 + ITERATIONS * 2)){
         let battle = null; 
-        let battleHistory = [];
+        //let battleHistory = [];
+        let side1, side2;
     
         try{
             let battleid = "0123456gen1randombattle-" + battlenum;
@@ -62,21 +68,21 @@ promise.then(() => {
                 message = message.split("|")[0];
                 let itWorked = battle.choose("p1", message);
     
-                if(!battleHistory.length || battleHistory[battleHistory.length - 1].p1Decision != undefined){
+                /*if(!battleHistory.length || battleHistory[battleHistory.length - 1].p1Decision != undefined){
                     battleHistory.push({
                         state: cloneBattleState(battle)
                     });
-                }
+                }*/
                 let type =  message.split(" ")[0];
                 let id =  message.split(" ")[1];
                 if(type === "switch"){
                     id = parseInt(id);
                 }
-                battleHistory[battleHistory.length - 1].p1Decision = {
+                /*battleHistory[battleHistory.length - 1].p1Decision = {
                     type: type,
                     id: id
                 };
-                if(battle.p2.request.wait) [battleHistory.length - 1].p2Decision = null;
+                if(battle.p2.request.wait) [battleHistory.length - 1].p2Decision = null;*/
     
                 if(!itWorked){
                     debugger;
@@ -90,28 +96,29 @@ promise.then(() => {
                 if(sendQueue.length >= 2) debugger;
                 sendQueue.push(() => doSendP1(message, battleId))
             }
-            let side1 = new BattleRoom(battleid, side1SendFunc, true);
+            side1 = new BattleRoom(battleid, side1SendFunc, true);
+            side1.algorithm = "talon";
         
             let doSendP2 = (message, battleId) => {
                 message = message.slice("/choose ".length)
                 message = message.split("|")[0];
                 let itWorked = battle.choose("p2", message);
                 
-                if(!battleHistory.length || battleHistory[battleHistory.length - 1].p2Decision != undefined){
+                /*if(!battleHistory.length || battleHistory[battleHistory.length - 1].p2Decision != undefined){
                     battleHistory.push({
                         state: cloneBattleState(battle)
                     });
-                }
+                }*/
                 let type =  message.split(" ")[0];
                 let id =  message.split(" ")[1];
                 if(type === "switch"){
                     id = parseInt(id);
                 }
-                battleHistory[battleHistory.length - 1].p2Decision = {
+                /*battleHistory[battleHistory.length - 1].p2Decision = {
                     type: type,
                     id: id
                 };
-                if(battle.p1.request.wait) [battleHistory.length - 1].p1Decision = null;
+                if(battle.p1.request.wait) [battleHistory.length - 1].p1Decision = null;*/
                 
                 if(!itWorked){
                     debugger;
@@ -125,15 +132,19 @@ promise.then(() => {
                 if(sendQueue.length >= 2) debugger;
                 sendQueue.push(() => doSendP2(message, battleId));
             }
-            let side2 = new BattleRoom(side2Id, side2SendFunc, true);
+            side2 = new LanceBattleRoom(side2Id, side2SendFunc);
             side2.algorithm = OPPONENT;
         
             let lastLogLengthP1 = 0;
             let lastLogLengthP2 = 0;
             battle = new Battle({
                 formatid: FORMAT,
-                p1: {},
-                p2: {},
+                p1: {
+                    name: "talonbot"
+                },
+                p2: {
+                    name: OPPONENT
+                },
                 send: function(type, data) {
                     battle = this;
                     //console.log("Send " + type + ": " + data);
@@ -167,21 +178,28 @@ promise.then(() => {
                     let sendFunc = sendQueue.pop();
                     sendFunc();
                 }
+                if(!battle.ended && sendQueue.length === 0) battle.go();
             }
     
             successfulRuns++;
-            if(battle.winner === "Player 1") aiWins++;
-            console.log(Date.now() + " Winner of game " + ((battlenum - 100000000)/2) + "is " + battle.winner)
+            if(battle.winner === "talonbot") aiWins++;
+            log.info("Winner of game " + ((battlenum - 100000000)/2) + " is " + battle.winner )
         } catch(e){
-            debugger;
+            //debugger;
     
             errors.push(e);
         }
     
-        for(let teamSimulator of teamSimulatorPool.values()) teamSimulator.destroy();
+        allBattleLogs.push(battle.log);
+
+        for(let teamSimulator of teamSimulatorPool.values()) {
+            teamSimulator.destroy();
+        }
         teamSimulatorPool.clear();
-        battleHistory.forEach(battle => battle.state.destroy());
+        //battleHistory.forEach(battle => battle.state.destroy());
         battle.destroy();
+        side1.state.destroy();
+        side2.state.destroy();
     
         battlenum += 2;
         errorRate = math.divide(errors.length, successfulRuns + errors.length);
@@ -189,6 +207,8 @@ promise.then(() => {
 
     console.log(ITERATIONS + " games played.")
     console.log("There were " + successfulRuns + " successful runs and " + errors.length + " errors.")
-    console.log("The ai won " + aiWins + "battles.")
+    console.log("The ai won " + aiWins + " battles.");
+
+    setTimeout(() => {}, 1000000000);//Don't exit for the debugger
     
 });

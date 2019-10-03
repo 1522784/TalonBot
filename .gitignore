@@ -1,4 +1,8 @@
 node_modules
 account.json
+secoundAccount.json
 *.log
 *.db
+
+# Exclude .devspace generated files
+.devspace/

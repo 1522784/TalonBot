@@ -136,7 +136,7 @@ var decide = module.exports.decide = function(battle, choices, p1, p2) {
         return priority;
     });
 
-    switch(bestChoice.priority) {
+    /*switch(bestChoice.priority) {
         case 12: log.info("Chose " + bestChoice.id + " because it provides helpful side effects."); break;
         case 11: log.info("Chose " + bestChoice.id + " because it is an entry hazard."); break;
         case 10: log.info("Chose " + bestChoice.id + " because it causes a status effect."); break;
@@ -152,7 +152,7 @@ var decide = module.exports.decide = function(battle, choices, p1, p2) {
         case 0: log.info("Chose " + bestChoice.id + " because we had no better option."); break;
         default: log.error("Unknown priority.");
     }
-    log.info("Move has priority: " + bestChoice.priority);
+    log.info("Move has priority: " + bestChoice.priority);*/
     return {
         type: bestChoice.type,
         id: bestChoice.id,

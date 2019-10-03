@@ -2,7 +2,7 @@
 
 // Logging
 var log4js = require('log4js');
-var log = require('log4js').getLogger("mcts");
+var logger = require('log4js').getLogger("mcts");
 var learnlog = require('log4js').getLogger("learning");
 
 var program = require('commander'); // Program settings
@@ -23,21 +23,21 @@ var lastMove = '';
 var decide = module.exports.decide = function (battle, choices) {
     var startTime = new Date();
 
-    log.info("Starting move selection");
+    //logger.info("Starting move selection");
 
     var mcts = new MCTS(new PokemonBattle(battle), 150, 0, choices);
     var action = mcts.selectMove();
     if (action === undefined) {
         action = randombot.decide(battle, choices);
-        log.info("Randomly selected action");
+        //logger.info("Randomly selected action");
     }
     
-    log.info("Given choices: " + JSON.stringify(choices));
-    log.info("My action: " + action.type + " " + action.id);
+    //logger.info("Given choices: " + JSON.stringify(choices));
+    //logger.info("My action: " + action.type + " " + action.id);
     lastMove = action.id;
     var endTime = new Date();
 
-    log.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
+    //logger.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
     return {
         type: action.type,
         id: action.id
@@ -74,7 +74,7 @@ class Node {
         this.untried_actions = _(this.game.getPossibleMoves(this.game.current_player)).castArray()
         if (depth === 0)
         {
-            log.info("Root node choices: " + JSON.stringify(this.untried_actions));
+            //logger.info("Root node choices: " + JSON.stringify(this.untried_actions));
         }
     }
 
@@ -198,15 +198,15 @@ class MCTS {
             }
         }
 
-        if (this.rootNode.children.length > 0)
+        /*if (this.rootNode.children.length > 0)
         {
             var action_string = JSON.stringify(_.map(this.rootNode.children, function(n){return [n.move, n.q, n.visits]}))
-            log.info("Action scores: " + action_string);
+            //logger.info("Action scores: " + action_string);
         }
         else
         {
-            log.info("No children");
-        }
+            //logger.info("No children");
+        }*/
         
         // Get the move with the highest visit count
         return _(this.rootNode.children).maxBy('visits').move

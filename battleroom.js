@@ -55,8 +55,6 @@ let BattleRoom = new JS.Class({
         this.state.p1.pokemon = [];
         this.state.p2.pokemon = [];
 
-        this.previousState = null; // For TD Learning
-
         if(!account) account = require("./bot").account
         sendfunc(account.message, id); // Notify User that this is a bot
         sendfunc("/timer", id); // Start timer (for user leaving or bot screw ups)
@@ -70,6 +68,7 @@ let BattleRoom = new JS.Class({
         this.state.start();
         
         this.randbat = id.indexOf("randombattle") != -1
+        this.algorithm = program.algorithm;
     },
     init: function(data) {
         let log = data.split('\n');
@@ -843,8 +842,6 @@ let BattleRoom = new JS.Class({
         //the data-string will be sliced therefore we backup
         let completeData = data;
 
-        this.previousState = cloneBattleState(this.state);
-
         //logger.trace("<< " + data);
 
         if (data.substr(0, 6) === '|init|') {
@@ -879,21 +876,16 @@ let BattleRoom = new JS.Class({
                         logger.info(this.title + ": I lost this game");
                     }*/
 
-                    if(program.net === "update" && this.previousState) {
-                        let playerAlive = _.any(this.state.p1.pokemon, function(pokemon) { return pokemon.hp > 0; });
-                        let opponentAlive = _.any(this.state.p2.pokemon, function(pokemon) { return pokemon.hp > 0; });
-
-                        if(!playerAlive || !opponentAlive) minimaxbot.train_net(this.previousState, null, (this.winner == account.username));
-                    }
-
                     if(!program.nosave) this.saveResult();
-                    if(program.algorithm === "talon") talonbot.endBattle(this.id);
+                    if(this.algorithm === "talon") talonbot.endBattle(this.id);
 
                     // Leave in two seconds
                     let battleroom = this;
-                    setTimeout(function() {
-                        battleroom.send("/leave " + battleroom.id);
-                    }, 2000);
+                    if(!this.makeMoveImmediatly) {
+                        setTimeout(function() {
+                            battleroom.send("/leave " + battleroom.id);
+                        }, 2000);
+                    }
                 } else if(tokens[1] === 'turn') {
                     this.state.nextTurn();
                     this.has_p2_moved = false
@@ -982,7 +974,7 @@ let BattleRoom = new JS.Class({
         //logger.info("Made request of type " + requestType)
 
         this.state.logs = this.log;
-        if(program.algorithm === "talon") talonbot.addStateToHistory(this.state, this.log, this.side);
+        if(this.algorithm === "talon") talonbot.addStateToHistory(this.state, this.log, this.side);
     },
 
     saveResult: function() {
@@ -1108,19 +1100,15 @@ let BattleRoom = new JS.Class({
     /** Function which is called when our client is asked to make a move */
     makeMove: async function(request) {
         let room = this;
+            
+        let algorithm = program.algorithm;
+        if(room.algorithm) algorithm = room.algorithm;
 
-        if(program.algorithm === "talon" && !this.makeMoveImmediatly) await talonbot.loadNets(room.state);
+        if(algorithm === "talon" && !this.makeMoveImmediatly) await talonbot.loadNets(room.state);
         let makeMoveFunction = function() {
             room.orderOwnPokemon(request);
 
-            if(program.net === "update") {
-                if(room.previousState != null) minimaxbot.train_net(room.previousState, room.state);
-            }
-
             let decision = BattleRoom.parseRequest(request);
-            
-            let algorithm = program.algorithm;
-            if(room.algorithm) algorithm = room.algorithm;
 
             // Use specified algorithm to determine resulting choice
             let result = undefined;

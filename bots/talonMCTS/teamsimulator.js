@@ -112,6 +112,9 @@ class TeamSimulator{
     destroy(){
         for(let battle of this.history.map(historyToken => historyToken.state))
             battle.destroy();
+        for(let key of Object.keys(this)){
+            this[key] = undefined;
+        }
     }
 }
 
