@@ -11,14 +11,11 @@ var math = require("mathjs");
 class TeamSimulator{
     
     constructor(teamNum, battle, ownSide) {
-
         this.teamStore = [];
         let format = battle.id.slice(7, -10)
         this.teamValidator = new TeamValidator(format);
         this.history = [];
         this.ownSide = ownSide;
-
-        [this.dexData, this.dex, this.moveDex] = getDexData(format);
 
         //We save the first pokemon the opponent used because it has a special position. TODO: Adapt to team preview for Gen5 and following
         this.lead = battle.p2.pokemon[0].speciesid;
@@ -27,7 +24,7 @@ class TeamSimulator{
         for(let i = 0; i<teamNum; i++){
             //if(i%(teamNum/10) === 0) log.info("Team creation " + (i*100/teamNum) + "% complete");
 
-            this.teamStore.push(new PossibleTeam(battle, this.teamValidator, this.dexData, this.dex, this.moveDex, this.lead));
+            this.teamStore.push(new PossibleTeam(battle, this.teamValidator, this.lead));
         }
     }
 
@@ -59,12 +56,12 @@ class TeamSimulator{
             //if(i%(this.teamStore.length/10) === 0) log.info("Updating teams " + (i*100/this.teamStore.length) + "% complete");
 
             if(!this.teamStore[i].isStillPossible(battle, logs))
-                this.teamStore[i] = new PossibleTeam(battle, this.teamValidator, this.dexData, this.dex, this.moveDex, this.lead);
+                this.teamStore[i] = new PossibleTeam(battle, this.teamValidator, this.lead);
             try{
                 this.teamStore[i].updateRank(battle, logs, this.getHistory(), this.ownSide);
             } catch(e){
                 if(e.toString().startsWith("Chosen option for a turn can't be specified.")){
-                    this.teamStore[i] = new PossibleTeam(battle, this.teamValidator, this.dexData, this.dex, this.moveDex, this.lead);
+                    this.teamStore[i] = new PossibleTeam(battle, this.teamValidator, this.lead);
                     i--;
                     exceptionCount ++;
                     if(exceptionCount > 10) throw e;

@@ -10,7 +10,6 @@ var LevelNetwork = require("./networks/LevelNetwork");
 var MatchDecisionNetwork = require("./networks/MatchDecisionNetwork");
 var EvaluateNetwork = require("./networks/EvaluateNetwork1");
 
-//TODO: Replace mocked DecisionPropCalcer with neural network
 class NNClient {
     constructor(format){
       let [dexData, dex, moveDex] = getDexData(format);
