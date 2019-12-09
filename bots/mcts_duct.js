@@ -14,7 +14,7 @@ var BattleRoom = require("./../battleroom");
 var randombot = require("./randombot");
 var minimaxbot = require("./minimaxbot");
 
-var clone = require("./../clone");
+var clone = require("../clone/clone");
 
 // ---- MCTS ALGORITHM
 // ------------------------------------------------------------

@@ -7,7 +7,7 @@ var BattleRoom = require("./../battleroom");
 
 var randombot = require("./randombot");
 
-var Tools = require("./../tools");
+var Tools = require("./../data/loader/loader");
 var damagingMoves = ["return", "grassknot", "lowkick", "gyroball", "heavyslam"];
 
 var switchPriority = module.exports.switchPriority = function(battle, pokemon, p1, p2) {

@@ -6,12 +6,16 @@ JS.require('JS.Class');
 
 require("sugar");
 
+let fs = require("fs");
+
+var program = require('commander');// Get Command-line arguments
+
 // Account file
-let bot = require("./bot.js");
-let account = bot.account;
+let accountFile = program.account || "accounts/account.json";
+let account = JSON.parse(fs.readFileSync(accountFile));
 
 // Results database
-let db = require("./db");
+let db = require("./util/db");
 
 // Logging
 let log4js = require('log4js');
@@ -30,13 +34,11 @@ let Pokemon = require("./servercode/sim/Pokemon");
 // Include underscore.js
 let _ = require("underscore");
 
-let cloneBattleState = require("./cloneBattleState");
-let clone = require("./clone");
-
-let program = require('commander'); // Get Command-line arguments
+let cloneBattleState = require("./clone/cloneBattleState");
+let clone = require("./clone/clone");
 
 // Pokemon inference
-let Inference = require("./moves");
+let Inference = require("./moves/moves");
 
 let BattleRoom = new JS.Class({
     initialize: function(id, sendfunc, makeMoveImmediatly) {
@@ -55,7 +57,6 @@ let BattleRoom = new JS.Class({
         this.state.p1.pokemon = [];
         this.state.p2.pokemon = [];
 
-        if(!account) account = require("./bot").account
         sendfunc(account.message, id); // Notify User that this is a bot
         sendfunc("/timer", id); // Start timer (for user leaving or bot screw ups)
 
@@ -979,7 +980,7 @@ let BattleRoom = new JS.Class({
 
     saveResult: function() {
         // Save game data to data base
-        game = {
+        /*game = {
             "title": this.title,
             "id": this.id,
             "win": (this.winner == account.username),
@@ -988,7 +989,7 @@ let BattleRoom = new JS.Class({
             "log": this.log,
             "tier": this.tier
         };
-        db.insert(game, function(err, newDoc) {});
+        db.insert(game, function(err, newDoc) {});*/
     },
     receiveRequest: function(request) {
         if (!request) {

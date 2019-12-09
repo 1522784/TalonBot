@@ -12,7 +12,7 @@ var BattleRoom = require("./../battleroom");
 var randombot = require("./randombot");
 var greedybot = require("./greedybot");
 
-var clone = require("./../clone");
+var clone = require("../clone/clone");
 
 var convnetjs = require("convnetjs");
 
@@ -263,7 +263,7 @@ function getFeatures(battle) {
     return features;
 }
 
-var weights = require("./../weights.js");
+var weights = require("../data/weights.js");
 
 // Heuristic evaluation of the state
 //TODO: Eval function needs to be made 1000x better

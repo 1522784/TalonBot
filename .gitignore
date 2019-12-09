@@ -1,6 +1,4 @@
 node_modules
-account.json
-secoundAccount.json
 *.log
 *.db
 

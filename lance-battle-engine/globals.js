@@ -34,4 +34,4 @@ global.string = function (str) {
 	return '';
 };
 
-global.Tools = require('./../tools.js');
+global.Tools = require('./../data/loader/loader.js');

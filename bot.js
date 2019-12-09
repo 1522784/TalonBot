@@ -7,7 +7,7 @@ program
 	.option('--ranked', 'Challenge on the ranked league.')
 	.option('--net [action]', "'create' - generate a new network. 'update' - use and modify existing network. 'use' - use, but don't modify network. 'none' - use hardcoded weights. ['none']", 'none')
 	.option('--algorithm [algorithm]', "Can be 'talon', 'minimax', 'mcts', 'samcts', 'expectimax', 'greedy', or 'random'. ['samcts']", "talon")
-	.option('--account [file]', "File from which to load credentials. ['account.json']", "account.json")
+	.option('--account [file]', "File from which to load credentials. ['account.json']", "accounts/account.json")
 	.option('--nosave', "Don't save games to the in-memory db.")
 	.option('--nolog', "Don't append to log files.")
 	.option('--startchallenging', "Start out challenging, instead of requiring a manual activation first.")
@@ -15,7 +15,7 @@ program
 	.parse(process.argv);
 
 var request = require('request'); // Used for making post requests to login server
-var util = require('./util');
+var util = require('./util/util');
 var fs = require('fs');
 var WebSocketTransport = require('sockjs-client-ws/lib/WebSocketTransport');
 
@@ -63,8 +63,6 @@ if(!program.nolog) {
 // Login information for this bot
 var account = JSON.parse(fs.readFileSync(program.account));
 module.exports.account = account;
-
-var webconsole = require("./console.js");// Web console
 
 // Connect to server
 var sockjs = require('sockjs-client-ws');
@@ -144,6 +142,7 @@ function rename(name, password) {
 		}
 	},
 	function (err, response, body) {
+		if(!body) return;
 		var data = util.safeJSON(body);
 		if(data && data.curuser && data.curuser.loggedin) {
 			send("/trn " + account.username + ",0," + data.assertion);

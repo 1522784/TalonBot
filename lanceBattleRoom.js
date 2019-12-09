@@ -11,7 +11,7 @@ var bot = require("./bot.js");
 var account = bot.account;
 
 // Results database
-var db = require("./db");
+var db = require("./util/db");
 
 // Logging
 var log4js = require('log4js');
@@ -30,12 +30,12 @@ var SideScripts = require('./data/scripts');
 // Include underscore.js
 var _ = require("underscore");
 
-var clone = require("./clone");
+var clone = require("./clone/clone");
 
 var program = require('commander'); // Get Command-line arguments
 
 // Pokemon inference
-var Inference = require("./moves");
+var Inference = require("./data/moves");
 
 var BattleRoom = new JS.Class({
     initialize: function(id, sendfunc) {

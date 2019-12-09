@@ -15,7 +15,7 @@ var randombot = require("./randombot");
 var greedybot = require("./greedybot");
 var minimaxbot = require("./minimaxbot");
 
-var clone = require("./../clone");
+var clone = require("../clone/clone");
 
 // Function that decides which move to perform
 var overallMinNode = {};

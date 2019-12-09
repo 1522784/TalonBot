@@ -113,27 +113,23 @@ class EvaluateNetwork {
 
       for(let side of sides){
         for(let pokemon of side.pokemon){
+          let fainted = pokemon.hp === 0;
 
           let speciesIndex = this.pokedex.findIndex(speciesId => {
               return speciesId === pokemon.template.id;
           });
           for(let i = 0; i < speciesInput.length; i++) speciesInput[i] = 0;
-          speciesInput[speciesIndex] = 1;
+          if(!fainted) speciesInput[speciesIndex] = 1;
           this.inputLayer.push(...speciesInput);
           
           for(let i = 0; i < baseMoveSlotInput.length; i++) baseMoveSlotInput[i] = 0;
           //debugger;
           for(let baseMoveSlot of pokemon.baseMoveSlots){
             let inputIndex = this.movedex.indexOf(baseMoveSlot.id) * 2;
-            baseMoveSlotInput[inputIndex] = 1;
+            if(!fainted) baseMoveSlotInput[inputIndex] = 1;
             //baseMoveSlotInput[inputIndex + 1] = baseMoveSlot.pp;
           }
           this.inputLayer.push(...baseMoveSlotInput);
-
-          for(let i = 0; i < levelInput.length; i++) levelInput[i] = 0;
-          //debugger;
-          levelInput[pokemon.level - 1] = 1;
-          this.inputLayer.push(...levelInput);
 
           for(let i = 0; i < hpInput.length; i++) hpInput[i] = 0;
           for(let i = 0; i < pokemon.hp; i++) hpInput[i] = 1;
@@ -142,15 +138,15 @@ class EvaluateNetwork {
           for(let i = 0; i < simpleStatProbInput.length; i++) simpleStatProbInput[i] = 0;
           //debugger;
           let statusIndex = this.simpleStatusProblems.indexOf(pokemon.status);
-          if(statusIndex !== -1) simpleStatProbInput[statusIndex] = 1;
+          if(statusIndex !== -1 && !fainted) simpleStatProbInput[statusIndex] = 1;
           this.inputLayer.push(...simpleStatProbInput);
 
           for(let i = 0; i < durationBasedStatProbInput.length; i++) durationBasedStatProbInput[i] = 0;
           //debugger;
           statusIndex = this.durationDependentStatusProblems.indexOf(pokemon.status);
           if(statusIndex !== -1) {
-            durationBasedStatProbInput[statusIndex * 2] = 1;
-            durationBasedStatProbInput[statusIndex * 2 + 1] = pokemon.statusData.time;
+            if(!fainted) durationBasedStatProbInput[statusIndex * 2] = 1;
+            if(!fainted) durationBasedStatProbInput[statusIndex * 2 + 1] = pokemon.statusData.time;
           }
           this.inputLayer.push(...durationBasedStatProbInput);
 
@@ -158,14 +154,14 @@ class EvaluateNetwork {
           //debugger;
           if(!pokemon.trueMoves) pokemon.trueMoves = [];
           for(let trueMove of pokemon.trueMoves){
-            moveSlotInput[this.movedex.indexOf(trueMove)] = 1;
+            if(!fainted) moveSlotInput[this.movedex.indexOf(trueMove)] = 1;
           }
           this.inputLayer.push(...moveSlotInput);
 
           for(let i = 0; i < typesInput.length; i++) typesInput[i] = 0;
           //debugger;
           for(let type of pokemon.types){
-            typesInput[this.typeDex.indexOf(type)] = 1;
+            if(!fainted) typesInput[this.typeDex.indexOf(type)] = 1;
           }
           this.inputLayer.push(...typesInput);
 
@@ -174,7 +170,7 @@ class EvaluateNetwork {
             //debugger;
             for(let volatile of Object.keys(pokemon.volatiles)){
               let index = this.simpleVolatiles.indexOf(volatile);
-              if(index !== -1) simpleVolatileInput[index] = 1;
+              if(!fainted) if(index !== -1) simpleVolatileInput[index] = 1;
             }
             this.inputLayer.push(...simpleVolatileInput);
 
@@ -183,28 +179,30 @@ class EvaluateNetwork {
             for(let volatile of Object.keys(pokemon.volatiles)){
               let index = this.durationDependentVolatiles.indexOf(volatile);
               if(index !== -1) {
-                durationBasedVolatileInput[index * 2] = 1;
+                if(!fainted) durationBasedVolatileInput[index * 2] = 1;
                 let time = pokemon.volatiles[volatile].duration;
                 if(time === undefined) time = pokemon.volatiles[volatile].time;
                 if(time === undefined) time = pokemon.volatiles[volatile].counter;
-                durationBasedVolatileInput[index * 2 + 1] = time;
+                if(!fainted) durationBasedVolatileInput[index * 2 + 1] = time;
               }
             }
             this.inputLayer.push(...durationBasedVolatileInput);
 
-            if(pokemon.volatiles.substitute){
+            if(pokemon.volatiles.substitute && !fainted){
               this.inputLayer.push(1, pokemon.volatiles.substitute.hp)
             } else {
               this.inputLayer.push(0, 0)
             }
 
-            for(let i = 0; i < boostsInput.length; i++) {
-              boostsInput[i] = pokemon.boosts[["accuracy", "evasion", "atk", "def", "spa", "spd", "spe"][i]]
+            for(let i = 0; i < boostsInput.length; i++) boostsInput[i] = 0;
+            for(let i = 0; i < 7; i++) {
+              let boostNumber = pokemon.boosts[["accuracy", "evasion", "atk", "def", "spa", "spd", "spe"][i]]
+              if(!fainted) boostsInput[i * 13 + 6 + boostNumber] = 1;
             }
             this.inputLayer.push(...boostsInput);
 
             for(let i = 0; i < modifiedStatsInput.length; i++) {
-              modifiedStatsInput[i] = pokemon.modifiedStats[["atk", "def", "spa", "spd", "spe"][i]]
+              modifiedStatsInput[i] = math.divide(pokemon.modifiedStats[["atk", "def", "spa", "spd", "spe"][i]], 100)
             }
             this.inputLayer.push(...modifiedStatsInput);
 

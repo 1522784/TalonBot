@@ -1,16 +1,15 @@
 var math = require("mathjs")
 var log = require('log4js').getLogger("teamSimulator");
 
-var RandomTeams = require("./../../servercode/data/random-teams")
+var nnClient = require("./nnClient");
 var BattlePokemon = require("./../../servercode/sim/pokemon");
 var TeamValidator = require("./../../servercode/sim/team-validator");
-var logState = require("./../../logState");
+var cloneBattleState = require("../../clone/cloneBattleState")
 
 class PossibleTeam {
-	constructor(battle, decisionPropCalcer, teamValidator, dexData, dex, moveDex, lead) {
+	constructor(battle, teamValidator, dexData, dex, moveDex, lead) {
         let self = this;
         this.rank = 1;
-        this.decisionPropCalcer = decisionPropCalcer;
 		/** @type {TeamValidator} */
         this.teamValidator = teamValidator;
         this.dexData = dexData;
@@ -20,7 +19,8 @@ class PossibleTeam {
 
         this.team = [];
         this.confirmedTeam = [];
-        this.battleFormat = battle.format
+        this.battleFormat = battle.format;
+        this.decisionPropCalcer = nnClient.getClient(this.battleFormat);
 
         let leadIndex = battle.p2.pokemon.findIndex(poke => poke.speciesid === lead);
 
