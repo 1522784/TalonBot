@@ -1,7 +1,7 @@
 var express = require('express');
 var app = express();
 var nunjucks = require('nunjucks');
-var bot = require('../bot')
+var connection = require('../serverConnection/connection')
 var program = require('commander'); // Get Command-line arguments
 var fs = require('fs');
 
@@ -21,9 +21,9 @@ var minimaxbot = require("../bots/minimaxbot");
 // Challenging logic
 var MAX_ROOMS = 1;
 setInterval(function() {
-	if(CHALLENGING && _.values(bot.ROOMS).length < MAX_ROOMS) {
+	if(CHALLENGING && _.values(connection.ROOMS).length < MAX_ROOMS) {
 		log.info("Challenging...");
-		bot.searchBattle();
+		connection.searchBattle();
 	}
 }, 45000);
 
@@ -36,8 +36,8 @@ nunjucks.configure('templates', {
 app.get('/', function(req, res){
 	db.find({}).sort({ date: -1}).exec(function(err, history) {
 		res.render('home.html', {
-			"games" : _.values(bot.ROOMS),
-			"domain" : bot.DOMAIN,
+			"games" : _.values(connection.ROOMS),
+			"domain" : connection.DOMAIN,
 			"history" : history,
 			"challenging" : CHALLENGING
 		});
@@ -46,7 +46,7 @@ app.get('/', function(req, res){
 
 // Challenge a specific user
 app.get('/challenge/:user/', function(req, res) {
-	bot.send("/challenge " + req.params.user + ", gen6randombattle", null);
+	connection.send("/challenge " + req.params.user + ", gen6randombattle", null);
 	res.redirect("/");
 });
 
@@ -55,10 +55,10 @@ app.get('/challenge/:user/:format/', function(req, res) {
 	// Read the team from a file and update the team
 	fs.readFile('teams/' + req.params.format + '.req', 'ascii', function(err, contents) {
 		console.log(contents);
-		bot.send("/utm " + contents, null); 
+		connection.send("/utm " + contents, null); 
 	});
 
-	bot.send("/challenge " + req.params.user + ", " + req.params.format, null);
+	connection.send("/challenge " + req.params.user + ", " + req.params.format, null);
 	res.redirect("/");
 });
 
@@ -82,9 +82,9 @@ app.get('/endchallenging', function(req, res){
 });
 
 app.get('/room', function(req, res){
-	if(bot.ROOMS[req.query.id]) {
+	if(connection.ROOMS[req.query.id]) {
 		res.render("room.html", {
-			game: bot.ROOMS[req.query.id],
+			game: connection.ROOMS[req.query.id],
 			stringify : JSON.stringify,
 			format: function(str) {
 				return str.replace(/\n/g, "<br>").replace(/\t/g, "&nbsp;&nbsp;&nbsp;&nbsp;");
@@ -112,7 +112,7 @@ app.get('/replay', function(req, res){
 
 app.get('/search', function(req, res){
 	log.debug("Asked to query from web console.");
-	bot.searchBattle();
+	connection.searchBattle();
 	res.redirect("/");
 });
 

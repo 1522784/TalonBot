@@ -1,7 +1,8 @@
 var _ = require('lodash');
 var nnClient = require("./nnClient");
-var BattleRoom = require("./../../battleroom");
+var BattleRoom = require("../../batteroom/battleroom");
 var cloneBattleState = require("../../clone/cloneBattleState");
+var requests = require("./../../util/requests");
 
 function PokemonBattle(battle) {
     this.battle = battle;
@@ -44,8 +45,8 @@ PokemonBattle.prototype.performMove = function (action) {
     var player_string = this.player === 0 ? 'p1' : 'p2'
     var player_side = this.player === 0 ? this.battle.p1 : this.battle.p2
 
-    if(action) this.choices.push({player: player_string, choiceString: BattleRoom.toChoiceString(action, player_side)});
-    //let choiceSuccess = this.battle.choose(player_string, BattleRoom.toChoiceString(action, player_side), this.battle.rqid);
+    if(action) this.choices.push({player: player_string, choiceString: requests.toChoiceString(action, player_side)});
+    //let choiceSuccess = this.battle.choose(player_string, requests.toChoiceString(action, player_side), this.battle.rqid);
 
     this.player = 1 - this.player;
 };

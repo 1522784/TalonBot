@@ -7,12 +7,13 @@ var program = require('commander'); // Program settings
 var fs = require('fs');
 
 var _ = require("underscore");
-var BattleRoom = require("./../battleroom");
+var BattleRoom = require("../batteroom/battleroom");
 
 var randombot = require("./randombot");
 var greedybot = require("./greedybot");
 
 var clone = require("../clone/clone");
+var requests = require("../util/requests");
 
 var convnetjs = require("convnetjs");
 
@@ -460,8 +461,8 @@ function opponentTurn(battle, depth, alpha, beta, playerAction) {
             newbattle.p1.decision = true;
         newbattle.choose('p2', toChoiceString(choices[i], newbattle.p2), newbattle.rqid);
 
-        /*log.info("Player action: " + BattleRoom.toChoiceString(playerAction, newbattle.p1));
-        log.info("Opponent action: " + BattleRoom.toChoiceString(choices[i], newbattle.p2));
+        /*log.info("Player action: " + requests.toChoiceString(playerAction, newbattle.p1));
+        log.info("Opponent action: " + requests.toChoiceString(choices[i], newbattle.p2));
         log.info("My Resulting Health:");
         for (var j = 0; j < newbattle.p1.pokemon.length; j++) {
             log.info(newbattle.p1.pokemon[j].id + ": " + newbattle.p1.pokemon[j].hp + "/" + newbattle.p1.pokemon[j].maxhp);

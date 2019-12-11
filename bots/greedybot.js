@@ -3,7 +3,7 @@ var log4js = require('log4js');
 var log = log4js.getLogger("greedy");
 
 var _ = require("underscore");
-var BattleRoom = require("./../battleroom");
+var BattleRoom = require("../batteroom/battleroom");
 
 var randombot = require("./randombot");
 

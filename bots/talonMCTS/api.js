@@ -14,7 +14,6 @@ var startTime;
 //Decide what option to choose in a battle turn
 module.exports.decide = function (battle, choices) {
 
-    //log.info("Starting move selection");
     let teamSimulator = teamSimulatorPool.get(battle.id);
 
     if(teamSimulator.history.length && teamSimulator.history[teamSimulator.history.length - 1].ownDecision){
@@ -55,9 +54,9 @@ module.exports.decide = function (battle, choices) {
 module.exports.getTeam = function(format, opponent){
     return [
         {
-            name: "Tauros", 
-            species: "Starmie",
-            moves: ["thunderwave"],
+            name: "Ditto", 
+            species: "Ditto",
+            moves: ["transform"],
             ability: "None",
             evs: { hp: 255, atk: 255, def: 255, spa: 255, spd: 255, spe: 255 },
             ivs: { hp: 30, atk: 30, def: 30, spa: 30, spd: 30, spe: 30 },
@@ -69,7 +68,10 @@ module.exports.getTeam = function(format, opponent){
 }
 
 var endBattle = module.exports.endBattle = function(battleId){
-    teamSimulatorPool.get(battleId).destroy();
+    let teamSimulator = teamSimulatorPool.get(battleId);
+    if(!teamSimulator) return;
+
+    teamSimulator.destroy();
     teamSimulatorPool.delete(battleId);
 }
 

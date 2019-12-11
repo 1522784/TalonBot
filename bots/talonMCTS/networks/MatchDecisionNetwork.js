@@ -246,7 +246,6 @@ class MatchDecisionNetwork {
     }
 
     async load(force = false){
-      debugger;
       if(this.net && !force) return;
 
       if(fs.existsSync(SAVE_PATH)) {

@@ -3,13 +3,9 @@ var log = require('log4js').getLogger("teamSimulator");
 var TeamValidator = require("./../../servercode/sim/team-validator").Validator
 var cloneBattleState = require("../../clone/cloneBattleState");
 
-var getDexData = require("./../../util/getDexData").getDexData;
-
-//var bot = require("./../../bot");
 var math = require("mathjs");
 
 class TeamSimulator{
-    
     constructor(teamNum, battle, ownSide) {
         this.teamStore = [];
         let format = battle.id.slice(7, -10)
@@ -23,8 +19,8 @@ class TeamSimulator{
         //bot.leave(battle.id);
         for(let i = 0; i<teamNum; i++){
             //if(i%(teamNum/10) === 0) log.info("Team creation " + (i*100/teamNum) + "% complete");
-
-            this.teamStore.push(new PossibleTeam(battle, this.teamValidator, this.lead));
+            let newTeam = new PossibleTeam(battle, this.teamValidator, this.lead)
+            this.teamStore.push(newTeam);
         }
     }
 

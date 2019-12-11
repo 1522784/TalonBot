@@ -1,8 +1,8 @@
 var log = require('log4js').getLogger("teamSimulator");
 
-var BattleRoom = require("../../battleroom");
-var getDexData = require("./../../util/getDexData").getDexData;
-var randomChoice = require("./../../util/random");
+var requests = require("../../util/requests");
+var getDexData = require("../../util/getDexData").getDexData;
+var randomChoice = require("../../util/random");
 
 var SpeciesNetwork = require("./networks/SpeciesNetwork");
 var MoveNetwork = require("./networks/MoveNetwork");
@@ -52,7 +52,7 @@ class NNClient {
 
     getRequestOptions(battle, decisionMaker, request){
       if(!request) request = battle[decisionMaker].request;
-      let options = this.matchDecisionNetwork.getDecisionOdds(battle, decisionMaker, BattleRoom.parseRequest(request).choices);
+      let options = this.matchDecisionNetwork.getDecisionOdds(battle, decisionMaker, requests.parseRequest(request).choices);
       return options;
     }
 

@@ -8,7 +8,6 @@ var cloneBattleState = require("../../clone/cloneBattleState")
 
 class PossibleTeam {
 	constructor(battle, teamValidator, lead) {
-        let self = this;
         this.rank = 1;
 		/** @type {TeamValidator} */
         this.teamValidator = teamValidator;
@@ -17,8 +16,12 @@ class PossibleTeam {
         this.team = [];
         this.confirmedTeam = [];
         this.battleFormat = battle.format;
-        this.decisionPropCalcer = nnClient.getClient(this.battleFormat);
+        this.nnClient = nnClient.getClient(this.battleFormat);
 
+        this.init(battle, lead);
+    }
+
+    init(battle, lead){
         let leadIndex = battle.p2.pokemon.findIndex(poke => poke.speciesid === lead);
 
         for(let i = 0; i < battle.p2.maxTeamSize; i++){
@@ -40,37 +43,51 @@ class PossibleTeam {
                 this.team[i].name = registeredPokemon.name;
                 this.team[i].level = registeredPokemon.level;
             } else {
-                this.team[i].name = this.team[i].species = this.decisionPropCalcer.getSpeciesChoice(this.team)
-                this.team[i].level = this.decisionPropCalcer.getLevelChoice(this.team)
+                this.team[i].name = this.team[i].species = this.nnClient.getSpeciesChoice(this.team)
+                this.team[i].level = this.nnClient.getLevelChoice(this.team)
             }
 
             this.team[i].moves = [];
             for(let j = 0; j < 4; j++){
-                let legalMoveOptions = [];
-                let template = this.teamValidator.dex.getTemplate(this.team[i].species);
-                //Add learnable moves of preevolutions
-                for(; template.learnset; template = this.teamValidator.dex.getTemplate(template.prevo))
-                    legalMoveOptions.push(...Object.keys(template.learnset).filter(m => !legalMoveOptions.includes(m)));
-                legalMoveOptions = legalMoveOptions.filter(move => { 
-                    let problems = teamValidator.validateSet({species: self.team[i].species, moves: self.team[i].moves.concat(move)}, {});
-                    return (!problems);
-                }).filter(move => !self.team[i].moves.includes(move));
+                let legalMoveOptions = this.getLegalMoveOptions(i);
                 if(!legalMoveOptions.length) break;
 
+                let move;
                 if(registeredPokemon && registeredPokemon.baseMoveSlots[j]){
-                    this.team[i].moves[j] = registeredPokemon.baseMoveSlots[j].id;
+                    move = registeredPokemon.baseMoveSlots[j].id;
                 } else {
-                    this.team[i].moves.push(this.decisionPropCalcer.getMoveChoice(this.team, legalMoveOptions).move);
+                    move = this.nnClient.getMoveChoice(this.team, legalMoveOptions).move;
                 }
 
+                this.team[i].moves.push(move);
             }
         }
     
         this.updateTeamBuildingRank(battle.p2.pokemon);
-            
-        //log.info("new Team: " + JSON.stringify(this.team));
-        //log.info(this.rank);
+    }
 
+    getLegalMoveOptions(teamIndex, moveIndex = -1){
+        let self = this;
+        let legalMoveOptions = [];
+        let pokemon = this.team[teamIndex];
+        if(moveIndex === -1) moveIndex = pokemon.moves.length;
+        let otherMoves = pokemon.moves.slice(0, moveIndex)
+
+        //Add learnable moves of preevolutions
+        let template = this.teamValidator.dex.getTemplate(pokemon.species);
+        for(; template.learnset; template = this.teamValidator.dex.getTemplate(template.prevo))
+            legalMoveOptions.push(...Object.keys(template.learnset).filter(m => !legalMoveOptions.includes(m)));
+        
+        //Filter illegal options
+        legalMoveOptions = legalMoveOptions.filter(move => { 
+            let problems = self.teamValidator.validateSet({species: pokemon.species, moves: otherMoves.concat(move)}, {});
+            return (!problems);
+        });
+
+        //Remove duplicates;
+        legalMoveOptions = legalMoveOptions.filter(move => !otherMoves.includes(move));
+
+        return legalMoveOptions;
     }
 
     updateRank(battle, battleLogs, history, ownSide){
@@ -78,15 +95,14 @@ class PossibleTeam {
 
         this.updateTeamBuildingRank(battle.p2.pokemon);
 
-        let pastRequests = battleLogs.split("\n\n");
-        pastRequests = pastRequests.filter(request => request.includes("|switch|") || request.includes("|move|") || request.includes("|cant|"));
-        pastRequests = pastRequests.slice(this.requestsConsideredForRank);
+        let pastTurns = battleLogs.split("\n\n");
+        pastTurns = pastTurns.filter(request => request.includes("|switch|") || request.includes("|move|") || request.includes("|cant|"));
+        pastTurns = pastTurns.slice(this.requestsConsideredForRank);
 
-        pastRequests.forEach((turnLog, index) => {
+        pastTurns.forEach((turnLog, index) => {
             let historyIndex = index + self.requestsConsideredForRank - 1;
-            let historyToken;
             if(historyIndex === -1) return;
-            historyToken = {
+            let historyToken = {
                 ownDecision: history[historyIndex].ownDecision,
                 state: cloneBattleState(history[historyIndex].state)
             };
@@ -95,7 +111,7 @@ class PossibleTeam {
             historyToken.state.destroy();
         });
 
-        this.requestsConsideredForRank += pastRequests.length;
+        this.requestsConsideredForRank += pastTurns.length;
 
     }
 
@@ -104,7 +120,7 @@ class PossibleTeam {
         if(request.wait) return;
 
         //Rank times probability for opponent chosing the option the opponent chose
-        let options = this.decisionPropCalcer.getRequestOptions(historyToken.state, "p2", request);
+        let options = this.nnClient.getRequestOptions(historyToken.state, "p2", request);
         let chosenOption = this.getChosenOption(historyToken, turnLog, options, ownSide);
         
         if(chosenOption.length === 0){
@@ -142,7 +158,7 @@ class PossibleTeam {
                 name: simPoke.name,
                 species: simPoke.species,
                 level: simPoke.level,
-                moves: simPoke.moves.map(move => self.dexData.Movedex[move])
+                moves: simPoke.moves.map(move => self.teamValidator.dex.getMove(move))
             };
 
             if(battle.gen < 3){
@@ -167,19 +183,11 @@ class PossibleTeam {
             battle.p2.pokemon[p].baseMoveSlots = pokemon.baseMoveSlots;
             battle.p2.pokemon[p].hpType = pokemon.hpType;
             battle.p2.pokemon[p].baseIvs = pokemon.baseIvs;
-            //TODO:Opponent's HP-Bar is shown in %, therefore the exact number of hp is unknown.
-            //We should consider that and get a range of possible hp values.
             battle.p2.pokemon[p].hp = parseFloat(battle.p2.pokemon[p].hp)/battle.p2.pokemon[p].maxhp*pokemon.maxhp;
             battle.p2.pokemon[p].maxhp = pokemon.maxhp;
             battle.p2.pokemon[p].happiness = pokemon.happiness;
             battle.p2.pokemon[p].level = pokemon.level;
             battle.p2.pokemon[p].stats = pokemon.stats;
-            //battle.p2.pokemon[p].getHealth = pokemon.getHealth;
-            //battle.p2.pokemon[p].getDetails = pokemon.getDetails;
-            if(battle.p2.pokemon[p].baseMoveSlots.some(moveSlot => moveSlot.pp % 1 !== 0)) {
-                debugger;
-                let a = new BattlePokemon(template, battle.p2);
-            }
         }
 
         for(let poke of battle.p2.pokemon){
@@ -202,7 +210,6 @@ class PossibleTeam {
         if(battle.p2.pokemon.length > 6) {
             debugger;
             let stillPossible = this.isStillPossible(battle);
-            isStillPossible;
         }
         try{
             battle.makeRequest();
@@ -216,23 +223,25 @@ class PossibleTeam {
 
     getChosenOption(historyToken, turnLog, options, ownSide, doLog = false){
         let self = this;
-        //log.info("Get chosen option for " + turnLog);
-        //log.info("Given options: ");
-        //log.info(options.map(op => op.decision))
         let oppSide = ownSide === "p1" ? "p2" : "p1";
         
         //Step 1: Get action order
         let getActedIndex = function(playerId){
             let index = turnLog.indexOf("|switch|" + playerId + "a:");
             if(index > 0) return index;
+
             index = turnLog.indexOf("|move|" + playerId + "a:");
             if(index > 0) return index;
+
             index = turnLog.indexOf("|cant|" + playerId + "a:");
             if(index > 0) return index;
+
             index = turnLog.indexOf("|-curestatus|" + playerId + "a:");
             if(index > 0) return index;
+
             return turnLog.length;
         };
+
         let oppActedIndex = getActedIndex(oppSide);
         let weActedIndex = getActedIndex(ownSide);
         let weActedFirst = weActedIndex < oppActedIndex;
@@ -303,46 +312,16 @@ class PossibleTeam {
     }
 
     updateTeamBuildingRank(opponentTeam){
-        let self = this
-        
         //Find out whether we got new team information and if there is, multiply the rank by its decision probability
         for(let oppTeamIndex in opponentTeam){
-            let confirmedTeamIndex = this.confirmedTeam.findIndex(pokemon => pokemon.name && pokemon.name === opponentTeam[oppTeamIndex].name);
+            let oppPokemon = opponentTeam[oppTeamIndex];
+            let confirmedTeamIndex = this.confirmedTeam.findIndex(pokemon => pokemon.name && pokemon.name === oppPokemon.name);
             let confirmedPokemon = this.confirmedTeam[confirmedTeamIndex];
 
             //If newly discovered opposing Pokemon
             if(confirmedTeamIndex === -1){
-                
-                //Mark as confirmed
-                confirmedTeamIndex = this.confirmedTeam.findIndex(pokemon => !pokemon.name);
-                if(confirmedTeamIndex === -1) {
-                    debugger;
-                    throw new Error("Found new confirmed pokemon " + opponentTeam[oppTeamIndex].speciesid + " despite maximal team size already reached: " + this.confirmedTeam.length);
-                }
-                confirmedPokemon = this.confirmedTeam[confirmedTeamIndex];
-                confirmedPokemon.species = opponentTeam[oppTeamIndex].speciesid;
-
-                //Replicate unfinished team state during that decision
-                let teamIndex = this.team.findIndex(pokemon => pokemon.species === opponentTeam[oppTeamIndex].speciesid);
-                let unfinishedTeam = [];
-                for(let i = 0; i < teamIndex; i++){
-                    unfinishedTeam.push({species: this.team[i].species, moves: this.team[i].moves})
-                }
-
-                //save name
-                this.team[teamIndex].name = confirmedPokemon.name = opponentTeam[oppTeamIndex].name;
-
-                //Update species choice rank
-                let options = this.decisionPropCalcer.getSpeciesChoiceOptions(unfinishedTeam);
-                let decision = options.find(option => option.species === self.team[teamIndex].species);
-                this.rank = math.multiply(this.rank, decision.probability);
-
-                //Update level choice rank
-                options = this.decisionPropCalcer.getLevelChoiceOptions(unfinishedTeam);
-                decision = options.find(option => option.level === self.team[teamIndex].level);
-                this.rank = math.multiply(this.rank, decision.probability);
+                confirmedPokemon = this.updateRankForSpeciesAndLevel(oppPokemon)
             }
-            confirmedPokemon = this.confirmedTeam[confirmedTeamIndex];
             
             for(let baseMoveSlotsIndex in opponentTeam[oppTeamIndex].baseMoveSlots){
                 let confirmedMove = opponentTeam[oppTeamIndex].baseMoveSlots[baseMoveSlotsIndex].id;
@@ -350,7 +329,6 @@ class PossibleTeam {
                 
                 //If new information
                 if(confirmedMoveIndex == -1){
-
                     //Mark as confirmed
                     confirmedMoveIndex = confirmedPokemon.moves.length;
                     confirmedPokemon.moves.push(confirmedMove);
@@ -363,40 +341,51 @@ class PossibleTeam {
                     }
                     let teamMoveIndex = this.team[teamIndex].moves.findIndex(move => move === opponentTeam[oppTeamIndex].baseMoveSlots[baseMoveSlotsIndex].id);
                     unfinishedTeam.push({species: this.team[teamIndex].species, moves: this.team[teamIndex].moves.slice(0, teamMoveIndex)});
-                    let unfinishedTeamPokemonIndex = unfinishedTeam.length - 1;
 
-                    //Update rank
-                    let legalMoveOptions = [];
-                    let template = this.teamValidator.dex.getTemplate(this.team[teamIndex].species.toLowerCase());
-                    for(; template.learnset; template = this.teamValidator.dex.getTemplate(template.prevo))
-                        legalMoveOptions.push(...Object.keys(template.learnset).filter(m => !legalMoveOptions.includes(m)));
-                    legalMoveOptions = legalMoveOptions.filter(move => !unfinishedTeam[unfinishedTeamPokemonIndex].moves.includes(move));
+                    let legalMoveOptions = this.getLegalMoveOptions(teamIndex, teamMoveIndex);
 
-                    //RandomBattles sometimes give Pokemon illegal moves
-                    if(!legalMoveOptions.includes(confirmedMove.toLowerCase()) && this.battleFormat.includes("randombattle")) legalMoveOptions.push(confirmedMove.toLowerCase());
-                    
-                    let options = this.decisionPropCalcer.getMoveChoiceOptions(unfinishedTeam, legalMoveOptions);
+                    let options = this.nnClient.getMoveChoiceOptions(unfinishedTeam, legalMoveOptions);
                     let decision = options.find(option => option.move.toLowerCase() === confirmedMove.toLowerCase());
-                    
-                    if(!decision) {
-                        debugger;
-                        let legalMoveOptions = [];
-                        let template = this.teamValidator.dex.getTemplate(this.team[teamIndex].species.toLowerCase());
-                        for(; template.learnset; template = this.teamValidator.dex.getTemplate(template.prevo))
-                            legalMoveOptions.push(...Object.keys(template.learnset).filter(m => !legalMoveOptions.includes(m)));
-                        legalMoveOptions = legalMoveOptions/*.filter(move => { 
-                            let problems = self.teamValidator.validateSet({species: self.team[teamIndex].species, moves: unfinishedTeam[unfinishedTeamPokemonIndex].moves.concat(move)}, {});
-                            return (!problems);
-                        })*/.filter(move => !unfinishedTeam[unfinishedTeamPokemonIndex].moves.includes(move));
-                        this.decisionPropCalcer.getMoveChoiceOptions(unfinishedTeam, legalMoveOptions);
-                    }
 
-                    this.rank = math.multiply(this.rank, decision.probability); 
-
+                    this.rank = math.multiply(this.rank, decision.probability);
                 }
             }
         }
 
+    }
+
+    updateRankForSpeciesAndLevel(oppPokemon){
+        let self = this;
+        //Mark as confirmed
+        let confirmedTeamIndex = this.confirmedTeam.findIndex(pokemon => !pokemon.name);
+        if(confirmedTeamIndex === -1) {
+            debugger;
+            throw new Error("Found new confirmed pokemon " + oppPokemon.speciesid + " despite maximal team size already reached: " + this.confirmedTeam.length);
+        }
+        let confirmedPokemon = this.confirmedTeam[confirmedTeamIndex];
+        confirmedPokemon.species = oppPokemon.speciesid;
+
+        //Replicate unfinished team state during that decision
+        let teamIndex = this.team.findIndex(pokemon => pokemon.species === oppPokemon.speciesid);
+        let unfinishedTeam = [];
+        for(let i = 0; i < teamIndex; i++){
+            unfinishedTeam.push({species: this.team[i].species, moves: this.team[i].moves})
+        }
+
+        //save name
+        this.team[teamIndex].name = confirmedPokemon.name = oppPokemon.name;
+
+        //Update species choice rank
+        let options = this.nnClient.getSpeciesChoiceOptions(unfinishedTeam);
+        let decision = options.find(option => option.species === self.team[teamIndex].species);
+        this.rank = math.multiply(this.rank, decision.probability);
+
+        //Update level choice rank
+        options = this.nnClient.getLevelChoiceOptions(unfinishedTeam);
+        decision = options.find(option => option.level === self.team[teamIndex].level);
+        this.rank = math.multiply(this.rank, decision.probability);
+
+        return confirmedPokemon;
     }
 
     isStillPossible(battle){

@@ -9,10 +9,10 @@ var program = require('commander'); // Program settings
 var fs = require('fs');
 
 var _ = require('lodash');
-var BattleRoom = require("./../battleroom");
+var BattleRoom = require("../batteroom/battleroom");
 
 var randombot = require("./randombot");
-var minimaxbot = require("./minimaxbot");
+var requests = require("../util/requests");
 
 var clone = require("../clone/clone");
 
@@ -392,7 +392,7 @@ PokemonBattle.prototype.getPossibleMoves = function (player) {
 PokemonBattle.prototype.performTurn = function (actions) {
     if(actions[0] !== undefined)
     {
-        this.battle.choose('p1', BattleRoom.toChoiceString(actions[0], this.battle.p1), this.battle.rqid);
+        this.battle.choose('p1', requests.toChoiceString(actions[0], this.battle.p1), this.battle.rqid);
     }
     else
     {
@@ -401,7 +401,7 @@ PokemonBattle.prototype.performTurn = function (actions) {
 
     if(actions[1] !== undefined)
     {
-        this.battle.choose('p2', BattleRoom.toChoiceString(actions[1], this.battle.p2), this.battle.rqid);
+        this.battle.choose('p2', requests.toChoiceString(actions[1], this.battle.p2), this.battle.rqid);
     }
     else
     {

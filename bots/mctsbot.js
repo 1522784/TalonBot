@@ -9,13 +9,14 @@ var program = require('commander'); // Program settings
 var fs = require('fs');
 
 var _ = require('lodash');
-var BattleRoom = require("./../battleroom");
+var BattleRoom = require("../batteroom/battleroom");
 
 var randombot = require("./randombot");
 var greedybot = require("./greedybot");
 var minimaxbot = require("./minimaxbot");
 
 var clone = require("../clone/clone");
+var requests = require("../util/requests");
 
 // Function that decides which move to perform
 var overallMinNode = {};
@@ -261,14 +262,14 @@ PokemonBattle.prototype.performMove = function (action) {
     var player_side = this.player === 0 ? this.battle.p1 : this.battle.p2
 
     if (this.player === 0) {
-        this.battle.choose('p1', BattleRoom.toChoiceString(action, this.battle.p1), this.battle.rqid);
+        this.battle.choose('p1', requests.toChoiceString(action, this.battle.p1), this.battle.rqid);
     }
     else if (this.player === 1) {
-        this.battle.choose('p2', BattleRoom.toChoiceString(action, this.battle.p2), this.battle.rqid);
+        this.battle.choose('p2', requests.toChoiceString(action, this.battle.p2), this.battle.rqid);
     }
 
     if(action !== undefined) {
-        this.battle.choose(player_string, BattleRoom.toChoiceString(action, player_side), this.battle.rqid);
+        this.battle.choose(player_string, requests.toChoiceString(action, player_side), this.battle.rqid);
     }
     else {
         player_side.decision = true;

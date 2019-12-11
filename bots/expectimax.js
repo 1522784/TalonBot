@@ -9,7 +9,7 @@ var program = require('commander'); // Program settings
 var fs = require('fs');
 
 var _ = require('lodash');
-var BattleRoom = require("./../battleroom");
+var BattleRoom = require("../batteroom/lanceBattleRoom");
 
 var randombot = require("./randombot");
 var minimaxbot = require("./minimaxbot");

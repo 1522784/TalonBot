@@ -1,11 +1,11 @@
 var _ = require('lodash');
-var BattleRoom = require("./../../battleroom");
 
 var cloneBattleState = require("../../clone/cloneBattleState");
 var clone = require("../../clone/clone");
 
-var randomChoice = require("./../../util/random");
+var randomChoice = require("../../util/random");
 var PokemonBattle = require("./battleWrapper");
+var requests = require("./../../util/requests");
 
 class Node {
     
@@ -92,7 +92,7 @@ class Node {
         if(decisionLog.length) decisionLog += " --> ";
         
         let player_side = this.game.player === 0 ? this.game.battle.p1 : this.game.battle.p2;
-        decisionLog += BattleRoom.toChoiceString(this.move, player_side);
+        decisionLog += requests.toChoiceString(this.move, player_side);
 
         return decisionLog
     }

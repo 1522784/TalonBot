@@ -6,12 +6,10 @@ JS.require('JS.Class');
 
 require("sugar");
 
-// Account file
-var bot = require("./bot.js");
-var account = bot.account;
+var account = require("../accounts/account");
 
 // Results database
-var db = require("./util/db");
+var db = require("../util/db");
 
 // Logging
 var log4js = require('log4js');
@@ -19,23 +17,23 @@ var log4js = require('log4js');
 var decisionslogger = require('log4js').getLogger("decisions");
 
 // battle-engine
-var Battle = require('./lance-battle-engine/battle');
-var BattlePokemon = require('./lance-battle-engine/battlepokemon');
+var Battle = require('../lance-battle-engine/battle');
+var BattlePokemon = require('../lance-battle-engine/battlepokemon');
 
 // Get pokemon showdown data files
-var Abilities = require("./data/abilities").BattleAbilities;
-var Items = require("./data/items").BattleItems;
-var SideScripts = require('./data/scripts');
+var Abilities = require("../data/abilities").BattleAbilities;
+var Items = require("../data/items").BattleItems;
+var SideScripts = require('../data/scripts');
 
 // Include underscore.js
 var _ = require("underscore");
 
-var clone = require("./clone/clone");
+var clone = require("../clone/clone");
 
 var program = require('commander'); // Get Command-line arguments
 
 // Pokemon inference
-var Inference = require("./data/moves");
+var Inference = require("../data/moves");
 
 var BattleRoom = new JS.Class({
     initialize: function(id, sendfunc) {
@@ -1033,9 +1031,9 @@ var BattleRoom = new JS.Class({
 });
 module.exports = BattleRoom;
 
-var minimaxbot = require("./bots/minimaxbot");
-var mctsbot = require("./bots/mctsbot");
-var mcts_duct = require("./bots/mcts_duct");
-var expectimax = require("./bots/expectimax");
-var greedybot = require("./bots/greedybot");
-var randombot = require("./bots/randombot");
+var minimaxbot = require("../bots/minimaxbot");
+var mctsbot = require("../bots/mctsbot");
+var mcts_duct = require("../bots/mcts_duct");
+var expectimax = require("../bots/expectimax");
+var greedybot = require("../bots/greedybot");
+var randombot = require("../bots/randombot");
