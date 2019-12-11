@@ -202,9 +202,9 @@ class EvaluateNetwork {
     }
 
     async activateForward(){
-      this.load(false);
+      await this.load(false);
 
-      this.output = this.net.predict(tf.tensor3d([this.inputLayer])).asScalar();
+      this.output = this.net.predict(tf.tensor2d([this.inputLayer])).asScalar();
       this.output = this.output.arraySync();
     }
 

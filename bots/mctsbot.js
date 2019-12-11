@@ -2,20 +2,21 @@
 
 // Logging
 var log4js = require('log4js');
-var log = require('log4js').getLogger("mcts");
+var logger = require('log4js').getLogger("mcts");
 var learnlog = require('log4js').getLogger("learning");
 
 var program = require('commander'); // Program settings
 var fs = require('fs');
 
 var _ = require('lodash');
-var BattleRoom = require("./../battleroom");
+var BattleRoom = require("../batteroom/battleroom");
 
 var randombot = require("./randombot");
 var greedybot = require("./greedybot");
 var minimaxbot = require("./minimaxbot");
 
-var clone = require("./../clone");
+var clone = require("../clone/clone");
+var requests = require("../util/requests");
 
 // Function that decides which move to perform
 var overallMinNode = {};
@@ -23,21 +24,21 @@ var lastMove = '';
 var decide = module.exports.decide = function (battle, choices) {
     var startTime = new Date();
 
-    log.info("Starting move selection");
+    //logger.info("Starting move selection");
 
     var mcts = new MCTS(new PokemonBattle(battle), 150, 0, choices);
     var action = mcts.selectMove();
     if (action === undefined) {
         action = randombot.decide(battle, choices);
-        log.info("Randomly selected action");
+        //logger.info("Randomly selected action");
     }
     
-    log.info("Given choices: " + JSON.stringify(choices));
-    log.info("My action: " + action.type + " " + action.id);
+    //logger.info("Given choices: " + JSON.stringify(choices));
+    //logger.info("My action: " + action.type + " " + action.id);
     lastMove = action.id;
     var endTime = new Date();
 
-    log.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
+    //logger.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
     return {
         type: action.type,
         id: action.id
@@ -74,7 +75,7 @@ class Node {
         this.untried_actions = _(this.game.getPossibleMoves(this.game.current_player)).castArray()
         if (depth === 0)
         {
-            log.info("Root node choices: " + JSON.stringify(this.untried_actions));
+            //logger.info("Root node choices: " + JSON.stringify(this.untried_actions));
         }
     }
 
@@ -198,15 +199,15 @@ class MCTS {
             }
         }
 
-        if (this.rootNode.children.length > 0)
+        /*if (this.rootNode.children.length > 0)
         {
             var action_string = JSON.stringify(_.map(this.rootNode.children, function(n){return [n.move, n.q, n.visits]}))
-            log.info("Action scores: " + action_string);
+            //logger.info("Action scores: " + action_string);
         }
         else
         {
-            log.info("No children");
-        }
+            //logger.info("No children");
+        }*/
         
         // Get the move with the highest visit count
         return _(this.rootNode.children).maxBy('visits').move
@@ -261,14 +262,14 @@ PokemonBattle.prototype.performMove = function (action) {
     var player_side = this.player === 0 ? this.battle.p1 : this.battle.p2
 
     if (this.player === 0) {
-        this.battle.choose('p1', BattleRoom.toChoiceString(action, this.battle.p1), this.battle.rqid);
+        this.battle.choose('p1', requests.toChoiceString(action, this.battle.p1), this.battle.rqid);
     }
     else if (this.player === 1) {
-        this.battle.choose('p2', BattleRoom.toChoiceString(action, this.battle.p2), this.battle.rqid);
+        this.battle.choose('p2', requests.toChoiceString(action, this.battle.p2), this.battle.rqid);
     }
 
     if(action !== undefined) {
-        this.battle.choose(player_string, BattleRoom.toChoiceString(action, player_side), this.battle.rqid);
+        this.battle.choose(player_string, requests.toChoiceString(action, player_side), this.battle.rqid);
     }
     else {
         player_side.decision = true;

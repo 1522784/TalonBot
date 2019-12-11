@@ -112,7 +112,7 @@ class MatchDecisionNetwork {
       let sides = decisionMaker === "p1" ? [battle.p1, battle.p2] : [battle.p2, battle.p1];
 
       let speciesInput = new Array(this.pokedex.length);
-      let baseMoveSlotInput = new Array(this.movedex.length * 2);
+      //let baseMoveSlotInput = new Array(this.movedex.length * 2);
       let levelInput = new Array(100);
       let simpleStatProbInput = new Array(this.simpleStatusProblems.length);
       let durationBasedStatProbInput = new Array(this.durationDependentStatusProblems.length * 2);
@@ -120,7 +120,7 @@ class MatchDecisionNetwork {
       let durationBasedVolatileInput = new Array(this.durationDependentVolatiles.length * 2);
       let moveSlotInput = new Array(this.movedex.length);
       let typesInput = new Array(this.typeDex.length);
-      let boostsInput = new Array(7);
+      let boostsInput = new Array(7 * 13);
       let hpInput = new Array(800);
       let modifiedStatsInput = new Array(5);
 
@@ -132,21 +132,22 @@ class MatchDecisionNetwork {
               return speciesId === pokemon.template.id;
           });
           for(let i = 0; i < speciesInput.length; i++) speciesInput[i] = 0;
-          speciesInput[speciesIndex] = 1;
+          //speciesInput[speciesIndex] = 1;
+          this.inputLayer.push(...speciesInput);
           
-          for(let i = 0; i < baseMoveSlotInput.length; i++) baseMoveSlotInput[i] = 0;
+          /*for(let i = 0; i < baseMoveSlotInput.length; i++) baseMoveSlotInput[i] = 0;
           //debugger;
           for(let baseMoveSlot of pokemon.baseMoveSlots){
             let inputIndex = this.movedex.indexOf(baseMoveSlot.id) * 2;
             baseMoveSlotInput[inputIndex] = 1;
             //baseMoveSlotInput[inputIndex + 1] = baseMoveSlot.pp;
           }
-          this.inputLayer.push(...baseMoveSlotInput);
+          this.inputLayer.push(...baseMoveSlotInput);*/
 
-          for(let i = 0; i < levelInput.length; i++) levelInput[i] = 0;
+          /*for(let i = 0; i < levelInput.length; i++) levelInput[i] = 0;
           //debugger;
-          levelInput[pokemon.level - 1] = 1;
-          this.inputLayer.push(...levelInput);
+          //levelInput[pokemon.level - 1] = 1;
+          this.inputLayer.push(...levelInput);*/
 
           for(let i = 0; i < hpInput.length; i++) hpInput[i] = 0;
           for(let i = 0; i < pokemon.hp; i++) hpInput[i] = 1;
@@ -211,15 +212,17 @@ class MatchDecisionNetwork {
               this.inputLayer.push(0, 0)
             }
 
-            for(let i = 0; i < boostsInput.length; i++) {
-              boostsInput[i] = pokemon.boosts[["accuracy", "evasion", "atk", "def", "spa", "spd", "spe"][i]]
+            for(let i = 0; i < boostsInput.length; i++) boostsInput[i] = 0;
+            for(let i = 0; i < 7; i++) {
+              let boostNumber = pokemon.boosts[["accuracy", "evasion", "atk", "def", "spa", "spd", "spe"][i]]
+              boostsInput[i * 13 + 6 + boostNumber] = 1;
             }
             this.inputLayer.push(...boostsInput);
 
-            for(let i = 0; i < modifiedStatsInput.length; i++) {
+            /*for(let i = 0; i < modifiedStatsInput.length; i++) {
               modifiedStatsInput[i] = pokemon.modifiedStats[["atk", "def", "spa", "spd", "spe"][i]]
             }
-            this.inputLayer.push(...modifiedStatsInput);
+            this.inputLayer.push(...modifiedStatsInput);*/
 
           }
         }
@@ -243,7 +246,6 @@ class MatchDecisionNetwork {
     }
 
     async load(force = false){
-      debugger;
       if(this.net && !force) return;
 
       if(fs.existsSync(SAVE_PATH)) {

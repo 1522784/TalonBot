@@ -3,11 +3,11 @@ var log4js = require('log4js');
 var log = log4js.getLogger("greedy");
 
 var _ = require("underscore");
-var BattleRoom = require("./../battleroom");
+var BattleRoom = require("../batteroom/battleroom");
 
 var randombot = require("./randombot");
 
-var Tools = require("./../tools");
+var Tools = require("./../data/loader/loader");
 var damagingMoves = ["return", "grassknot", "lowkick", "gyroball", "heavyslam"];
 
 var switchPriority = module.exports.switchPriority = function(battle, pokemon, p1, p2) {
@@ -136,7 +136,7 @@ var decide = module.exports.decide = function(battle, choices, p1, p2) {
         return priority;
     });
 
-    switch(bestChoice.priority) {
+    /*switch(bestChoice.priority) {
         case 12: log.info("Chose " + bestChoice.id + " because it provides helpful side effects."); break;
         case 11: log.info("Chose " + bestChoice.id + " because it is an entry hazard."); break;
         case 10: log.info("Chose " + bestChoice.id + " because it causes a status effect."); break;
@@ -152,7 +152,7 @@ var decide = module.exports.decide = function(battle, choices, p1, p2) {
         case 0: log.info("Chose " + bestChoice.id + " because we had no better option."); break;
         default: log.error("Unknown priority.");
     }
-    log.info("Move has priority: " + bestChoice.priority);
+    log.info("Move has priority: " + bestChoice.priority);*/
     return {
         type: bestChoice.type,
         id: bestChoice.id,

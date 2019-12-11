@@ -9,12 +9,12 @@ var program = require('commander'); // Program settings
 var fs = require('fs');
 
 var _ = require('lodash');
-var BattleRoom = require("./../battleroom");
+var BattleRoom = require("../batteroom/lanceBattleRoom");
 
 var randombot = require("./randombot");
 var minimaxbot = require("./minimaxbot");
 
-var clone = require("./../clone");
+var clone = require("../clone/clone");
 
 // ---- MCTS ALGORITHM
 // ------------------------------------------------------------
@@ -143,7 +143,7 @@ class Expectimax {
             return [c, self.min_node(game, depth, c)[1]]
         })
         var max = _.maxBy(reward_map, function(rw){return rw[1]})
-        if(!max) {console.log(JSON.stringify(reward_map))}
+        //if(!max) {console.log(JSON.stringify(reward_map))}
         return max
     }
     
@@ -157,7 +157,7 @@ class Expectimax {
         })
         var min = _.minBy(reward_map, function(rw){return rw[1]})
         if(!min) {
-            console.log(JSON.stringify(reward_map) + " " + JSON.stringify(choices))
+            //console.log(JSON.stringify(reward_map) + " " + JSON.stringify(choices))
             return [undefined, this.chance_node(game, depth, [max_choice, undefined])]
         }
         return min
@@ -276,22 +276,22 @@ var expectimax = new Expectimax(4, 1, 0)
 var decide = module.exports.decide = function (battle, choices, has_p2_moved) {
     var startTime = new Date();
 
-    log.info("Starting move selection");
-    log.info("Given choices: " + JSON.stringify(choices));
-    log.info("Has P2 moved? " + has_p2_moved);
+    //log.info("Starting move selection");
+    //log.info("Given choices: " + JSON.stringify(choices));
+    //log.info("Has P2 moved? " + has_p2_moved);
 
     expectimax.initTurn(new PokemonBattle(battle), choices, !!has_p2_moved ? [] : null)
     var action = expectimax.selectMove();
     if (action === undefined) {
         action = randombot.decide(battle, choices);
-        log.info("Randomly selected action");
+        //log.info("Randomly selected action");
     }
     
-    log.info("My action: " + action.type + " " + action.id);
+    //log.info("My action: " + action.type + " " + action.id);
     lastMove = action.id;
     var endTime = new Date();
 
-    log.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
+    //log.info("Decision took: " + (endTime - startTime) / 1000 + " seconds");
     return {
         type: action.type,
         id: action.id
